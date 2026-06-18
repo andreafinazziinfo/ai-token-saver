@@ -1,0 +1,20 @@
+# Cargo / Rust build artifacts
+rtk/target/
+Cargo.lock
+
+# IDE settings and AI configs
+.idea/
+.vscode/
+.cursor/
+.agents/
+.claude/
+*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+hook-audit.log
