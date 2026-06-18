@@ -115,7 +115,7 @@ pub fn run_init() -> Result<()> {
     println!("         \"hooks\": [");
     println!("           {{");
     println!("             \"type\": \"command\",");
-    println!("             \"command\": \"bash /path/to/ai-efficiency-toolkit/hooks/rtk-rewrite.sh\",");
+    println!("             \"command\": \"bash /path/to/ai-token-saver/hooks/rtk-rewrite.sh\",");
     println!("             \"timeout\": 5000");
     println!("           }}");
     println!("         ]]");

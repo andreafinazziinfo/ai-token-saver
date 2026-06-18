@@ -1,4 +1,4 @@
-# AI Efficiency Toolkit 🚀
+# AI Token Saver 🚀
 
 A high-performance, token-efficient developer toolchain designed to optimize context windows, cut API costs, and improve execution speed for AI coding assistants (such as Claude Code, Cursor, Antigravity, and other agents).
 
@@ -196,7 +196,7 @@ Add the following block to your settings:
         "hooks": [
           {
             "type": "command",
-            "command": "bash /path/to/ai-efficiency-toolkit/hooks/rtk-rewrite.sh",
+            "command": "bash /path/to/ai-token-saver/hooks/rtk-rewrite.sh",
             "timeout": 5000
           }
         ]
