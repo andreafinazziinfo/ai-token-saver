@@ -18,6 +18,11 @@ pub fn run(raw: &str) -> Result<()> {
         std::process::exit(2);
     }
 
+    // Security bypass: if command contains chaining/metacharacters, bypass rewriting
+    if is_chained(cmd) {
+        std::process::exit(1);
+    }
+
     // Ask rules — commands that modify shared state
     if let Some(rewritten) = ask_rewrite(cmd) {
         print!("{rewritten}");
@@ -45,7 +50,19 @@ fn is_denied(cmd: &str) -> bool {
     DENY.iter().any(|re| re.is_match(cmd))
 }
 
+fn is_chained(cmd: &str) -> bool {
+    cmd.contains("&&")
+        || cmd.contains(';')
+        || cmd.contains("||")
+        || cmd.contains('|')
+        || cmd.contains('`')
+        || cmd.contains("$(")
+}
+
 fn ask_rewrite(cmd: &str) -> Option<String> {
+    if is_chained(cmd) {
+        return None;
+    }
     lazy_static! {
         static ref ASK: Vec<(Regex, &'static str)> = vec![
             (Regex::new(r"^git\s+push(\s|$)").unwrap(),   "rtk git push"),
@@ -61,6 +78,9 @@ fn ask_rewrite(cmd: &str) -> Option<String> {
 }
 
 fn auto_rewrite(cmd: &str) -> Option<String> {
+    if is_chained(cmd) {
+        return None;
+    }
     lazy_static! {
         static ref AUTO: Vec<(Regex, Box<dyn Fn(&str) -> String + Send + Sync>)> = vec![
             (Regex::new(r"^git\s+status(\s|$)").unwrap(),
@@ -133,5 +153,14 @@ mod tests {
     fn test_git_push_is_ask_not_auto() {
         assert!(auto_rewrite("git push").is_none());
         assert!(ask_rewrite("git push").is_some());
+    }
+
+    #[test]
+    fn test_chained_commands_bypassed() {
+        assert_eq!(auto_rewrite("git status && echo 1"), None);
+        assert_eq!(auto_rewrite("git diff; ls"), None);
+        assert_eq!(auto_rewrite("ls | grep foo"), None);
+        assert_eq!(auto_rewrite("pytest || exit 1"), None);
+        assert_eq!(ask_rewrite("git push && echo ok"), None);
     }
 }

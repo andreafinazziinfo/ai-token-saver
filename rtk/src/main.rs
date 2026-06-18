@@ -14,6 +14,7 @@ mod pytest_filter;
 mod distiller;
 mod pack;
 mod sync_rules;
+mod setup;
 
 #[derive(Parser)]
 #[command(name = "rtk", version, about = "Token-efficient CLI wrapper for Claude Code")]
@@ -81,6 +82,8 @@ enum Commands {
         /// The log ID
         id: i64,
     },
+    /// Bootstrap AI Efficiency rules in the current directory
+    Init,
 }
 
 #[derive(Subcommand)]
@@ -178,6 +181,7 @@ fn main() {
                 print!("{raw_log}");
             })
         }
+        Commands::Init => setup::run_init(),
     };
 
     if let Err(e) = result {

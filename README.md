@@ -225,8 +225,66 @@ The toolkit contains standard `.mdc` instruction files (system rules) located in
 1.  **`lazy-dev.mdc`**: Forces the AI agent to write minimal diffs, apply YAGNI (You Aren't Gonna Need It) code structures, and avoid writing boilerplate or documentation.
 2.  **`token-efficiency.mdc`**: Instructs the AI agent to use the virtualized SQLite logs and avoid importing whole directories into Cursor context.
 
+### Bootstrap Rules Instantly
+Instead of copying files manually, you can initialize the rules in your current directory by running:
+```bash
+rtk init
+```
+This automatically creates the `.cursor/rules/` and `.agents/rules/` folders and populates them with the latest rules.
+
 ### Caveman Prompting
 The directory `/skills/caveman/` contains a `SKILL.md` file that teaches the AI how to write replies using caveman style rules (removing helper verbs, stripping polite formatting, using compressed markdown phrases), saving up to 75% of output tokens.
+
+---
+
+## 🤖 AI Agent Guide (Readiness & Instructions)
+
+> [!NOTE]
+> This section is specifically written for AI Coding Assistants (e.g., Claude Code, Cursor, Windsurf, Antigravity) to read and follow. If you are an AI agent, you MUST follow these guidelines when executing tasks in this repository.
+
+### 1. Intercepted Commands & Log Virtualization
+The toolkit wraps terminal commands dynamically using shell hooks. When you run standard tools like `ls`, `pytest`, `cargo test`, `git status`, or `npm install`, the output is filtered to save tokens.
+*   **Log Caching**: If a command output was collapsed, a line like `[Full output cached. Access with: rtk show-log <id>]` is printed at the end.
+*   **Accessing Raw Logs**: If you need to view the full compiler warning list, error tracebacks, or complete directory listings to diagnose a failure, DO NOT re-run the command with different arguments. Instead, execute:
+    ```bash
+    rtk show-log <id>
+    ```
+    This retrieves the complete raw output directly from the local SQLite database.
+
+### 2. Context Directory Packaging (`rtk pack`)
+If you need to explore files in a directory or load context for a new task:
+*   DO NOT import entire folders into the chat context or execute `cat` on many files consecutively.
+*   Use `rtk pack [path]` to generate a token-efficient XML block representing the directory.
+*   **Code Minification**: Always pass the `-s` / `--strip` flag to remove all full-line comments and collapse empty lines, saving up to 40% of context window space:
+    ```bash
+    rtk pack . --strip
+    ```
+*   **Token Budgeting**: Always specify a token limit using `-l <max_tokens>` / `--limit <max_tokens>` (calculated as whitespace word count) to prevent context overflows:
+    ```bash
+    rtk pack . --strip --limit 30000
+    ```
+
+### 3. Long-Term State Memory (`rtk memory`)
+You can store and fetch project-specific notes that persist between chat sessions. This avoids having to repeatedly scan code or read files to recover configuration details.
+*   **Save Important Project Context**: If you discover a critical project setting (e.g., ports, runtime versions, mock server details), save it:
+    ```bash
+    rtk memory set <key> <value>
+    # Example:
+    rtk memory set db_port 5432
+    ```
+*   **Read Context on Startup**: When you start a new coding task in this workspace, list the saved memories to align your context:
+    ```bash
+    rtk memory list
+    ```
+*   **Retrieve Specific Keys**: Fetch specific metadata:
+    ```bash
+    rtk memory get db_port
+    ```
+
+### 4. Behavioral Rules (YAGNI & Laziness)
+Always adhere to the instructions defined in `.cursor/rules/lazy-dev.mdc` and `.cursor/rules/token-efficiency.mdc`:
+*   **Ladder of Laziness**: Implement the minimum amount of code changes possible. Do not write boilerplate, unrequested features, or restructure folders without instructions.
+*   **Minimal Diff Scope**: Do not edit lines of code that are unrelated to the current task. Keep diff payloads extremely narrow.
 
 ---
 
