@@ -32,9 +32,15 @@ fn open_db() -> Result<Connection> {
             filtered_tokens  INTEGER NOT NULL,
             timestamp        TEXT    NOT NULL DEFAULT (datetime('now')),
             raw_output       TEXT
+        );
+        CREATE TABLE IF NOT EXISTS project_memory (
+            key              TEXT    NOT NULL,
+            val              TEXT    NOT NULL,
+            project_path     TEXT    NOT NULL,
+            PRIMARY KEY (key, project_path)
         );",
     )
-    .context("create tracking table")?;
+    .context("create DB tables")?;
     
     // Migration: ensure raw_output column exists if table was created previously without it
     let _ = conn.execute("ALTER TABLE tracking ADD COLUMN raw_output TEXT", []);
@@ -109,6 +115,52 @@ pub fn print_stats() -> Result<()> {
     Ok(())
 }
 
+/// Save a project memory key-value pair.
+pub fn memory_set(key: &str, val: &str) -> Result<()> {
+    let conn = open_db()?;
+    let pwd = std::env::current_dir()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    conn.execute(
+        "INSERT OR REPLACE INTO project_memory (key, val, project_path) VALUES (?1, ?2, ?3)",
+        params![key, val, pwd],
+    )
+    .context("insert project memory")?;
+    Ok(())
+}
+
+/// Retrieve a project memory value by key.
+pub fn memory_get(key: &str) -> Result<String> {
+    let conn = open_db()?;
+    let pwd = std::env::current_dir()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let mut stmt = conn.prepare(
+        "SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2"
+    )?;
+    let val: String = stmt.query_row(params![key, pwd], |r| r.get(0))?;
+    Ok(val)
+}
+
+/// List all memory key-value pairs for the current project.
+pub fn memory_list() -> Result<Vec<(String, String)>> {
+    let conn = open_db()?;
+    let pwd = std::env::current_dir()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let mut stmt = conn.prepare(
+        "SELECT key, val FROM project_memory WHERE project_path = ?1"
+    )?;
+    let rows = stmt.query_map(params![pwd], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row?);
+    }
+    Ok(results)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,6 +199,17 @@ mod tests {
 
         // Also test print_stats doesn't error
         print_stats().expect("print_stats failed");
+
+        // Test project memory functions sequentially (prevents env var race condition)
+        memory_set("port", "8080").unwrap();
+        let val = memory_get("port").unwrap();
+        assert_eq!(val, "8080");
+
+        memory_set("host", "localhost").unwrap();
+        let list = memory_list().unwrap();
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&("port".to_string(), "8080".to_string())));
+        assert!(list.contains(&("host".to_string(), "localhost".to_string())));
 
         std::fs::remove_file(&tmp).ok();
         env::remove_var("RTK_DB_PATH");

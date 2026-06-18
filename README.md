@@ -124,10 +124,28 @@ These commands run automatically when intercepted by shell hooks:
 
 ### 2. Toolkit Utilities
 
-#### `rtk pack [path] [--strip]`
-Searches a folder and creates an XML file representation. Use `-s` or `--strip` to remove comments and collapse blank lines:
+#### `rtk pack [path] [--strip] [--limit <max_tokens>]`
+Searches a folder and creates an XML file representation of its files. 
+*   Use `-s` or `--strip` to remove comments and collapse blank lines.
+*   Use `-l` or `--limit` to specify a maximum token budget (whitespace count). The command will error out if the limit is exceeded:
 ```bash
-rtk pack . --strip
+rtk pack . --strip --limit 50000
+```
+
+#### `rtk memory <subcommand>`
+Saves and retrieves key-value context memories isolated for the current project using the local SQLite database. This allows AI agents to write and query persistent project notes.
+*   **Set a memory**: `rtk memory set <key> <value>`
+*   **Get a memory**: `rtk memory get <key>`
+*   **List all project memories**: `rtk memory list`
+```bash
+# Save project database details
+rtk memory set port 5432
+
+# Query port details
+rtk memory get port
+
+# List all memories
+rtk memory list
 ```
 
 #### `rtk show-log <id>`

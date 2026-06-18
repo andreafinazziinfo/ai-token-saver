@@ -63,6 +63,14 @@ enum Commands {
         /// Strip comments and collapse consecutive empty lines
         #[arg(short, long)]
         strip: bool,
+        /// Maximum token budget (whitespace count). Errors if exceeded.
+        #[arg(short, long)]
+        limit: Option<usize>,
+    },
+    /// Manage long-term context memory for the current project
+    Memory {
+        #[command(subcommand)]
+        subcmd: MemoryCommands,
     },
     /// Print token savings statistics
     Stats,
@@ -73,6 +81,21 @@ enum Commands {
         /// The log ID
         id: i64,
     },
+}
+
+#[derive(Subcommand)]
+enum MemoryCommands {
+    /// Save a project memory key-value pair
+    Set {
+        key: String,
+        value: String,
+    },
+    /// Retrieve a project memory value by key
+    Get {
+        key: String,
+    },
+    /// List all memory key-value pairs for the current project
+    List,
 }
 
 fn main() {
@@ -105,10 +128,48 @@ fn main() {
         }
         Commands::Pytest { args } => run_filtered("pytest", &args, pytest_filter::filter),
         Commands::Ls { args } => run_filtered("ls", &args, ls_filter::filter),
-        Commands::Pack { path, strip } => {
-            pack::pack_directory(Path::new(&path), strip).map(|packed| {
+        Commands::Pack { path, strip, limit } => {
+            pack::pack_directory(Path::new(&path), strip).and_then(|packed| {
+                if let Some(lim) = limit {
+                    let tokens = packed.split_whitespace().count();
+                    if tokens > lim {
+                        return Err(anyhow::anyhow!(
+                            "Pack exceeded token limit! (Limit: {}, Total: {})",
+                            lim,
+                            tokens
+                        ));
+                    }
+                }
                 print!("{packed}");
+                Ok(())
             })
+        }
+        Commands::Memory { subcmd } => match subcmd {
+            MemoryCommands::Set { key, value } => {
+                tracking::memory_set(&key, &value).map(|_| {
+                    println!("Memory saved: {} = {}", key, value);
+                })
+            }
+            MemoryCommands::Get { key } => {
+                tracking::memory_get(&key).map(|val| {
+                    print!("{val}");
+                })
+            }
+            MemoryCommands::List => {
+                tracking::memory_list().map(|list| {
+                    if list.is_empty() {
+                        println!("No memory entries found for this project.");
+                    } else {
+                        println!("========================================");
+                        println!("          PROJECT CONTEXT MEMORY        ");
+                        println!("========================================");
+                        for (k, v) in list {
+                            println!("{k}: {v}");
+                        }
+                        println!("========================================");
+                    }
+                })
+            }
         }
         Commands::Stats => tracking::print_stats(),
         Commands::SyncRules => sync_rules::run(Path::new(".")),
