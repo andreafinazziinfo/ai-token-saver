@@ -75,7 +75,12 @@ mod tests {
     fn one_line_per_commit() {
         let out = filter(SAMPLE_LOG);
         let lines: Vec<&str> = out.lines().collect();
-        assert_eq!(lines.len(), 2, "expected 2 lines for 2 commits, got: {:?}", lines);
+        assert_eq!(
+            lines.len(),
+            2,
+            "expected 2 lines for 2 commits, got: {:?}",
+            lines
+        );
     }
 
     #[test]
@@ -84,7 +89,10 @@ mod tests {
         assert!(out.contains("abc123d"), "short hash missing");
         assert!(out.contains("feat: add tracking module"), "subject missing");
         assert!(out.contains("9998887"), "second hash missing");
-        assert!(out.contains("fix: correct DB path"), "second subject missing");
+        assert!(
+            out.contains("fix: correct DB path"),
+            "second subject missing"
+        );
     }
 
     #[test]

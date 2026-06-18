@@ -13,7 +13,8 @@ use regex::Regex;
 pub fn filter(input: &str) -> String {
     lazy_static! {
         static ref HEADER_LINE: Regex = Regex::new(r"^={3,}\s+(.+)\s+={3,}$").unwrap();
-        static ref PREAMBLE_LINE: Regex = Regex::new(r"^(platform|plugins|rootdir|configfile|collected|plugins)[:\s]").unwrap();
+        static ref PREAMBLE_LINE: Regex =
+            Regex::new(r"^(platform|plugins|rootdir|configfile|collected|plugins)[:\s]").unwrap();
     }
 
     let mut out = String::with_capacity(input.len() / 3);
@@ -30,7 +31,7 @@ pub fn filter(input: &str) -> String {
             if !section_title.contains("test session starts") {
                 in_preamble = false;
             }
-            
+
             if section_title == "WARNINGS" || section_title.starts_with("warnings summary") {
                 in_warnings = true;
                 continue;
@@ -70,7 +71,9 @@ pub fn filter(input: &str) -> String {
 
     // If warnings was the last section and we didn't close it:
     if in_warnings && warning_count > 0 {
-        out.push_str(&format!("=== {warning_count} warnings collapsed (run with -W ignore to suppress) ===\n"));
+        out.push_str(&format!(
+            "=== {warning_count} warnings collapsed (run with -W ignore to suppress) ===\n"
+        ));
     }
 
     let trimmed = out.trim_end();
@@ -98,7 +101,10 @@ mod tests {
         let out = filter(input);
         assert!(!out.contains("platform linux"), "preamble leaked");
         assert!(!out.contains("rootdir:"), "rootdir leaked");
-        assert!(out.contains("tests/test_foo.py ..."), "test progress missing");
+        assert!(
+            out.contains("tests/test_foo.py ..."),
+            "test progress missing"
+        );
         assert!(out.contains("3 passed in 0.12s"), "test summary missing");
     }
 
@@ -116,7 +122,10 @@ mod tests {
         );
         let out = filter(input);
         assert!(!out.contains("DeprecationWarning:"), "warning block leaked");
-        assert!(out.contains("1 warnings collapsed"), "warnings collapse summary missing");
+        assert!(
+            out.contains("1 warnings collapsed"),
+            "warnings collapse summary missing"
+        );
         assert!(out.contains("1 passed, 1 warning"), "outcome line missing");
     }
 
@@ -138,6 +147,9 @@ mod tests {
         let out = filter(input);
         assert!(out.contains("=== FAILURES ==="), "failures header missing");
         assert!(out.contains("AssertionError"), "assertion details missing");
-        assert!(out.contains("FAILED tests/test_foo.py::test_fail"), "summary info missing");
+        assert!(
+            out.contains("FAILED tests/test_foo.py::test_fail"),
+            "summary info missing"
+        );
     }
 }

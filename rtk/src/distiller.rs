@@ -8,6 +8,7 @@ const TAIL_LINES: usize = 15;
 /// Generic log distiller.
 /// Compresses large output blocks by keeping first N and last M lines,
 /// while scanning the middle section to preserve any lines containing error indicators.
+#[allow(clippy::needless_range_loop)]
 pub fn distill(input: &str, max_lines: Option<usize>) -> String {
     let limit = max_lines.unwrap_or(DEFAULT_LINE_LIMIT);
     let raw_lines: Vec<&str> = input.lines().collect();
@@ -22,7 +23,7 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
         static ref ERROR_KEYWORD: Regex = Regex::new(
             r"(?i)\b(error|panic|failed|exception|fatal|critical|severe|warning)\b"
         ).unwrap();
-        
+
         // Match common compiler/tool diagnostic markers
         static ref DIAGNOSTIC_LINE: Regex = Regex::new(
             r"^(error|warning|note|info|err|warn):\s+|^\[(ERROR|WARN|FATAL|SEVERE)\]"

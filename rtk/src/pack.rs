@@ -9,12 +9,19 @@ pub fn pack_directory(dir_path: &Path, strip: bool) -> Result<String> {
     let mut out = String::new();
     out.push_str("<repository>\n");
 
-    let canonical_root = dir_path.canonicalize()
+    let canonical_root = dir_path
+        .canonicalize()
         .with_context(|| format!("failed to canonicalize root path: {}", dir_path.display()))?;
 
     let ignore_patterns = load_ignore_patterns(&canonical_root);
 
-    pack_recursive(&canonical_root, &canonical_root, &ignore_patterns, strip, &mut out)?;
+    pack_recursive(
+        &canonical_root,
+        &canonical_root,
+        &ignore_patterns,
+        strip,
+        &mut out,
+    )?;
 
     out.push_str("</repository>\n");
     Ok(out)
@@ -59,9 +66,9 @@ fn should_ignore(relative_path: &str, patterns: &[String]) -> bool {
 
     for pattern in patterns {
         let pat_norm = pattern.trim_end_matches('/');
-        
+
         // Exact directory or file name match in parts
-        if path_parts.iter().any(|&part| part == pat_norm) {
+        if path_parts.contains(&pat_norm) {
             return true;
         }
 
@@ -80,7 +87,7 @@ pub fn strip_content(content: &str, extension: &str) -> String {
 
     for line in content.lines() {
         let trimmed = line.trim();
-        
+
         if trimmed.is_empty() {
             if !last_was_empty {
                 result.push('\n');
@@ -97,9 +104,7 @@ pub fn strip_content(content: &str, extension: &str) -> String {
             "py" | "sh" | "yml" | "yaml" | "ini" | "toml" | "dockerfile" | "rb" | "pl" => {
                 trimmed.starts_with('#')
             }
-            "html" | "xml" | "md" => {
-                trimmed.starts_with("<!--") && trimmed.ends_with("-->")
-            }
+            "html" | "xml" | "md" => trimmed.starts_with("<!--") && trimmed.ends_with("-->"),
             _ => false,
         };
 
@@ -114,8 +119,15 @@ pub fn strip_content(content: &str, extension: &str) -> String {
     result
 }
 
-fn pack_recursive(root: &Path, current: &Path, ignore_patterns: &[String], strip: bool, out: &mut String) -> Result<()> {
-    let relative_path = current.strip_prefix(root)
+fn pack_recursive(
+    root: &Path,
+    current: &Path,
+    ignore_patterns: &[String],
+    strip: bool,
+    out: &mut String,
+) -> Result<()> {
+    let relative_path = current
+        .strip_prefix(root)
         .unwrap_or(current)
         .to_string_lossy()
         .replace('\\', "/");
@@ -135,10 +147,11 @@ fn pack_recursive(root: &Path, current: &Path, ignore_patterns: &[String], strip
         }
 
         if let Ok(content) = fs::read_to_string(current) {
-            let ext = current.extension()
+            let ext = current
+                .extension()
                 .and_then(|e| e.to_str())
                 .unwrap_or_default();
-            
+
             let processed_content = if strip {
                 strip_content(&content, ext)
             } else {
@@ -159,7 +172,8 @@ fn pack_recursive(root: &Path, current: &Path, ignore_patterns: &[String], strip
 }
 
 fn is_binary_file(path: &Path) -> bool {
-    let ext = path.extension()
+    let ext = path
+        .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
@@ -222,7 +236,10 @@ mod tests {
         assert!(packed.contains("<repository>"));
         assert!(packed.contains("<file path=\"main.rs\">"));
         assert!(packed.contains("fn main() {}"));
-        assert!(!packed.contains("output.bin"), "should ignore target/ files");
+        assert!(
+            !packed.contains("output.bin"),
+            "should ignore target/ files"
+        );
 
         fs::remove_dir_all(&temp_dir).ok();
     }
@@ -264,7 +281,10 @@ mod tests {
         fs::write(&ignore_path, "secrets.txt\n").unwrap();
 
         let packed = pack_directory(&temp_dir, false).unwrap();
-        assert!(!packed.contains("<file path=\"secrets.txt\">"), "should respect custom .rtkignore patterns");
+        assert!(
+            !packed.contains("<file path=\"secrets.txt\">"),
+            "should respect custom .rtkignore patterns"
+        );
 
         fs::remove_dir_all(&temp_dir).ok();
     }

@@ -19,11 +19,9 @@ fn db_path() -> PathBuf {
 fn open_db() -> Result<Connection> {
     let path = db_path();
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("create {}", parent.display()))?;
+        std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
-    let conn = Connection::open(&path)
-        .with_context(|| format!("open db {}", path.display()))?;
+    let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS tracking (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,10 +39,10 @@ fn open_db() -> Result<Connection> {
         );",
     )
     .context("create DB tables")?;
-    
+
     // Migration: ensure raw_output column exists if table was created previously without it
     let _ = conn.execute("ALTER TABLE tracking ADD COLUMN raw_output TEXT", []);
-    
+
     Ok(conn)
 }
 
@@ -73,9 +71,7 @@ pub fn record(cmd: &str, original: &str, filtered: &str, raw_output: &str) -> Re
 /// Retrieve raw log output from the database by log ID.
 pub fn get_raw_log(id: i64) -> Result<String> {
     let conn = open_db()?;
-    let mut stmt = conn.prepare(
-        "SELECT raw_output FROM tracking WHERE id = ?1"
-    )?;
+    let mut stmt = conn.prepare("SELECT raw_output FROM tracking WHERE id = ?1")?;
     let raw_output: Option<String> = stmt.query_row(params![id], |r| r.get(0))?;
     raw_output.context("log not found or has no raw output")
 }
@@ -83,13 +79,11 @@ pub fn get_raw_log(id: i64) -> Result<String> {
 /// Query tracking DB and print savings report.
 pub fn print_stats() -> Result<()> {
     let conn = open_db()?;
-    let mut stmt = conn.prepare(
-        "SELECT COUNT(*), SUM(original_tokens), SUM(filtered_tokens) FROM tracking"
-    )?;
-    
-    let (count, original, filtered): (i64, Option<i64>, Option<i64>) = stmt.query_row([], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-    })?;
+    let mut stmt =
+        conn.prepare("SELECT COUNT(*), SUM(original_tokens), SUM(filtered_tokens) FROM tracking")?;
+
+    let (count, original, filtered): (i64, Option<i64>, Option<i64>) =
+        stmt.query_row([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
 
     let original = original.unwrap_or(0);
     let filtered = filtered.unwrap_or(0);
@@ -135,9 +129,8 @@ pub fn memory_get(key: &str) -> Result<String> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-    let mut stmt = conn.prepare(
-        "SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2"
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2")?;
     let val: String = stmt.query_row(params![key, pwd], |r| r.get(0))?;
     Ok(val)
 }
@@ -148,9 +141,7 @@ pub fn memory_list() -> Result<Vec<(String, String)>> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-    let mut stmt = conn.prepare(
-        "SELECT key, val FROM project_memory WHERE project_path = ?1"
-    )?;
+    let mut stmt = conn.prepare("SELECT key, val FROM project_memory WHERE project_path = ?1")?;
     let rows = stmt.query_map(params![pwd], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
     })?;
@@ -179,7 +170,7 @@ mod tests {
         env::set_var("RTK_DB_PATH", &tmp);
 
         let original = "a b c d e f g h i j"; // 10 tokens
-        let filtered = "a b c";               // 3 tokens
+        let filtered = "a b c"; // 3 tokens
         let log_id = record("git diff", original, filtered, original).expect("record failed");
 
         let conn = Connection::open(&tmp).unwrap();

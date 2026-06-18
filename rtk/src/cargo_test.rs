@@ -1,13 +1,10 @@
 /// Filter `cargo test` output.
 ///
 /// Strategy:
-///   - Drop: "test <name> ... ok" lines (passing tests — pure noise)
-///   - Drop: build preamble (Compiling, Checking, Finished, Running, Locking,
-///           Downloading, Downloaded, Adding)
-///   - Keep: everything else — "running N tests", FAILED lines, the full
-///           `failures:` section, `test result:` summaries, error messages,
-///           `ignored` lines, doc-test output
-///   - Fallback: return input unchanged if filter produces empty output
+/// - Drop: "test <name> ... ok" lines (passing tests — pure noise).
+/// - Drop: build preamble (Compiling, Checking, Finished, Running, Locking, Downloading, Downloaded, Adding).
+/// - Keep: everything else — "running N tests", FAILED lines, failures section, summaries, errors, ignored, doc-test output.
+/// - Fallback: return input unchanged if filter produces empty output.
 ///
 /// Safety: a passing test line must match EXACTLY "test <…> ... ok".
 /// The " ... ok" suffix is required, so stdout inside a failing test that
@@ -102,10 +99,16 @@ mod tests {
         );
         let out = filter(input);
         assert!(!out.contains("test foo::pass"), "passing test leaked");
-        assert!(out.contains("test foo::fail ... FAILED"), "FAILED test missing");
+        assert!(
+            out.contains("test foo::fail ... FAILED"),
+            "FAILED test missing"
+        );
         assert!(out.contains("failures:"), "failures section missing");
         assert!(out.contains("assertion failed"), "panic message missing");
-        assert!(out.contains("test result: FAILED"), "result summary missing");
+        assert!(
+            out.contains("test result: FAILED"),
+            "result summary missing"
+        );
     }
 
     #[test]
@@ -113,8 +116,14 @@ mod tests {
         // Individual "... ignored" lines are dropped; the count is preserved in the result summary.
         let input = "running 2 tests\ntest foo::bar ... ok\ntest foo::skip ... ignored\n\ntest result: ok. 1 passed; 0 failed; 1 ignored\n";
         let out = filter(input);
-        assert!(!out.contains("test foo::skip"), "ignored test line should be dropped");
-        assert!(out.contains("1 ignored"), "ignored count in result summary must be kept");
+        assert!(
+            !out.contains("test foo::skip"),
+            "ignored test line should be dropped"
+        );
+        assert!(
+            out.contains("1 ignored"),
+            "ignored count in result summary must be kept"
+        );
     }
 
     #[test]

@@ -89,7 +89,7 @@ graph TD
     
     ReadFile --> CheckStrip{--strip flag set?}
     CheckStrip -- Yes --> Minify[Minify Content<br>1. Strip full-line comments<br>2. Collapse consecutive empty lines] --> WrapXML
-    CheckStrip -- No --> WrapXML[Wrap in XML Tag:<br>&lt;file path="..."&gt;&lt;![CDATA[...]]&gt;&lt;/file&gt;]
+    CheckStrip -- No --> WrapXML["Wrap in XML Tag:<br>&lt;file path='...'&gt;&lt;![CDATA[...]]&gt;&lt;/file&gt;"]
     
     WrapXML --> AppendOutput[Append to XML Buffer] --> NextEntry
 ```

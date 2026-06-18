@@ -17,10 +17,8 @@ const HUNK_HEAD_LINES: usize = 3;
 ///   - Fallback: return input unchanged if filter produces empty output
 pub fn filter(input: &str) -> String {
     lazy_static! {
-        static ref DIFF_FILE: Regex =
-            Regex::new(r"^diff --git a/.+ b/(.+)$").unwrap();
-        static ref HUNK: Regex =
-            Regex::new(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@").unwrap();
+        static ref DIFF_FILE: Regex = Regex::new(r"^diff --git a/.+ b/(.+)$").unwrap();
+        static ref HUNK: Regex = Regex::new(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@").unwrap();
     }
 
     let mut out = String::with_capacity(input.len() / 4);
@@ -133,8 +131,7 @@ mod tests {
     fn test_token_savings() {
         let input = include_str!("../tests/fixtures/git_diff_raw.txt");
         let output = filter(input);
-        let savings =
-            1.0 - (count_tokens(&output) as f64 / count_tokens(input) as f64);
+        let savings = 1.0 - (count_tokens(&output) as f64 / count_tokens(input) as f64);
         assert!(
             savings >= 0.60,
             "git diff filter: expected ≥60% savings, got {:.1}%",
@@ -180,7 +177,10 @@ mod tests {
         let output = filter(&input);
         assert!(output.contains("[…"), "missing collapse summary");
         assert!(output.contains("+line 0"), "first line missing");
-        assert!(!output.contains("+line 11"), "last line should be collapsed");
+        assert!(
+            !output.contains("+line 11"),
+            "last line should be collapsed"
+        );
     }
 
     #[test]
@@ -198,9 +198,8 @@ mod tests {
     #[test]
     fn test_long_line_truncated() {
         let long_plus = format!("+{}", "x".repeat(200));
-        let input = format!(
-            "diff --git a/x b/x\nindex 0..1\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n{long_plus}\n"
-        );
+        let input =
+            format!("diff --git a/x b/x\nindex 0..1\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n{long_plus}\n");
         let output = filter(&input);
         let changed_line = output.lines().find(|l| l.starts_with('+')).unwrap();
         assert!(

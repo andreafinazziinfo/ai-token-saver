@@ -4,20 +4,24 @@ use std::path::Path;
 
 mod cargo_build;
 mod cargo_test;
+mod distiller;
 mod git_diff;
 mod git_log;
 mod git_status;
-mod rewrite;
-mod tracking;
 mod ls_filter;
-mod pytest_filter;
-mod distiller;
 mod pack;
-mod sync_rules;
+mod pytest_filter;
+mod rewrite;
 mod setup;
+mod sync_rules;
+mod tracking;
 
 #[derive(Parser)]
-#[command(name = "rtk", version, about = "Token-efficient CLI wrapper for Claude Code")]
+#[command(
+    name = "rtk",
+    version,
+    about = "Token-efficient CLI wrapper for Claude Code"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -89,14 +93,9 @@ enum Commands {
 #[derive(Subcommand)]
 enum MemoryCommands {
     /// Save a project memory key-value pair
-    Set {
-        key: String,
-        value: String,
-    },
+    Set { key: String, value: String },
     /// Retrieve a project memory value by key
-    Get {
-        key: String,
-    },
+    Get { key: String },
     /// List all memory key-value pairs for the current project
     List,
 }
@@ -131,8 +130,8 @@ fn main() {
         }
         Commands::Pytest { args } => run_filtered("pytest", &args, pytest_filter::filter),
         Commands::Ls { args } => run_filtered("ls", &args, ls_filter::filter),
-        Commands::Pack { path, strip, limit } => {
-            pack::pack_directory(Path::new(&path), strip).and_then(|packed| {
+        Commands::Pack { path, strip, limit } => pack::pack_directory(Path::new(&path), strip)
+            .and_then(|packed| {
                 if let Some(lim) = limit {
                     let tokens = packed.split_whitespace().count();
                     if tokens > lim {
@@ -145,42 +144,33 @@ fn main() {
                 }
                 print!("{packed}");
                 Ok(())
-            })
-        }
+            }),
         Commands::Memory { subcmd } => match subcmd {
-            MemoryCommands::Set { key, value } => {
-                tracking::memory_set(&key, &value).map(|_| {
-                    println!("Memory saved: {} = {}", key, value);
-                })
-            }
-            MemoryCommands::Get { key } => {
-                tracking::memory_get(&key).map(|val| {
-                    print!("{val}");
-                })
-            }
-            MemoryCommands::List => {
-                tracking::memory_list().map(|list| {
-                    if list.is_empty() {
-                        println!("No memory entries found for this project.");
-                    } else {
-                        println!("========================================");
-                        println!("          PROJECT CONTEXT MEMORY        ");
-                        println!("========================================");
-                        for (k, v) in list {
-                            println!("{k}: {v}");
-                        }
-                        println!("========================================");
+            MemoryCommands::Set { key, value } => tracking::memory_set(&key, &value).map(|_| {
+                println!("Memory saved: {} = {}", key, value);
+            }),
+            MemoryCommands::Get { key } => tracking::memory_get(&key).map(|val| {
+                print!("{val}");
+            }),
+            MemoryCommands::List => tracking::memory_list().map(|list| {
+                if list.is_empty() {
+                    println!("No memory entries found for this project.");
+                } else {
+                    println!("========================================");
+                    println!("          PROJECT CONTEXT MEMORY        ");
+                    println!("========================================");
+                    for (k, v) in list {
+                        println!("{k}: {v}");
                     }
-                })
-            }
-        }
+                    println!("========================================");
+                }
+            }),
+        },
         Commands::Stats => tracking::print_stats(),
         Commands::SyncRules => sync_rules::run(Path::new(".")),
-        Commands::ShowLog { id } => {
-            tracking::get_raw_log(id).map(|raw_log| {
-                print!("{raw_log}");
-            })
-        }
+        Commands::ShowLog { id } => tracking::get_raw_log(id).map(|raw_log| {
+            print!("{raw_log}");
+        }),
         Commands::Init => setup::run_init(),
     };
 
@@ -201,11 +191,14 @@ fn run_filtered(bin: &str, args: &[String], filter: fn(&str) -> String) -> Resul
 
     let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
     let mut final_output = filtered.clone();
-    
+
     match tracking::record(cmd_label.trim(), &stdout, &filtered, &stdout) {
         Ok(log_id) => {
             if filtered.len() < stdout.len() && !filtered.trim().is_empty() {
-                final_output.push_str(&format!("\n[Full output cached. Access with: rtk show-log {}]\n", log_id));
+                final_output.push_str(&format!(
+                    "\n[Full output cached. Access with: rtk show-log {}]\n",
+                    log_id
+                ));
             }
         }
         Err(e) => {
@@ -240,11 +233,14 @@ fn run_filtered_stderr(bin: &str, args: &[String], filter: fn(&str) -> String) -
 
     let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
     let mut final_filtered = filtered.clone();
-    
+
     match tracking::record(cmd_label.trim(), &stderr, &filtered, &stderr) {
         Ok(log_id) => {
             if filtered.len() < stderr.len() && !filtered.trim().is_empty() {
-                final_filtered.push_str(&format!("\n[Full output cached. Access with: rtk show-log {}]\n", log_id));
+                final_filtered.push_str(&format!(
+                    "\n[Full output cached. Access with: rtk show-log {}]\n",
+                    log_id
+                ));
             }
         }
         Err(e) => {
@@ -274,28 +270,39 @@ fn run_distilled(bin: &str, args: &[String]) -> Result<()> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     let combined_original = format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
-    
+
     let distilled_stdout = distiller::distill(&stdout, None);
     let distilled_stderr = distiller::distill(&stderr, None);
-    
+
     let mut final_stdout = distilled_stdout.clone();
     let mut final_stderr = distilled_stderr.clone();
 
     let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-    
+
     // Calculate total original and filtered characters/tokens
     let total_orig_len = stdout.len() + stderr.len();
     let total_filt_len = distilled_stdout.len() + distilled_stderr.len();
 
-    match tracking::record(cmd_label.trim(), &combined_original, &format!("{}\n{}", distilled_stdout, distilled_stderr), &combined_original) {
+    match tracking::record(
+        cmd_label.trim(),
+        &combined_original,
+        &format!("{}\n{}", distilled_stdout, distilled_stderr),
+        &combined_original,
+    ) {
         Ok(log_id) => {
             if total_filt_len < total_orig_len {
                 if !final_stdout.trim().is_empty() {
-                    final_stdout.push_str(&format!("\n[Full output cached. Access with: rtk show-log {}]\n", log_id));
+                    final_stdout.push_str(&format!(
+                        "\n[Full output cached. Access with: rtk show-log {}]\n",
+                        log_id
+                    ));
                 } else if !final_stderr.trim().is_empty() {
-                    final_stderr.push_str(&format!("\n[Full output cached. Access with: rtk show-log {}]\n", log_id));
+                    final_stderr.push_str(&format!(
+                        "\n[Full output cached. Access with: rtk show-log {}]\n",
+                        log_id
+                    ));
                 }
             }
         }

@@ -6,14 +6,12 @@ mod common;
 #[test]
 #[ignore]
 fn rtk_binary_is_in_path() {
-    assert!(
-        std::process::Command::new("rtk")
-            .arg("--version")
-            .output()
-            .expect("rtk not found — run `cargo install --path .`")
-            .status
-            .success()
-    );
+    assert!(std::process::Command::new("rtk")
+        .arg("--version")
+        .output()
+        .expect("rtk not found — run `cargo install --path .`")
+        .status
+        .success());
 }
 
 #[test]

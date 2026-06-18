@@ -100,14 +100,14 @@ pub fn run_init() -> Result<()> {
     run_init_in(Path::new("."))?;
 
     println!("✅ Created rules inside .cursor/rules/ and .agents/rules/");
-    println!("");
+    println!();
     println!("==========================================================");
     println!("🎉 RTK AI Rules Bootstrapped Successfully!");
     println!("==========================================================");
     println!("To complete your setup:");
     println!("1. Activate transparent terminal filtering in Claude Code by adding");
     println!("   the PreToolUse hook to your .claude/settings.json:");
-    println!("");
+    println!();
     println!("   \"hooks\": {{");
     println!("     \"PreToolUse\": [");
     println!("       {{");
@@ -122,7 +122,7 @@ pub fn run_init() -> Result<()> {
     println!("       }}");
     println!("     ]");
     println!("   }}");
-    println!("");
+    println!();
     println!("2. Add shell aliases to your ~/.bashrc or ~/.zshrc for CLI wrappers:");
     println!("   alias git=\"rtk git\"");
     println!("   alias cargo=\"rtk cargo\"");
@@ -139,25 +139,35 @@ fn run_init_in(base: &Path) -> Result<()> {
     let agents_rules_dir = base.join(".agents").join("rules");
 
     // Create directories
-    fs::create_dir_all(&cursor_rules_dir)
-        .context("failed to create .cursor/rules directory")?;
-    fs::create_dir_all(&agents_rules_dir)
-        .context("failed to create .agents/rules directory")?;
+    fs::create_dir_all(&cursor_rules_dir).context("failed to create .cursor/rules directory")?;
+    fs::create_dir_all(&agents_rules_dir).context("failed to create .agents/rules directory")?;
 
     // Write rule files
     fs::write(cursor_rules_dir.join("lazy-dev.mdc"), LAZY_DEV_CONTENT)
         .context("failed to write lazy-dev.mdc to .cursor/rules")?;
-    fs::write(cursor_rules_dir.join("token-efficiency.mdc"), TOKEN_EFFICIENCY_CONTENT)
-        .context("failed to write token-efficiency.mdc to .cursor/rules")?;
-    fs::write(cursor_rules_dir.join("rtk-toolkit.mdc"), RTK_TOOLKIT_CONTENT)
-        .context("failed to write rtk-toolkit.mdc to .cursor/rules")?;
+    fs::write(
+        cursor_rules_dir.join("token-efficiency.mdc"),
+        TOKEN_EFFICIENCY_CONTENT,
+    )
+    .context("failed to write token-efficiency.mdc to .cursor/rules")?;
+    fs::write(
+        cursor_rules_dir.join("rtk-toolkit.mdc"),
+        RTK_TOOLKIT_CONTENT,
+    )
+    .context("failed to write rtk-toolkit.mdc to .cursor/rules")?;
 
     fs::write(agents_rules_dir.join("lazy-dev.mdc"), LAZY_DEV_CONTENT)
         .context("failed to write lazy-dev.mdc to .agents/rules")?;
-    fs::write(agents_rules_dir.join("token-efficiency.mdc"), TOKEN_EFFICIENCY_CONTENT)
-        .context("failed to write token-efficiency.mdc to .agents/rules")?;
-    fs::write(agents_rules_dir.join("rtk-toolkit.mdc"), RTK_TOOLKIT_CONTENT)
-        .context("failed to write rtk-toolkit.mdc to .agents/rules")?;
+    fs::write(
+        agents_rules_dir.join("token-efficiency.mdc"),
+        TOKEN_EFFICIENCY_CONTENT,
+    )
+    .context("failed to write token-efficiency.mdc to .agents/rules")?;
+    fs::write(
+        agents_rules_dir.join("rtk-toolkit.mdc"),
+        RTK_TOOLKIT_CONTENT,
+    )
+    .context("failed to write rtk-toolkit.mdc to .agents/rules")?;
 
     Ok(())
 }
@@ -197,4 +207,3 @@ mod tests {
             .subsec_nanos()
     }
 }
-

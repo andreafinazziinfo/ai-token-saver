@@ -5,7 +5,6 @@
 ///   1           → no RTK equivalent, pass through
 ///   2           → deny rule matched
 ///   3 + stdout  → ask rule matched (rewrite output but prompt user)
-
 use anyhow::Result;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -65,8 +64,11 @@ fn ask_rewrite(cmd: &str) -> Option<String> {
     }
     lazy_static! {
         static ref ASK: Vec<(Regex, &'static str)> = vec![
-            (Regex::new(r"^git\s+push(\s|$)").unwrap(),   "rtk git push"),
-            (Regex::new(r"^git\s+commit(\s|$)").unwrap(), "rtk git commit"),
+            (Regex::new(r"^git\s+push(\s|$)").unwrap(), "rtk git push"),
+            (
+                Regex::new(r"^git\s+commit(\s|$)").unwrap(),
+                "rtk git commit"
+            ),
         ];
     }
     for (re, replacement) in ASK.iter() {
@@ -77,38 +79,65 @@ fn ask_rewrite(cmd: &str) -> Option<String> {
     None
 }
 
+#[allow(clippy::type_complexity)]
 fn auto_rewrite(cmd: &str) -> Option<String> {
     if is_chained(cmd) {
         return None;
     }
     lazy_static! {
         static ref AUTO: Vec<(Regex, Box<dyn Fn(&str) -> String + Send + Sync>)> = vec![
-            (Regex::new(r"^git\s+status(\s|$)").unwrap(),
-             Box::new(|_| "rtk git status".into())),
-            (Regex::new(r"^git\s+diff(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("git", "rtk git", 1))),
-            (Regex::new(r"^git\s+log(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("git", "rtk git", 1))),
-            (Regex::new(r"^git\s+branch(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("git", "rtk git", 1))),
-            (Regex::new(r"^git\s+stash(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("git", "rtk git", 1))),
-            (Regex::new(r"^git\s+show(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("git", "rtk git", 1))),
-            (Regex::new(r"^cargo\s+test(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("cargo", "rtk cargo", 1))),
-            (Regex::new(r"^cargo\s+build(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("cargo", "rtk cargo", 1))),
-            (Regex::new(r"^cargo\s+check(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("cargo", "rtk cargo", 1))),
-            (Regex::new(r"^cargo\s+clippy(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("cargo", "rtk cargo", 1))),
-            (Regex::new(r"^npm\s+install(\s|$)").unwrap(),
-             Box::new(|c| c.replacen("npm", "rtk npm", 1))),
-            (Regex::new(r"^pytest(\s|$)").unwrap(),
-             Box::new(|c| format!("rtk pytest{}", &c[6..]))),
-            (Regex::new(r"^ls(\s|$)").unwrap(),
-             Box::new(|c| format!("rtk ls{}", &c[2..]))),
+            (
+                Regex::new(r"^git\s+status(\s|$)").unwrap(),
+                Box::new(|_| "rtk git status".into())
+            ),
+            (
+                Regex::new(r"^git\s+diff(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("git", "rtk git", 1))
+            ),
+            (
+                Regex::new(r"^git\s+log(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("git", "rtk git", 1))
+            ),
+            (
+                Regex::new(r"^git\s+branch(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("git", "rtk git", 1))
+            ),
+            (
+                Regex::new(r"^git\s+stash(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("git", "rtk git", 1))
+            ),
+            (
+                Regex::new(r"^git\s+show(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("git", "rtk git", 1))
+            ),
+            (
+                Regex::new(r"^cargo\s+test(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
+            ),
+            (
+                Regex::new(r"^cargo\s+build(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
+            ),
+            (
+                Regex::new(r"^cargo\s+check(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
+            ),
+            (
+                Regex::new(r"^cargo\s+clippy(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
+            ),
+            (
+                Regex::new(r"^npm\s+install(\s|$)").unwrap(),
+                Box::new(|c| c.replacen("npm", "rtk npm", 1))
+            ),
+            (
+                Regex::new(r"^pytest(\s|$)").unwrap(),
+                Box::new(|c| format!("rtk pytest{}", &c[6..]))
+            ),
+            (
+                Regex::new(r"^ls(\s|$)").unwrap(),
+                Box::new(|c| format!("rtk ls{}", &c[2..]))
+            ),
         ];
     }
     for (re, rewriter) in AUTO.iter() {

@@ -1,13 +1,12 @@
-/// Filter `git status` output.
-///
-/// Strategy:
-///   - Keep: branch line, upstream tracking line, file entries (labelled by section)
-///   - Remove: section headers, hint lines `(use "git ..."...)`, blank lines,
-///             "nothing added…" noise
-///   - Compact: "nothing to commit, working tree clean" → "clean"
-///   - File entries: prefixed with their section (`staged:`, `unstaged:`, `untracked:`,
-///                   `conflict:`) so context is preserved in one line
-///   - Fallback: return input unchanged if filter produces empty output
+//! Filter `git status` output.
+//!
+//! Strategy:
+//! - Keep: branch line, upstream tracking line, file entries (labelled by section).
+//! - Remove: section headers, hint lines, blank lines, and "nothing added" noise.
+//! - Compact: "nothing to commit, working tree clean" -> "clean".
+//! - File entries: prefixed with their section (`staged:`, `unstaged:`, `untracked:`, `conflict:`) so context is preserved.
+//! - Fallback: return input unchanged if filter produces empty output.
+
 /// Maximum untracked file entries to enumerate before collapsing to a summary.
 const MAX_UNTRACKED: usize = 10;
 
@@ -117,7 +116,10 @@ mod tests {
         let input = "On branch main\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n\tmodified:   src/foo.rs\n";
         let out = filter(input);
         assert!(!out.contains("(use"), "hint line leaked");
-        assert!(out.contains("unstaged: modified:   src/foo.rs"), "file entry missing");
+        assert!(
+            out.contains("unstaged: modified:   src/foo.rs"),
+            "file entry missing"
+        );
     }
 
     #[test]
@@ -135,16 +137,28 @@ mod tests {
             "\tsrc/scratch.rs\n",
         );
         let out = filter(input);
-        assert!(out.contains("staged: new file:   src/new.rs"), "staged label missing");
-        assert!(out.contains("unstaged: modified:   Cargo.toml"), "unstaged label missing");
-        assert!(out.contains("untracked: src/scratch.rs"), "untracked label missing");
+        assert!(
+            out.contains("staged: new file:   src/new.rs"),
+            "staged label missing"
+        );
+        assert!(
+            out.contains("unstaged: modified:   Cargo.toml"),
+            "unstaged label missing"
+        );
+        assert!(
+            out.contains("untracked: src/scratch.rs"),
+            "untracked label missing"
+        );
     }
 
     #[test]
     fn conflict_labelled() {
         let input = "On branch main\nUnmerged paths:\n  (use \"git add...\")\n\tboth modified:   src/lib.rs\n";
         let out = filter(input);
-        assert!(out.contains("conflict: both modified:   src/lib.rs"), "conflict label missing");
+        assert!(
+            out.contains("conflict: both modified:   src/lib.rs"),
+            "conflict label missing"
+        );
     }
 
     #[test]
@@ -169,9 +183,19 @@ mod tests {
             input.push_str(&format!("\tfile{i}.rs\n"));
         }
         let out = filter(&input);
-        let untracked_lines: Vec<&str> = out.lines().filter(|l| l.starts_with("untracked: ")).collect();
-        assert_eq!(untracked_lines.len(), MAX_UNTRACKED, "should show exactly MAX_UNTRACKED entries");
-        assert!(out.contains("... and 5 more untracked"), "overflow summary missing");
+        let untracked_lines: Vec<&str> = out
+            .lines()
+            .filter(|l| l.starts_with("untracked: "))
+            .collect();
+        assert_eq!(
+            untracked_lines.len(),
+            MAX_UNTRACKED,
+            "should show exactly MAX_UNTRACKED entries"
+        );
+        assert!(
+            out.contains("... and 5 more untracked"),
+            "overflow summary missing"
+        );
     }
 
     #[test]

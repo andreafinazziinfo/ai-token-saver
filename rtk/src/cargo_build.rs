@@ -4,11 +4,9 @@
 /// This filter is applied via `run_filtered_stderr`, not `run_filtered`.
 ///
 /// Strategy:
-///   - Drop: "   Compiling …", "    Checking …" (crate progress lines),
-///           download/lock progress lines
-///   - Keep: "    Finished …" (the primary result line), ALL warning blocks,
-///           ALL error blocks, "error: could not compile …" summary
-///   - Fallback: return input unchanged if filter produces empty output
+/// - Drop: "   Compiling …", "    Checking …" (crate progress lines), download/lock progress lines.
+/// - Keep: "    Finished …" (the primary result line), ALL warning/error blocks, and compile failure summaries.
+/// - Fallback: return input unchanged if filter produces empty output.
 ///
 /// Safety: warning and error lines never share the prefix patterns we drop,
 /// so no diagnostics can be silently lost.
@@ -84,7 +82,10 @@ mod tests {
         assert!(!out.contains("Compiling"), "Compiling leaked");
         assert!(out.contains("warning: unused variable"), "warning dropped");
         assert!(out.contains("--> src/main.rs"), "source location dropped");
-        assert!(out.contains("generated 1 warning"), "warning summary dropped");
+        assert!(
+            out.contains("generated 1 warning"),
+            "warning summary dropped"
+        );
         assert!(out.contains("Finished"), "Finished dropped");
     }
 
@@ -103,7 +104,10 @@ mod tests {
         let out = filter(input);
         assert!(!out.contains("Compiling"), "Compiling leaked");
         assert!(out.contains("error[E0308]"), "error block dropped");
-        assert!(out.contains("could not compile"), "compile error summary dropped");
+        assert!(
+            out.contains("could not compile"),
+            "compile error summary dropped"
+        );
     }
 
     #[test]
@@ -129,9 +133,18 @@ mod tests {
         let out = filter(input);
         assert!(!out.contains("   Compiling "), "Compiling line leaked");
         assert!(!out.contains("    Checking "), "Checking line leaked");
-        assert!(out.contains("warning: unused variable"), "warning block dropped");
-        assert!(out.contains("warning: variable does not need to be mutable"), "second warning dropped");
-        assert!(out.contains("generated 2 warnings"), "warning summary dropped");
+        assert!(
+            out.contains("warning: unused variable"),
+            "warning block dropped"
+        );
+        assert!(
+            out.contains("warning: variable does not need to be mutable"),
+            "second warning dropped"
+        );
+        assert!(
+            out.contains("generated 2 warnings"),
+            "warning summary dropped"
+        );
         assert!(out.contains("Finished"), "Finished line dropped");
     }
 

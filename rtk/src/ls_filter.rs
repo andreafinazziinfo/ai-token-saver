@@ -24,7 +24,7 @@ pub fn filter(input: &str) -> String {
         static ref LS_L_LINE: Regex = Regex::new(
             r"^([drwx-]{10})\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+([A-Z][a-z]{2}\s+\d+\s+[\d:]{4,5})\s+(.+)$"
         ).unwrap();
-        
+
         static ref TOTAL_LINE: Regex = Regex::new(r"^total\s+\d+$").unwrap();
     }
 
@@ -49,7 +49,7 @@ pub fn filter(input: &str) -> String {
             let name = &caps[7];
 
             let size_str = format_size(size_bytes);
-            
+
             // Format: perm size date name
             lines.push(format!("{perm} {size_str:>6} {date} {name}"));
             file_entries += 1;
@@ -121,16 +121,27 @@ mod tests {
         let out = filter(input);
         assert!(!out.contains("total 32"), "should drop total line");
         assert!(!out.contains("username"), "should drop owner and group");
-        assert!(out.contains("drwxr-xr-x   4.0K Jun 18 22:00 ."), "incorrect directory formatting");
-        assert!(out.contains("-rw-r--r--   1.2K Jun 18 22:00 file1.txt"), "incorrect file1 formatting");
-        assert!(out.contains("-rwxr-xr-x   1.0M Jun 18 22:00 run.sh"), "incorrect run.sh formatting");
+        assert!(
+            out.contains("drwxr-xr-x   4.0K Jun 18 22:00 ."),
+            "incorrect directory formatting"
+        );
+        assert!(
+            out.contains("-rw-r--r--   1.2K Jun 18 22:00 file1.txt"),
+            "incorrect file1 formatting"
+        );
+        assert!(
+            out.contains("-rwxr-xr-x   1.0M Jun 18 22:00 run.sh"),
+            "incorrect run.sh formatting"
+        );
     }
 
     #[test]
     fn test_ls_collapse() {
         let mut input = String::new();
         for i in 0..25 {
-            input.push_str(&format!("-rw-r--r--  1 username username 100 Jun 18 22:00 file{i}.txt\n"));
+            input.push_str(&format!(
+                "-rw-r--r--  1 username username 100 Jun 18 22:00 file{i}.txt\n"
+            ));
         }
         let out = filter(&input);
         let lines: Vec<&str> = out.lines().collect();
