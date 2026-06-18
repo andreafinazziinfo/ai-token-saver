@@ -1,0 +1,33 @@
+---
+description: Vue 3, Pinia, composables, lifecycle e WebSocket resilienti
+globs: **/*.vue, **/*.ts, **/*.js
+alwaysApply: false
+---
+
+# Frontend (Vue 3 / TypeScript)
+
+## Stack
+
+- **Composition API** (`<script setup>`), **Pinia** per stato, logica in **composables** riutilizzabili.
+
+## Lifecycle e cleanup
+
+- In `onMounted` registrare listener/timer/WebSocket; in **`onBeforeUnmount`** (o `onUnmounted`) **sempre** cleanup: `removeEventListener`, `clearInterval`/`clearTimeout`, chiusura WS, annullare subscription.
+- Evitare **reconnect storm**: backoff, singola connessione condivisa, non ricreare socket in loop reattivo senza guardie.
+
+## WebSocket
+
+- Preferire composable condiviso resiliente (es. **`useResilientWebSocket`**) se presente nel repo; non duplicare connessioni naive per componente.
+
+## UI / UX
+
+- Accessibilità e gerarchia visiva; per ricerca stilistica si può usare lo script progetto ui-ux-pro-max se disponibile.
+
+## Layout
+
+- Evitare **magic numbers** legati al viewport (altezze/larghezze hard-coded); usare CSS vars, container query o utilities esistenti.
+
+## Modifiche
+
+- **Patch minima**; niente refactor estetico globale senza richiesta.
+- Summary: checklist **manuale** (es. apri pagina X, verifica stato Y) o test E2E se il task lo richiede.

@@ -1,0 +1,30 @@
+   Compiling proc-macro2 v1.0.86
+   Compiling unicode-ident v1.0.12
+   Compiling quote v1.0.36
+   Compiling syn v2.0.71
+    Checking anyhow v1.0.86
+    Checking lazy_static v1.5.0
+    Checking regex v1.10.5
+    Checking rusqlite v0.31.0
+    Checking clap v4.5.9
+    Checking rtk v0.1.0 (/mnt/c/Users/Andrea/dev/rtk)
+warning: unused variable `total`
+  --> src/tracking.rs:42:9
+   |
+42 |     let total = count_tokens(original) + count_tokens(filtered);
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_total`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+  --> src/main.rs:88:9
+   |
+88 |     let mut out = String::with_capacity(256);
+   |         ----^^^
+   |         |
+   |         help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: `rtk` (bin "rtk") generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.44s

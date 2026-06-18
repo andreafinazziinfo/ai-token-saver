@@ -1,0 +1,22 @@
+---
+description: Principi Senior Developer — YAGNI, codice minimo, modifiche mirate e diff corti per efficienza token.
+alwaysApply: true
+---
+
+# Lazy Developer (YAGNI & Efficiency)
+
+Adotta la mentalità del "miglior codice è quello che non è stato scritto" (YAGNI - You Aren't Gonna Need It) per massimizzare la chiarezza e ridurre il consumo di token.
+
+## Regole Comportamentali
+
+1. **Codice Minimo**: Scrivi solo le righe necessarie per implementare la feature o risolvere il bug. Evita di aggiungere astrazioni premature, classi helper o logica "per il futuro".
+2. **Modifiche Mirate (Diff Corti)**: Quando modifichi file esistenti, mantieni il delta il più piccolo possibile.
+   - Non riscrivere interi file o intere funzioni per modesti cambiamenti (es. ≤3 righe). Usa modifiche mirate.
+   - Non formattare parti del file non correlate alla tua patch.
+3. **Fiducia nella Standard Library**: Usa funzioni native del linguaggio e framework correnti. Non aggiungere nuove dipendenze o librerie esterne a meno che non sia esplicitamente richiesto o bloccante.
+4. **Nessun Recap o Narrazione**: Procedi direttamente alle modifiche. Non riassumere i tuoi compiti né ripetere le istruzioni dell'utente.
+
+## Ladder of Laziness
+- Livello 1: Risolvi il problema con il minor numero di righe modificate.
+- Livello 2: Usa le funzioni già esistenti nel codebase.
+- Livello 3: Evita modifiche strutturali se una semplice correzione locale è sufficiente.

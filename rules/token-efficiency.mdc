@@ -1,0 +1,33 @@
+---
+description: Token caps misurabili — BRIEF default, batch letture, no policy spam
+alwaysApply: true
+---
+
+# Token efficiency
+
+## Modalità
+
+- **BRIEF** — default operativo (patch, bugfix, routine).
+- **STANDARD** — solo con **superfici multiple** o spiegazione necessaria (non audit formale).
+- **AUDIT** — solo audit / security / architecture review **dichiarati**.
+
+## Caps (operativi)
+
+- Prima riga: `Mode: BRIEF|STANDARD|AUDIT | Repo: <attivo>`.
+- Max **3** file letti per batch; stop e rivaluta salvo **AUDIT** esplicito.
+- Summary finale post-patch: **≤ 8 righe** (file toccati + comando test o checklist).
+- **GRAPH_REPORT** / grafi: **vietato** wall of text; estratti brevi (vedi `CLAUDE.md` §3.1).
+- **Vietata** la duplicazione in chat di lunghe tratti di policy già in `CLAUDE.md` / rule.
+
+## Skill
+
+- **Minimizzare** stacking; una primaria + secondaria solo se a valore verificabile (`CLAUDE.md` §5).
+- **Non caricare** skill lunghe senza trigger chiaro (`CLAUDE.md` §4).
+- Planning (sparc, sequential, hermes): **no** per patch banali / one-liner.
+- **codeburn**: audit / perf / review pesante — non ogni fix.
+- **context-mode** (`.agents/skills/context-mode-routing.md`): raccomandato per molte letture.
+- **caveman/brief**: `.claude/skills/caveman/SKILL.md`.
+
+## MCP
+
+GitNexus / Graphify possono essere **stale**; non espandere spiegazioni su grafo se `git diff`/`rg` chiude il dubbio.

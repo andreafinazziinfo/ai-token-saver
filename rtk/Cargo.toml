@@ -1,0 +1,19 @@
+[package]
+name = "rtk"
+version = "0.1.0"
+edition = "2021"
+description = "RTK — token-efficient CLI wrapper for Claude Code"
+
+[[bin]]
+name = "rtk"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+lazy_static = "1"
+regex = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+[dev-dependencies]
+insta = "1"

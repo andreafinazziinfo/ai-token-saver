@@ -1,0 +1,47 @@
+---
+description: FastAPI async, Pydantic v2, sicurezza API — primaria fuori dal tree quant/validation
+globs: **/*.py
+alwaysApply: false
+---
+
+# Backend (Python / FastAPI)
+
+## Precedenza vs `trading-auto`
+
+- **`trading-auto` è primaria** su path che includono `backend/app/quant/`, `backend/tests/validation/`, o `backend/tests/test_*parity*.py` (pattern **`cyclelab-terminal`**, vedi `CLAUDE.md` §1.3).
+- Su **moduli puramente numerici** in quel tree **senza** FastAPI/router: **non** imporre “async-first / APIRouter” come obbligo; applica solo le sezioni pertinenti (tipi, sicurezza dati se tocca I/O, ecc.).
+- Sul **file che definisce route/schema HTTP** nello stesso tree quant: restano valide async, Pydantic, sicurezza transport.
+
+## Async-first
+
+- Endpoint e I/O DB/HTTP: **`async def`**; driver async (es. `asyncpg`).
+- `APIRouter`, `Depends` per sessioni DB e auth.
+
+## Pydantic v2
+
+- Request/response: modelli Pydantic v2; `model_config = ConfigDict(...)`.
+- **Evitare** `dict[str, Any]` per payload utente/API se definibile con modelli tipizzati.
+- Modelli condivisi in `app/schemas/` (o convenzione del repo).
+
+## Rate limit / SlowAPI
+
+- Dove si usa SlowAPI o rate limiting basato su IP/request: passare **`Request`** (o dipendenze previste dal progetto) quando il decorator/middleware lo richiede.
+
+## Sicurezza
+
+- CORS **ristretto** a origini note in produzione; niente wildcard con credenziali.
+- Security headers sensati (es. `X-Content-Type-Options`, `X-Frame-Options`, ecc. secondo stack).
+- Dietro reverse proxy: **trusted hosts / proxy headers** coerenti con Nginx/OpenResty (non fidarsi ciecamente di `X-Forwarded-*` senza configurazione esplicita).
+
+## Error handling
+
+- Handler centralizzato dove previsto; `HTTPException` con messaggi utili; log prima di esporre errori interni.
+
+## Database (Timescale / SQL)
+
+- Serie temporali: `time_bucket`, indici su tempo + simbolo/chiavi query; query parametrizzate.
+
+## Modifiche
+
+- **Patch minima** verificabile; no broad refactor senza richiesta esplicita.
+- Per ogni patch backend: almeno **un** test nuovo o esistente aggiornato **oppure** comando di verifica documentato in summary (es. `pytest path::test`).

@@ -1,0 +1,39 @@
+---
+description: Quant/parity/frozen — primaria su quant/, tests/validation, test_*parity*
+globs: "**/backend/app/quant/**/*.py", "**/backend/tests/validation/**/*.py", "**/backend/tests/test_*parity*.py"
+alwaysApply: false
+---
+
+# Trading / quant (CycleLab + analoghi)
+
+## Precedenza
+
+- **Primaria** su: `**/backend/app/quant/**/*.py`, `**/backend/tests/validation/**/*.py`, `**/backend/tests/test_*parity*.py` (allineato a `cyclelab-terminal`; se altri repo condividono questi prefissi, applica la stessa logica).
+- Altri `.py`: primaria **backend-auto** — questa rule **non** forza vincoli numerici fuori dai globs sopra.
+
+## Terminologia
+
+- Cicli, FFT/DFT, fase, proiezione, **FLD** (Hurst), CEMA/FEMA — come da progetto.
+
+## Performance
+
+- **No** loop Python su array grandi nel hot path se evitabile: preferire **NumPy vectorized** o **Numba** (pattern del repo).
+- Profilare prima di micro-ottimizzare premature.
+
+## Frozen core
+
+- Sotto `frozen/` (es. `quant/proprietary/matassa_core/frozen/`): **vincoli byte-stable** del progetto — non alterare firma/comportamento senza policy esplicita.
+- Se il nucleo non si tocca: **helper** o **kernel esterno** o allineamento a sorgente upstream documentato.
+
+## Correttezza
+
+- Tocca logica quant/indicators: **test di parity** o golden tests dove il repo li prevede; non cambiare semantica **Hurst / FLD / pattern matching** senza evidenza (dati, paper, benchmark).
+- Porting da **repo legacy** (`andreafinazzi-quant-sandbox`): solo se richiesto e **dichiarato** in messaggio/commit.
+
+## Naming
+
+- Indicatori: `<Nome>_<Periodo>_<Params>`; timeframe `1m`, `5m`, `1h`, …; file Python `snake_case`.
+
+## Pattern comuni
+
+- Ingest CCXT/CSV, spettro, backtest — seguire moduli esistenti.
