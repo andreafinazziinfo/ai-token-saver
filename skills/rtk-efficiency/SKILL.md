@@ -53,3 +53,10 @@ If you add or update rule files in `.cursor/rules/` or `.agents/rules/` at the w
 ```bash
 rtk sync-rules
 ```
+
+## 5. View Token Savings Stats (`rtk stats`)
+If you or the user want to check the efficiency statistics, total tokens processed, tokens saved, and estimated API cost savings:
+```bash
+rtk stats
+```
+
