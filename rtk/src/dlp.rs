@@ -1,7 +1,55 @@
 use regex::Regex;
 use std::sync::LazyLock;
 
+fn write_audit_log(source: &str, label: &str, secret: &str) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    // Calculate stable hash of the secret
+    let mut hasher = DefaultHasher::new();
+    secret.hash(&mut hasher);
+    let hash_val = hasher.finish();
+
+    // Determine config path
+    let home = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(std::path::PathBuf::from);
+
+    if let Some(h) = home {
+        let audit_dir = h.join(".config/rtk");
+        let audit_path = audit_dir.join("audit.log");
+        
+        // Ensure directory exists
+        let _ = std::fs::create_dir_all(&audit_dir);
+        
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&audit_path)
+        {
+            let _ = writeln!(
+                file,
+                "{} | {} | {} | {:016x}",
+                now, source, label, hash_val
+            );
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub fn redact(text: &str) -> String {
+    redact_with_source(text, "unknown")
+}
+
+pub fn redact_with_source(text: &str, source: &str) -> String {
     // Match PEM Private Keys
     static PRIVATE_KEY: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?s)-----BEGIN [A-Z ]+-----.*?-----END [A-Z ]+-----").unwrap()
@@ -33,13 +81,18 @@ pub fn redact(text: &str) -> String {
 
     // 1. First redact specific large patterns (private keys)
     let mut redacted = PRIVATE_KEY
-        .replace_all(text, "[REDACTED_PRIVATE_KEY]")
+        .replace_all(text, |caps: &regex::Captures| {
+            let matched = caps.get(0).unwrap().as_str();
+            write_audit_log(source, "Private Key", matched);
+            "[REDACTED_PRIVATE_KEY]".to_string()
+        })
         .into_owned();
 
     // 2. Redact database credentials in URIs
     redacted = DB_URI
         .replace_all(&redacted, |caps: &regex::Captures| {
             let matched = caps.get(0).unwrap().as_str();
+            write_audit_log(source, "Database URI", matched);
             if let Some(at_idx) = matched.find('@') {
                 if let Some(slash_idx) = matched.find("://") {
                     let scheme = &matched[..slash_idx + 3];
@@ -52,21 +105,35 @@ pub fn redact(text: &str) -> String {
         .into_owned();
 
     // 3. Redact JWTs and common API keys
-    redacted = JWT.replace_all(&redacted, "[REDACTED_JWT]").into_owned();
+    redacted = JWT
+        .replace_all(&redacted, |caps: &regex::Captures| {
+            let matched = caps.get(0).unwrap().as_str();
+            write_audit_log(source, "JWT", matched);
+            "[REDACTED_JWT]".to_string()
+        })
+        .into_owned();
+
     redacted = API_KEYS
-        .replace_all(&redacted, "[REDACTED_API_KEY]")
+        .replace_all(&redacted, |caps: &regex::Captures| {
+            let matched = caps.get(0).unwrap().as_str();
+            write_audit_log(source, "API Key", matched);
+            "[REDACTED_API_KEY]".to_string()
+        })
         .into_owned();
 
     // 3.5. Redact custom user-configured DLP patterns
-    // We compile these on the fly to support dynamic config updates mid-session.
-    // redact() is typically called once per CLI invocation, so overhead is negligible.
     let config = crate::config::get_config();
-    let custom_regexes: Vec<Regex> = config
-        .custom_dlp_patterns
-        .iter()
-        .filter_map(|pat| Regex::new(pat).ok())
-        .collect();
-    redacted = redact_custom_patterns_internal(&redacted, &custom_regexes);
+    for pat in &config.custom_dlp_patterns {
+        if let Ok(re) = Regex::new(pat) {
+            redacted = re
+                .replace_all(&redacted, |caps: &regex::Captures| {
+                    let matched = caps.get(0).unwrap().as_str();
+                    write_audit_log(source, "Custom Secret", matched);
+                    "[REDACTED_SECRET]".to_string()
+                })
+                .into_owned();
+        }
+    }
 
     // 4. Entropy-based scanner for other random secrets
     let mut final_text = String::with_capacity(redacted.len());
@@ -77,28 +144,21 @@ pub fn redact(text: &str) -> String {
             current_word.push(c);
         } else {
             if !current_word.is_empty() {
-                final_text.push_str(&check_and_redact_word(&current_word));
+                final_text.push_str(&check_and_redact_word(&current_word, source));
                 current_word.clear();
             }
             final_text.push(c);
         }
     }
     if !current_word.is_empty() {
-        final_text.push_str(&check_and_redact_word(&current_word));
+        final_text.push_str(&check_and_redact_word(&current_word, source));
     }
 
     final_text
 }
 
-fn redact_custom_patterns_internal(text: &str, regexes: &[Regex]) -> String {
-    let mut current = text.to_string();
-    for re in regexes {
-        current = re.replace_all(&current, "[REDACTED_SECRET]").into_owned();
-    }
-    current
-}
 
-fn check_and_redact_word(word: &str) -> String {
+fn check_and_redact_word(word: &str, source: &str) -> String {
     if word.len() >= 24 && word.len() <= 128 {
         let is_git_hash = word.len() == 40 && word.chars().all(|c| c.is_ascii_hexdigit());
 
@@ -107,6 +167,7 @@ fn check_and_redact_word(word: &str) -> String {
             let entropy = shannon_entropy(word);
             // High entropy threshold: 4.7 bits/symbol reduces false positives on UUIDs/Base64
             if entropy > 4.7 {
+                write_audit_log(source, "High Entropy Secret", word);
                 return "[REDACTED_SECRET]".to_string();
             }
         }
@@ -136,6 +197,14 @@ fn shannon_entropy(s: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn redact_custom_patterns_internal(text: &str, regexes: &[Regex]) -> String {
+        let mut current = text.to_string();
+        for re in regexes {
+            current = re.replace_all(&current, "[REDACTED_SECRET]").into_owned();
+        }
+        current
+    }
 
     #[test]
     fn test_redact_private_key() {

@@ -34,12 +34,12 @@ ENCODING = tiktoken.get_encoding("cl100k_base")
 
 # Latest official pricing (June 2026) per Million Tokens
 PRICING = {
-    "Claude Sonnet 4.6":  {"input": 3.00,  "output": 15.00},
-    "Claude Opus 4.8":    {"input": 5.00,  "output": 25.00},
-    "GPT-5.5":            {"input": 5.00,  "output": 30.00},
-    "GPT-5.4":            {"input": 2.50,  "output": 15.00},
-    "Gemini 3.1 Pro":     {"input": 2.00,  "output": 12.00},
-    "Gemini 3.5 Flash":   {"input": 1.50,  "output": 9.00},
+    "Claude 3.5 Sonnet":  {"input": 3.00,  "output": 15.00},
+    "Claude 3 Opus":      {"input": 15.00, "output": 75.00},
+    "GPT-4o":             {"input": 2.50,  "output": 10.00},
+    "GPT-4o mini":        {"input": 0.15,  "output": 0.60},
+    "Gemini 1.5 Pro":     {"input": 1.25,  "output": 3.75},
+    "Gemini 1.5 Flash":   {"input": 0.075, "output": 0.30},
 }
 
 # Time estimates (seconds per 1000 tokens)

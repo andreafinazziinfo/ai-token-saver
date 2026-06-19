@@ -391,24 +391,26 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
+
     let (mut out_print, mut err_print, raw_db, filtered_db) = match mode {
         FilterMode::Stdout(filter) => {
             let filtered = filter(&stdout);
-            let r_filtered = dlp::redact(&filtered);
-            let r_stdout = dlp::redact(&stdout);
+            let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
+            let r_stdout = dlp::redact_with_source(&stdout, &cmd_label);
             (
                 r_filtered.clone(),
-                dlp::redact(&stderr),
+                dlp::redact_with_source(&stderr, &cmd_label),
                 r_stdout.clone(),
                 r_filtered,
             )
         }
         FilterMode::Stderr(filter) => {
             let filtered = filter(&stderr);
-            let r_filtered = dlp::redact(&filtered);
-            let r_stderr = dlp::redact(&stderr);
+            let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
+            let r_stderr = dlp::redact_with_source(&stderr, &cmd_label);
             (
-                dlp::redact(&stdout),
+                dlp::redact_with_source(&stdout, &cmd_label),
                 r_filtered.clone(),
                 r_stderr.clone(),
                 r_filtered,
@@ -417,8 +419,8 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         FilterMode::Combined(filter) => {
             let combined = format!("{stderr}\n{stdout}");
             let filtered = filter(&combined);
-            let r_filtered = dlp::redact(&filtered);
-            let r_combined = dlp::redact(&combined);
+            let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
+            let r_combined = dlp::redact_with_source(&combined, &cmd_label);
             (
                 r_filtered.clone(),
                 String::new(),
@@ -429,9 +431,9 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         FilterMode::Distilled => {
             let d_stdout = distiller::distill(&stdout, None);
             let d_stderr = distiller::distill(&stderr, None);
-            let r_d_out = dlp::redact(&d_stdout);
-            let r_d_err = dlp::redact(&d_stderr);
-            let r_comb = dlp::redact(&format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"));
+            let r_d_out = dlp::redact_with_source(&d_stdout, &cmd_label);
+            let r_d_err = dlp::redact_with_source(&d_stderr, &cmd_label);
+            let r_comb = dlp::redact_with_source(&format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"), &cmd_label);
             (
                 r_d_out.clone(),
                 r_d_err.clone(),
@@ -440,8 +442,6 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
             )
         }
     };
-
-    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
 
     match tracking::record(cmd_label.trim(), &raw_db, &filtered_db, &raw_db) {
         Ok(log_id) => {
