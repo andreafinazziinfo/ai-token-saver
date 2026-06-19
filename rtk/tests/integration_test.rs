@@ -60,30 +60,31 @@ fn rewrite_git_push_exit_3() {
 #[test]
 fn e2e_ide_pipeline_flow() {
     // 1. Simulate Claude sending a command that the hook catches
-    let rewrite_out = rtk_bin()
-        .args(["rewrite", "git status"])
-        .output()
-        .unwrap();
-    
+    let rewrite_out = rtk_bin().args(["rewrite", "git status"]).output().unwrap();
+
     assert_eq!(rewrite_out.status.code(), Some(0));
-    let rewritten_cmd = String::from_utf8_lossy(&rewrite_out.stdout).trim().to_string();
+    let rewritten_cmd = String::from_utf8_lossy(&rewrite_out.stdout)
+        .trim()
+        .to_string();
     assert_eq!(rewritten_cmd, "rtk git status");
 
     // 2. Execute the proxied command
-    let run_out = rtk_bin()
-        .args(["git", "status"])
-        .output()
-        .unwrap();
+    let run_out = rtk_bin().args(["git", "status"]).output().unwrap();
 
     assert!(run_out.status.success() || run_out.status.code() == Some(128));
     let stdout_str = String::from_utf8_lossy(&run_out.stdout);
-    
+
     // 3. Verify output contains standard RTK wrappers or git output
-    assert!(stdout_str.contains("git") || stdout_str.contains("RTK") || stdout_str.contains("branch"));
-    
+    assert!(
+        stdout_str.contains("git") || stdout_str.contains("RTK") || stdout_str.contains("branch")
+    );
+
     // We can also verify that a local SQLite DB was hit, but since
     // tests run concurrently, checking .rtk dir requires creating a temp dir.
-    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
     let temp_dir = std::env::temp_dir().join(format!("rtk_e2e_{timestamp}"));
     fs::create_dir_all(&temp_dir).unwrap();
 
@@ -101,7 +102,7 @@ fn e2e_ide_pipeline_flow() {
         .args(["git", "status"])
         .output()
         .unwrap();
-    
+
     assert!(proxied_run.status.success() || proxied_run.status.code() == Some(128));
 
     // Verify that the database was created
