@@ -21,31 +21,21 @@ RTK solves this by intercepting commands, stripping the noise, caching the raw d
 
 ---
 
-## ✨ Features Overview
+## ✨ Features & Validated Benchmarks
 
 RTK operates on two fronts: **Input Virtualization** (filtering what the AI reads) and **Output Autonomy** (instructing how the AI writes).
 
-| Feature | What it does | Token Savings |
-| :--- | :--- | :--- |
-| 🛡️ **Command Wrappers** | Filters output from noisy tools (`ls`, `pytest`, `cargo`, `npm`, etc.). The raw log is stored in SQLite, and the AI only sees a clean summary. | **📉 50% - 95%** (Input) |
-| 🗜️ **Context Packing** | `rtk pack .` minifies code, strips comments, and generates Tree-Sitter AST skeletons to pack entire repos into tiny XML blocks. | **📉 ~40%** (Input) |
-| 🧠 **Semantic Memory** | Project-scoped `rtk memory set/get` allows the AI to store long-term architectural decisions, eliminating RAG hallucinations. | ⏳ Time / Cost |
-| 🤫 **Hidden Chain-of-Thought**| `cat <<EOF \| rtk think` lets the AI dump massive reasoning loops directly into the DB instead of polluting the chat. | **📉 ~90%** (Output) |
-| 🗣️ **Output Profiles** | Injects strict *Caveman* (ultra-compressed) and *Ponytail* personas into the AI's system prompt to force extreme brevity. | **📉 ~75%** (Output) |
-| 🔒 **Data Loss Prevention** | Automatically detects and redacts API keys, credentials, and custom Regex patterns from any terminal output. | 🛡️ Security |
-| 🚨 **Dynamic Autonomy** | Automatically warns the AI when its own output exceeds safety thresholds, enforcing course correction. | 💰 Cost |
-
-### 📊 Token Savings Benchmarks
-
 > **Methodology**: Benchmarks are sourced from the rigorous agentic test suites of our underlying methodologies ([Caveman](https://github.com/JuliusBrussee/caveman) and [Ponytail](https://github.com/DietrichGebert/ponytail)). Measurements were performed on **headless Claude Code sessions** editing a real full-stack open-source repo (FastAPI + React) across 12 feature tickets.
 
-| Task Profile | Standard Tokens (No RTK) | RTK Tokens | Savings (%) | Source / Impact |
-| :--- | :--- | :--- | :--- | :--- |
-| 🛡️ **`cargo/npm/pytest`** | Variable (Noisy) | Strict Limits | **📉 50% - 95%** | Eliminates raw stdout noise |
-| 🗣️ **AI General Response** | Standard Prose | Caveman | **📉 ~75%** | Measured by Caveman suite |
-| 🧑‍💻 **Code Generation** | Over-engineered | Ponytail | **📉 ~54% (up to 94%)** | Measured by Ponytail suite |
-| ⏱️ **Execution Speed** | Standard | Optimized | **🚀 ~27% Faster** | Measured by Ponytail suite |
-| 💰 **Overall Cost** | Standard | Minimized | **💵 ~20% Cheaper** | Measured by Ponytail suite |
+| Feature | What it does | Validated Savings & Impact |
+| :--- | :--- | :--- |
+| 🛡️ **Command Wrappers** | Filters output from noisy tools (`ls`, `pytest`, `cargo`, `npm`, etc.). Raw log stored in SQLite. | **📉 50% - 95%** Tokens (Eliminates raw stdout noise) |
+| 🗣️ **Output Profiles** | Injects strict *Caveman* and *Ponytail* personas into the AI's system prompt. | **📉 ~75%** Tokens (Caveman prose), **~54%** less code (Ponytail) |
+| 🗜️ **Context Packing** | `rtk pack .` minifies code, strips comments, generates Tree-Sitter AST XML skeletons. | **📉 ~40%** Tokens (Input Context) |
+| 🤫 **Hidden Chain-of-Thought**| `cat <<EOF \| rtk think` lets the AI dump massive reasoning loops directly into the DB. | **📉 ~90%** Tokens (Output Reasoning) |
+| 🧠 **Semantic Memory** | Project-scoped `rtk memory set/get` to store architectural decisions. | Eliminates RAG hallucinations |
+| 🔒 **Data Loss Prevention** | Detects and redacts API keys, credentials, and custom Regex patterns. | 100% Safety Maintained |
+| 🚀 **Dynamic Autonomy** | Warns the AI when output exceeds safety thresholds, enforcing course correction. | **💵 ~20% Cheaper**, **🚀 ~27% Faster** overall execution |
 
 **Verified Benchmarks**: 100% safety and technical accuracy maintained across all automated evaluations.
 
