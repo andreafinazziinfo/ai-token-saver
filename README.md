@@ -1,22 +1,36 @@
-# AI Token Saver (RTK) 🚀
+<p align="center">
+  <img src="rtk/assets/logo.png" alt="AI Token Saver (RTK)" width="200"/>
+</p>
 
-[![CI](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/ci.yml/badge.svg)](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/ci.yml)
-[![Release Builds](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/release.yml/badge.svg)](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/release.yml)
-[![CodeQL](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml/badge.svg)](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<h1 align="center">AI Token Saver (RTK) 🚀</h1>
 
-> **The ultimate toolkit to stop AI Context Window exhaustion and slash your LLM API costs by up to 95%.**
+<p align="center">
+  <b>The ultimate toolkit to stop AI Context Window exhaustion and slash your LLM API costs by up to 95%.</b>
+</p>
 
-[![Crates.io Version](https://img.shields.io/crates/v/rtk.svg)](https://crates.io/crates/rtk)
-[![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
-[![GitHub stars](https://img.shields.io/github/stars/andreafinazziinfo/ai-token-saver.svg?style=social)](https://github.com/andreafinazziinfo/ai-token-saver/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/andreafinazziinfo/ai-token-saver.svg)](https://github.com/andreafinazziinfo/ai-token-saver/issues)
-[![GitHub forks](https://img.shields.io/github/forks/andreafinazziinfo/ai-token-saver.svg)](https://github.com/andreafinazziinfo/ai-token-saver/network/members)
+<p align="center">
+  <a href="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/ci.yml"><img src="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/release.yml"><img src="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/release.yml/badge.svg" alt="Release Builds"/></a>
+  <a href="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml"><img src="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"/></a>
+  <a href="https://crates.io/crates/rtk"><img src="https://img.shields.io/crates/v/rtk.svg" alt="Crates.io Version"/></a>
+  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/rust-1.75%2B-orange.svg" alt="Rust Version"/></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"/></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/andreafinazziinfo/ai-token-saver/stargazers"><img src="https://img.shields.io/github/stars/andreafinazziinfo/ai-token-saver.svg?style=social" alt="GitHub stars"/></a>
+  <a href="https://github.com/andreafinazziinfo/ai-token-saver/issues"><img src="https://img.shields.io/github/issues/andreafinazziinfo/ai-token-saver.svg" alt="GitHub issues"/></a>
+  <a href="https://github.com/andreafinazziinfo/ai-token-saver/network/members"><img src="https://img.shields.io/github/forks/andreafinazziinfo/ai-token-saver.svg" alt="GitHub forks"/></a>
+</p>
+
+---
 
 **AI Token Saver (RTK)** is a high-performance, Rust-based CLI designed to aggressively optimize how Autonomous Agents (like Claude Code, Cursor, Windsurf, Antigravity) interact with your project.
 
-Modern LLMs are incredibly smart, but they suffer from *Context Window Exhaustion*: they fill their memory with useless terminal logs (like 1000 lines of `npm install` warnings) and long reasoning loops, causing them to slow down, hallucinate, and rack up massive API bills.
+### ⚠️ The Problem
+Modern LLMs are incredibly smart, but they suffer from **Context Window Exhaustion**: they fill their memory with useless terminal logs (like 1000 lines of `npm install` warnings), raw files, and long reasoning loops, causing them to slow down, hallucinate, and rack up massive API bills.
 
+### 💡 The Solution
 RTK solves this by intercepting commands, stripping the noise, caching the raw data in a local FTS5 vector database, and returning only the pure semantic signal. By enforcing YAGNI developer behaviors and compressing outputs, the toolkit saves an **average of 82.5% of tokens** across 17 verified scenarios (ranging from 41% to 96%).
 
 ---
