@@ -12,8 +12,8 @@ pub fn filter(input: &str) -> String {
 
     for line in input.lines() {
         // "commit <hash>" — may optionally have refs after: "commit abc… (HEAD -> main)"
-        if line.starts_with("commit ") {
-            let parts: Vec<&str> = line[7..].split_whitespace().collect();
+        if let Some(stripped) = line.strip_prefix("commit ") {
+            let parts: Vec<&str> = stripped.split_whitespace().collect();
             if let Some(full_hash) = parts.first() {
                 if full_hash.len() >= 7 && full_hash.chars().all(|c| c.is_ascii_hexdigit()) {
                     let end_idx = std::cmp::min(7, full_hash.len());

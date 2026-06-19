@@ -57,7 +57,7 @@ fn open_db() -> Result<Connection> {
 // Approximate token count: 1 token ~= 4 characters (standard LLM heuristic)
 // Matches the status-line percentage math. Not exact model tokens.
 fn count_tokens(text: &str) -> i64 {
-    ((text.len() + 3) / 4) as i64
+    (text.len().div_ceil(4)) as i64
 }
 
 /// Record one filtered execution. Returns the ID of the inserted row.

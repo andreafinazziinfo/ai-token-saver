@@ -233,7 +233,7 @@ mod tests {
         let ignored_dir = temp_dir.join("target");
         fs::create_dir_all(&ignored_dir).unwrap();
         let file2_path = ignored_dir.join("output.bin");
-        fs::write(&file2_path, &[0, 1, 2, 3]).unwrap();
+        fs::write(&file2_path, [0, 1, 2, 3]).unwrap();
 
         // Pack directory without strip
         let packed = pack_directory(&temp_dir, false, false).unwrap();
