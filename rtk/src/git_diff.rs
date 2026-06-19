@@ -16,8 +16,10 @@ const HUNK_HEAD_LINES: usize = 3;
 ///   - Truncate: lines > 80 chars get `…` suffix
 ///   - Fallback: return input unchanged if filter produces empty output
 pub fn filter(input: &str) -> String {
-    static DIFF_FILE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^diff --git a/.+ b/(.+)$").unwrap());
-    static HUNK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@").unwrap());
+    static DIFF_FILE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^diff --git a/.+ b/(.+)$").unwrap());
+    static HUNK: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@").unwrap());
 
     let mut out = String::with_capacity(input.len() / 4);
     let mut hunk_header = String::new();

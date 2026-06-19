@@ -6,7 +6,7 @@ pub fn run_status() -> Result<()> {
     println!("==========================================================");
     println!("🔍 RTK Token Saver: ACTIVE");
     println!("==========================================================");
-    
+
     // Check for CLI hooks
     let hook_installed = check_hook_installed();
     if hook_installed {
@@ -38,7 +38,7 @@ pub fn run_status() -> Result<()> {
 
     println!("🤖 Output Profile:   {} ({})", profile_name, profile_desc);
     println!("==========================================================");
-    
+
     if profile_name == "NONE" {
         println!("To configure output rules, run: rtk init --profile <low|medium|high|max>");
     } else {
@@ -52,7 +52,7 @@ fn check_hook_installed() -> bool {
     let home = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map(std::path::PathBuf::from);
-        
+
     if let Some(h) = home {
         let dirs = vec![h.join(".gemini").join("antigravity"), h.join(".claude")];
         for dir in dirs {

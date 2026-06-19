@@ -9,7 +9,9 @@ pub fn filter(input: &str) -> String {
     // Drop test pass line (--- PASS)
     static PASS_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^---\s*PASS\b").unwrap());
     // Drop ok status lines for packages with no output
-    static PACKAGE_OK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^ok\s+[^\s]+\s+[0-9\.]+s\s*(?:\[no tests to run\])?$").unwrap());
+    static PACKAGE_OK: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^ok\s+[^\s]+\s+[0-9\.]+s\s*(?:\[no tests to run\])?$").unwrap()
+    });
 
     for line in input.lines() {
         let trimmed = line.trim();

@@ -11,7 +11,8 @@ use std::sync::LazyLock;
 ///   - Retain short test summary and final outcome line.
 ///   - Fallback: return input unchanged if filter produces empty output.
 pub fn filter(input: &str) -> String {
-    static HEADER_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^={3,}\s+(.+)\s+={3,}$").unwrap());
+    static HEADER_LINE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^={3,}\s+(.+)\s+={3,}$").unwrap());
     static PREAMBLE_LINE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(platform|plugins|rootdir|configfile|collected|plugins)[:\s]").unwrap()
     });

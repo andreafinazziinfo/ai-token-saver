@@ -20,7 +20,13 @@ pub fn execute_dotnet(args: &[String]) {
 
     for line in &lines {
         // Drop standard verbose build logs unless they are errors or warnings
-        if line.contains("error CS") || line.contains("warning CS") || line.contains("Build FAILED") || line.starts_with("Failed!") || line.starts_with("Passed!") || line.starts_with("Total tests:") {
+        if line.contains("error CS")
+            || line.contains("warning CS")
+            || line.contains("Build FAILED")
+            || line.starts_with("Failed!")
+            || line.starts_with("Passed!")
+            || line.starts_with("Total tests:")
+        {
             filtered_lines.push(line.to_string());
         }
     }
@@ -41,12 +47,15 @@ pub fn execute_dotnet(args: &[String]) {
     let filtered_output = filtered_lines.join("\n");
     let cmd_str = format!("dotnet {}", args.join(" "));
     let log_id = record(&cmd_str, &full_output, &filtered_output, &full_output).unwrap_or(0);
-    
+
     let mut final_out = filtered_output.clone();
     if !filtered_output.trim().is_empty() && full_output.len() > filtered_output.len() {
-        final_out.push_str(&format!("\n[Full output cached. Access with: rtk show-log {}]", log_id));
+        final_out.push_str(&format!(
+            "\n[Full output cached. Access with: rtk show-log {}]",
+            log_id
+        ));
     }
-    
+
     if let Some(warning) = crate::tracking::check_autonomy(&filtered_output) {
         final_out.push_str(warning);
         final_out.push('\n');

@@ -23,16 +23,13 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
 
     // Match standard error keywords in logs (case-insensitive)
     static ERROR_KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r"(?i)\b(error|panic|failed|exception|fatal|critical|severe|warning)\b"
-        ).unwrap()
+        Regex::new(r"(?i)\b(error|panic|failed|exception|fatal|critical|severe|warning)\b").unwrap()
     });
 
     // Match common compiler/tool diagnostic markers
     static DIAGNOSTIC_LINE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r"^(error|warning|note|info|err|warn):\s+|^\[(ERROR|WARN|FATAL|SEVERE)\]"
-        ).unwrap()
+        Regex::new(r"^(error|warning|note|info|err|warn):\s+|^\[(ERROR|WARN|FATAL|SEVERE)\]")
+            .unwrap()
     });
 
     let mut out = String::with_capacity(input.len() / 4);

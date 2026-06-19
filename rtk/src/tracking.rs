@@ -6,7 +6,7 @@ fn db_path() -> PathBuf {
     if let Ok(p) = std::env::var("RTK_DB_PATH") {
         return PathBuf::from(p);
     }
-    
+
     // On Windows, prefer LOCALAPPDATA
     if cfg!(target_os = "windows") {
         if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
@@ -256,7 +256,7 @@ pub fn memory_search(query: &str) -> Result<Vec<(String, String)>> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-    
+
     // FTS syntax: wrap words with asterisks for fuzzy prefix matching
     let words: Vec<&str> = query.split_whitespace().collect();
     let fts_query = if words.len() > 1 {
@@ -269,13 +269,13 @@ pub fn memory_search(query: &str) -> Result<Vec<(String, String)>> {
     let mut stmt = conn.prepare(
         "SELECT key, val FROM project_memory_fts 
          WHERE project_path = ?1 AND project_memory_fts MATCH ?2 
-         ORDER BY rank LIMIT 5"
+         ORDER BY rank LIMIT 5",
     )?;
-    
+
     let rows = stmt.query_map(params![pwd, fts_query], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
     })?;
-    
+
     let mut results = Vec::new();
     for row in rows {
         results.push(row?);

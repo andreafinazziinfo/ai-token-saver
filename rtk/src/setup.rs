@@ -101,7 +101,10 @@ const CAVEMAN_COMPRESS_SKILL: &str = include_str!("../assets/caveman/caveman-com
 const CAVEMAN_REVIEW_SKILL: &str = include_str!("../assets/caveman/caveman-review-skill.md");
 
 pub fn run_init(profile: &str) -> Result<()> {
-    println!("⚙️ Bootstrapping AI Efficiency rules in the current directory (Profile: {})...", profile.to_uppercase());
+    println!(
+        "⚙️ Bootstrapping AI Efficiency rules in the current directory (Profile: {})...",
+        profile.to_uppercase()
+    );
     run_init_in(Path::new("."), profile)?;
 
     println!("✅ Created rules inside .cursor/rules/ and .agents/rules/");
@@ -179,26 +182,51 @@ fn run_init_in(base: &Path, profile: &str) -> Result<()> {
 
     // Write input rules
     fs::write(cursor_rules_dir.join("lazy-dev.mdc"), LAZY_DEV_CONTENT)?;
-    fs::write(cursor_rules_dir.join("token-efficiency.mdc"), TOKEN_EFFICIENCY_CONTENT)?;
-    fs::write(cursor_rules_dir.join("rtk-toolkit.mdc"), RTK_TOOLKIT_CONTENT)?;
-    
+    fs::write(
+        cursor_rules_dir.join("token-efficiency.mdc"),
+        TOKEN_EFFICIENCY_CONTENT,
+    )?;
+    fs::write(
+        cursor_rules_dir.join("rtk-toolkit.mdc"),
+        RTK_TOOLKIT_CONTENT,
+    )?;
+
     fs::write(agents_rules_dir.join("lazy-dev.mdc"), LAZY_DEV_CONTENT)?;
-    fs::write(agents_rules_dir.join("token-efficiency.mdc"), TOKEN_EFFICIENCY_CONTENT)?;
-    fs::write(agents_rules_dir.join("rtk-toolkit.mdc"), RTK_TOOLKIT_CONTENT)?;
+    fs::write(
+        agents_rules_dir.join("token-efficiency.mdc"),
+        TOKEN_EFFICIENCY_CONTENT,
+    )?;
+    fs::write(
+        agents_rules_dir.join("rtk-toolkit.mdc"),
+        RTK_TOOLKIT_CONTENT,
+    )?;
 
     // Write ponytail logic
     fs::write(cursor_rules_dir.join("ponytail.mdc"), PONYTAIL_CONTENT)?;
     fs::write(agents_rules_dir.join("ponytail.md"), PONYTAIL_CONTENT)?;
-    
+
     // Write caveman skills
-    fs::write(agents_skills_dir.join("caveman").join("SKILL.md"), CAVEMAN_SKILL)?;
-    fs::write(agents_skills_dir.join("caveman-commit").join("SKILL.md"), CAVEMAN_COMMIT_SKILL)?;
-    fs::write(agents_skills_dir.join("caveman-compress").join("SKILL.md"), CAVEMAN_COMPRESS_SKILL)?;
-    fs::write(agents_skills_dir.join("caveman-review").join("SKILL.md"), CAVEMAN_REVIEW_SKILL)?;
+    fs::write(
+        agents_skills_dir.join("caveman").join("SKILL.md"),
+        CAVEMAN_SKILL,
+    )?;
+    fs::write(
+        agents_skills_dir.join("caveman-commit").join("SKILL.md"),
+        CAVEMAN_COMMIT_SKILL,
+    )?;
+    fs::write(
+        agents_skills_dir.join("caveman-compress").join("SKILL.md"),
+        CAVEMAN_COMPRESS_SKILL,
+    )?;
+    fs::write(
+        agents_skills_dir.join("caveman-review").join("SKILL.md"),
+        CAVEMAN_REVIEW_SKILL,
+    )?;
 
     // Generate output profile rule
     let profile_content = match profile.to_lowercase().as_str() {
-        "max" => r#"---
+        "max" => {
+            r#"---
 description: RTK Output Autonomy Profile
 alwaysApply: true
 ---
@@ -210,8 +238,10 @@ You are operating under the RTK MAX profile for maximum token efficiency.
 3. Auto-trigger **caveman-commit** for all git commit operations.
 4. Auto-trigger **caveman-review** for all code reviews.
 5. Auto-trigger **caveman-compress** when writing persistent memories or documentation.
-"#,
-        "high" => r#"---
+"#
+        }
+        "high" => {
+            r#"---
 description: RTK Output Autonomy Profile
 alwaysApply: true
 ---
@@ -221,8 +251,10 @@ You are operating under the RTK HIGH profile for strict token efficiency.
 1. Always apply the Ponytail philosophy (YAGNI, minimal code, deletion over addition).
 2. You MUST auto-trigger the **caveman-full** skill for every response (no articles, short phrasing).
 3. Auto-trigger **caveman-commit** for all git commit operations.
-"#,
-        "medium" => r#"---
+"#
+        }
+        "medium" => {
+            r#"---
 description: RTK Output Autonomy Profile
 alwaysApply: true
 ---
@@ -231,8 +263,10 @@ alwaysApply: true
 You are operating under the RTK MEDIUM profile for balanced token efficiency.
 1. Always apply the Ponytail philosophy (YAGNI, minimal code, deletion over addition).
 2. You MUST auto-trigger the **caveman-lite** skill for every response (complete sentences but no filler/hedging).
-"#,
-        _ => r#"---
+"#
+        }
+        _ => {
+            r#"---
 description: RTK Output Autonomy Profile
 alwaysApply: true
 ---
@@ -241,7 +275,8 @@ alwaysApply: true
 You are operating under the RTK LOW profile for safe efficiency.
 1. Always apply the Ponytail philosophy (YAGNI, minimal code, deletion over addition).
 2. Write concise, standard technical language without unnecessary conversational filler.
-"#,
+"#
+        }
     };
 
     // Distribute the profile universally
@@ -249,12 +284,15 @@ You are operating under the RTK LOW profile for safe efficiency.
     fs::write(windsurf_rules_dir.join("rtk-profile.md"), profile_content)?;
     fs::write(agents_rules_dir.join("AGENTS.md"), profile_content)?;
     fs::write(base.join("CLAUDE.md"), profile_content)?;
-    
+
     // Append to copilot instructions
     let copilot_file = github_dir.join("copilot-instructions.md");
     let existing = fs::read_to_string(&copilot_file).unwrap_or_default();
     if !existing.contains("RTK Output Profile") {
-        fs::write(&copilot_file, format!("{}\n\n{}", existing, profile_content))?;
+        fs::write(
+            &copilot_file,
+            format!("{}\n\n{}", existing, profile_content),
+        )?;
     }
 
     Ok(())

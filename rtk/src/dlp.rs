@@ -28,9 +28,7 @@ pub fn redact(text: &str) -> String {
 
     // Database credentials in URI: e.g. postgres://user:password@host
     static DB_URI: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r"\b[a-zA-Z0-9\+]+://[a-zA-Z0-9_\-\.]+:[^@\s]+@[a-zA-Z0-9_\-\.]+"
-        ).unwrap()
+        Regex::new(r"\b[a-zA-Z0-9\+]+://[a-zA-Z0-9_\-\.]+:[^@\s]+@[a-zA-Z0-9_\-\.]+").unwrap()
     });
 
     // 1. First redact specific large patterns (private keys)

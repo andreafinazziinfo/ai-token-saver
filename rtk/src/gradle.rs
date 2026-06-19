@@ -9,7 +9,8 @@ pub fn filter(input: &str) -> String {
     // > Task :processResources UP-TO-DATE
     static TASK_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^>\s*Task\s+:").unwrap());
     // Drop progress/download status lines
-    static PROGRESS_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(Download|Caching|Download progress|Preparing)\b").unwrap());
+    static PROGRESS_LINE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(Download|Caching|Download progress|Preparing)\b").unwrap());
 
     for line in input.lines() {
         let trimmed = line.trim();

@@ -9,6 +9,7 @@ mod dashboard;
 mod distiller;
 mod dlp;
 mod docker_filter;
+mod dotnet;
 mod git_diff;
 mod git_log;
 mod git_status;
@@ -23,7 +24,6 @@ mod skeleton;
 mod status;
 mod sync_rules;
 mod tracking;
-mod dotnet;
 
 #[derive(Parser)]
 #[command(
@@ -335,7 +335,7 @@ fn get_gradle_bin() -> String {
     loop {
         let wrapper_unix = current.join("gradlew");
         let wrapper_win = current.join("gradlew.bat");
-        
+
         if wrapper_unix.exists() || wrapper_win.exists() {
             if cfg!(target_os = "windows") {
                 return wrapper_win.to_string_lossy().to_string();
@@ -343,7 +343,7 @@ fn get_gradle_bin() -> String {
                 return wrapper_unix.to_string_lossy().to_string();
             }
         }
-        
+
         if !current.pop() {
             break;
         }
@@ -382,26 +382,41 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     let (mut out_print, mut err_print, raw_db, filtered_db) = match mode {
         FilterMode::Stdout(filter) => {
             let filtered = filter(&stdout);
             let r_filtered = dlp::redact(&filtered);
             let r_stdout = dlp::redact(&stdout);
-            (r_filtered.clone(), dlp::redact(&stderr), r_stdout.clone(), r_filtered)
+            (
+                r_filtered.clone(),
+                dlp::redact(&stderr),
+                r_stdout.clone(),
+                r_filtered,
+            )
         }
         FilterMode::Stderr(filter) => {
             let filtered = filter(&stderr);
             let r_filtered = dlp::redact(&filtered);
             let r_stderr = dlp::redact(&stderr);
-            (dlp::redact(&stdout), r_filtered.clone(), r_stderr.clone(), r_filtered)
+            (
+                dlp::redact(&stdout),
+                r_filtered.clone(),
+                r_stderr.clone(),
+                r_filtered,
+            )
         }
         FilterMode::Combined(filter) => {
             let combined = format!("{stderr}\n{stdout}");
             let filtered = filter(&combined);
             let r_filtered = dlp::redact(&filtered);
             let r_combined = dlp::redact(&combined);
-            (r_filtered.clone(), String::new(), r_combined.clone(), r_filtered)
+            (
+                r_filtered.clone(),
+                String::new(),
+                r_combined.clone(),
+                r_filtered,
+            )
         }
         FilterMode::Distilled => {
             let d_stdout = distiller::distill(&stdout, None);
@@ -409,12 +424,17 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
             let r_d_out = dlp::redact(&d_stdout);
             let r_d_err = dlp::redact(&d_stderr);
             let r_comb = dlp::redact(&format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"));
-            (r_d_out.clone(), r_d_err.clone(), r_comb, format!("{r_d_out}\n{r_d_err}"))
+            (
+                r_d_out.clone(),
+                r_d_err.clone(),
+                r_comb,
+                format!("{r_d_out}\n{r_d_err}"),
+            )
         }
     };
 
     let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-    
+
     match tracking::record(cmd_label.trim(), &raw_db, &filtered_db, &raw_db) {
         Ok(log_id) => {
             if filtered_db.len() < raw_db.len() && !filtered_db.trim().is_empty() {
@@ -439,8 +459,12 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         }
     }
 
-    if !out_print.is_empty() { print!("{out_print}"); }
-    if !err_print.is_empty() { eprint!("{err_print}"); }
+    if !out_print.is_empty() {
+        print!("{out_print}");
+    }
+    if !err_print.is_empty() {
+        eprint!("{err_print}");
+    }
 
     if !output.status.success() {
         std::process::exit(output.status.code().unwrap_or(1));

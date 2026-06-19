@@ -6,8 +6,8 @@
 ///   2           → deny rule matched
 ///   3 + stdout  → ask rule matched (rewrite output but prompt user)
 use anyhow::Result;
-use std::sync::LazyLock;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub fn run(raw: &str) -> Result<()> {
     let cmd = raw.trim();

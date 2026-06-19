@@ -41,7 +41,10 @@ impl UserConfig {
                         .map(String::from),
                 );
             }
-            if let Some(arr) = val.pointer("/dlp/custom_patterns").and_then(|v| v.as_array()) {
+            if let Some(arr) = val
+                .pointer("/dlp/custom_patterns")
+                .and_then(|v| v.as_array())
+            {
                 self.custom_dlp_patterns.extend(
                     arr.iter()
                         .filter_map(|v| v.as_str())
@@ -131,8 +134,7 @@ pub fn config_show() -> anyhow::Result<()> {
 }
 
 pub fn config_deny_add(pattern: &str) -> anyhow::Result<()> {
-    regex::Regex::new(pattern)
-        .map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
+    regex::Regex::new(pattern).map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
     modify_config(|obj| {
         let denied = obj
             .entry("denied_commands")
@@ -147,8 +149,7 @@ pub fn config_deny_add(pattern: &str) -> anyhow::Result<()> {
 }
 
 pub fn config_dlp_add(pattern: &str) -> anyhow::Result<()> {
-    regex::Regex::new(pattern)
-        .map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
+    regex::Regex::new(pattern).map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
     modify_config(|obj| {
         let dlp = obj
             .entry("dlp")

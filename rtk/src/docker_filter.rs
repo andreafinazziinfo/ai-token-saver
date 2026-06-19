@@ -19,7 +19,8 @@ pub fn filter(input: &str) -> String {
 
     // Match generic download bars like:
     // [1/2] [===>               ]
-    static PROGRESS_BAR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[=\->\s]{5,}\]").unwrap());
+    static PROGRESS_BAR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\[[=\->\s]{5,}\]").unwrap());
 
     for line in input.lines() {
         let trimmed = line.trim();
