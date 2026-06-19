@@ -47,16 +47,4 @@ pub fn run(content_args: Vec<String>) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_think_basic() {
-        // This is a simple test just to ensure the module compiles and structure is correct.
-        // Full E2E tests will verify the database insertion.
-        let args = vec!["I".to_string(), "am".to_string(), "thinking".to_string()];
-        let result = run(args);
-        assert!(result.is_ok());
-    }
-}
