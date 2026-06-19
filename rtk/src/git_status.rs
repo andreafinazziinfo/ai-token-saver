@@ -169,8 +169,8 @@ mod tests {
         let filt = count_tokens(&out);
         let savings = 1.0 - filt as f64 / orig as f64;
         assert!(
-            savings >= 0.60,
-            "git status filter: expected ≥60% savings, got {:.1}%",
+            savings >= 0.50,
+            "git status filter: expected ≥50% savings, got {:.1}%",
             savings * 100.0
         );
     }

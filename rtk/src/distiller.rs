@@ -100,13 +100,13 @@ mod tests {
         for i in 1..=50 {
             input.push_str(&format!("line {i}\n"));
         }
-        // Limit 20. Head 15, Tail 15. Total 50 lines.
-        // Middle is from line 16 to line 35 (20 lines)
+        // Limit 20. Head 10, Tail 10. Total 50 lines.
+        // Middle is from line 11 to line 40 (30 lines)
         let out = distill(&input, Some(20));
         assert!(out.contains("line 1\n"));
-        assert!(out.contains("line 15\n"));
-        assert!(out.contains("... [20 lines collapsed] ...\n"));
-        assert!(out.contains("line 36\n"));
+        assert!(out.contains("line 10\n"));
+        assert!(out.contains("... [30 lines collapsed] ...\n"));
+        assert!(out.contains("line 41\n"));
         assert!(out.contains("line 50\n"));
         assert!(!out.contains("line 25\n"));
     }
@@ -123,11 +123,11 @@ mod tests {
         }
         let out = distill(&input, Some(20));
         assert!(out.contains("Error: something failed in execution\n"));
-        // The 20 middle lines should be split into:
-        // normal lines 16..24 (9 lines collapsed)
+        // The 30 middle lines (11..40) should be split into:
+        // normal lines 11..24 (14 lines collapsed)
         // Error line 25 (kept)
-        // normal lines 26..35 (10 lines collapsed)
-        assert!(out.contains("... [9 lines collapsed] ...\n"));
-        assert!(out.contains("... [10 lines collapsed] ...\n"));
+        // normal lines 26..40 (15 lines collapsed)
+        assert!(out.contains("... [14 lines collapsed] ...\n"));
+        assert!(out.contains("... [15 lines collapsed] ...\n"));
     }
 }

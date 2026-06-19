@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 mod cargo_build;
 mod cargo_test;
