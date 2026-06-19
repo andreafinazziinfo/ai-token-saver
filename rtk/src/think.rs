@@ -46,5 +46,3 @@ pub fn run(content_args: Vec<String>) -> Result<()> {
 
     Ok(())
 }
-
-
