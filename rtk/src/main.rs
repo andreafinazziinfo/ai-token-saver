@@ -115,6 +115,47 @@ enum Commands {
     },
     /// Bootstrap AI Efficiency rules in the current directory
     Init,
+    /// Force database garbage collection of logs older than 30 days
+    Gc,
+    /// Manage global personal configurations (guards, DLP patterns)
+    Config {
+        #[command(subcommand)]
+        subcmd: ConfigCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCommands {
+    /// Show the current integrated configuration
+    Show,
+    /// Manage personal command guardrails
+    Deny {
+        #[command(subcommand)]
+        subcmd: ConfigDenyCommands,
+    },
+    /// Manage custom Data Loss Prevention (DLP) secret patterns
+    Dlp {
+        #[command(subcommand)]
+        subcmd: ConfigDlpCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigDenyCommands {
+    /// Add a pattern to the list of denied command guards
+    Add {
+        /// The command substring or regex pattern to guard against
+        pattern: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigDlpCommands {
+    /// Add a regex pattern to the list of custom DLP secret redactors
+    Add {
+        /// The regex pattern for custom secret detection
+        pattern: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -211,6 +252,22 @@ fn main() {
             print!("{raw_log}");
         }),
         Commands::Init => setup::run_init(),
+        Commands::Gc => tracking::gc().map(|purged| {
+            println!("🗑️ Database garbage collection complete: removed {} log records older than 30 days.", purged);
+        }),
+        Commands::Config { subcmd } => match subcmd {
+            ConfigCommands::Show => config::config_show(),
+            ConfigCommands::Deny { subcmd } => match subcmd {
+                ConfigDenyCommands::Add { pattern } => config::config_deny_add(&pattern).map(|_| {
+                    println!("🔒 Added command guard pattern: \"{}\"", pattern);
+                }),
+            },
+            ConfigCommands::Dlp { subcmd } => match subcmd {
+                ConfigDlpCommands::Add { pattern } => config::config_dlp_add(&pattern).map(|_| {
+                    println!("🛡️ Added custom DLP regex pattern: \"{}\"", pattern);
+                }),
+            },
+        },
     };
 
     if let Err(e) = result {

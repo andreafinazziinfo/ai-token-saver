@@ -58,6 +58,13 @@ pub fn record(cmd: &str, original: &str, filtered: &str, raw_output: &str) -> Re
     let orig = count_tokens(original);
     let filt = count_tokens(filtered);
     let conn = open_db()?;
+
+    // Automatic DB garbage collection: purge logs older than 30 days during record calls
+    let _ = conn.execute(
+        "DELETE FROM tracking WHERE timestamp < datetime('now', '-30 days')",
+        [],
+    );
+
     conn.execute(
         "INSERT INTO tracking (cmd, original_tokens, filtered_tokens, raw_output) \
          VALUES (?1, ?2, ?3, ?4)",
@@ -66,6 +73,23 @@ pub fn record(cmd: &str, original: &str, filtered: &str, raw_output: &str) -> Re
     .context("insert tracking row")?;
     let log_id = conn.last_insert_rowid();
     Ok(log_id)
+}
+
+/// Force database garbage collection (manual TTL purging) and VACUUM.
+/// Returns the number of purged rows.
+pub fn gc() -> Result<usize> {
+    let conn = open_db()?;
+    let deleted = conn
+        .execute(
+            "DELETE FROM tracking WHERE timestamp < datetime('now', '-30 days')",
+            [],
+        )
+        .context("execute GC delete query")?;
+
+    // Shrink database file to reclaim deleted space
+    let _ = conn.execute("VACUUM", []);
+
+    Ok(deleted)
 }
 
 /// Retrieve raw log output from the database by log ID.
@@ -240,6 +264,49 @@ mod tests {
         assert_eq!(list.len(), 2);
         assert!(list.contains(&("port".to_string(), "8080".to_string())));
         assert!(list.contains(&("host".to_string(), "localhost".to_string())));
+
+        // Test manual GC
+        // 1. Insert an old record (older than 30 days)
+        conn.execute(
+            "INSERT INTO tracking (cmd, original_tokens, filtered_tokens, raw_output, timestamp) \
+             VALUES ('old_cmd', 10, 2, 'old output', datetime('now', '-31 days'))",
+            [],
+        )
+        .unwrap();
+
+        // Check it is indeed inserted
+        let total_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracking", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total_count, 2);
+
+        // 2. Call gc()
+        let purged = gc().expect("gc failed");
+        assert_eq!(purged, 1);
+
+        // Check it is deleted
+        let total_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracking", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total_count, 1);
+
+        // Test automatic GC during record()
+        // 1. Insert an old record again
+        conn.execute(
+            "INSERT INTO tracking (cmd, original_tokens, filtered_tokens, raw_output, timestamp) \
+             VALUES ('old_cmd_2', 10, 2, 'old output 2', datetime('now', '-32 days'))",
+            [],
+        )
+        .unwrap();
+
+        // 2. Call record() and verify it triggers automatic purge
+        record("new_cmd", "foo bar", "foo", "foo bar").unwrap();
+
+        // 3. Verify total rows is still 2 (the first recorded cmd, plus the new_cmd. The old_cmd_2 should be auto-purged)
+        let total_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracking", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total_count, 2);
 
         std::fs::remove_file(&tmp).ok();
         env::remove_var("RTK_DB_PATH");

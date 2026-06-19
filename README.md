@@ -51,6 +51,7 @@ sequenceDiagram
         Cmd-->>RTK: Raw Output (100 lines)
         RTK->>RTK: Apply ls_filter (Collapses entries, drops owners)
         RTK->>RTK: Apply DLP Redact (Scrub default keys + custom patterns)
+        RTK->>DB: Purge records older than 30 days (Auto-TTL)
         RTK->>DB: Store Raw Output (Associate with ID)
         DB-->>RTK: Log ID (e.g. 42)
         RTK-->>LLM: Return Filtered Output + "[Full output cached. Access with: rtk show-log 42]"
@@ -168,6 +169,29 @@ Fetches the raw, uncompressed log for a virtualized command from the SQLite data
 ```bash
 rtk show-log 12
 ```
+
+#### `rtk gc`
+Manually triggers SQLite database garbage collection to purge command logs older than 30 days and reclaims unused disk space via `VACUUM`:
+```bash
+rtk gc
+```
+*(Note: Database cleanup also runs automatically in the background during `rtk record` calls).*
+
+#### `rtk config`
+Manage personal configuration guards and Data Loss Prevention (DLP) custom patterns:
+* **Show configuration**: Display current merged settings (global `~/.config/rtk/config.json` + local `.rtk.json`):
+  ```bash
+  rtk config show
+  ```
+* **Guard a destructive command**: Append a pattern (e.g. substring or regex) to the list of denied command guards in your global config:
+  ```bash
+  rtk config deny add "git push.*--force"
+  ```
+* **Add a custom DLP regex pattern**: Append a regex pattern to redact specific project secrets (like unique tokens or key layouts) from all command outputs and packed buffers:
+  ```bash
+  rtk config dlp add "MY_API_KEY_[0-9a-zA-Z]{32}"
+  ```
+
 
 #### `rtk sync-rules`
 Recursively copies instruction files from the workspace root to all subdirectory projects:

@@ -59,8 +59,12 @@ rtk sync-rules
 The toolkit automatically scrubs credentials, private keys, JWTs, and high-entropy secrets from command outputs and pack buffers before returning them to you.
 - **Auto-Redaction**: Redacted fields appear as `[REDACTED_API_KEY]`, `[REDACTED_JWT]`, `[REDACTED_SECRET]`, or `[REDACTED_CREDENTIALS]`.
 - **Zero Leakage**: Ensure you do not try to bypass this guard or log credentials, as they are securely filtered at the proxy layer.
-- **Custom Patterns**: You can add your own custom regex scanner patterns in `~/.config/rtk/config.json` or `.rtk.json` inside the `dlp.custom_patterns` list to redact project-specific keys.
-- **Personal Guardrails**: Configure `denied_commands` inside `~/.config/rtk/config.json` or `.rtk.json` to automatically reject destructive/dangerous commands (ex: `git push.*--force`) with exit code `2`, avoiding accidental command executions on your terminal by AI agents.
+- **Custom Patterns**: You can add your own custom regex scanner patterns to redact project-specific keys.
+- **Personal Guardrails**: Configure `denied_commands` to automatically reject destructive/dangerous commands (ex: `git push.*--force`) with exit code `2`, avoiding accidental command executions on your terminal.
+- **CLI Configuration Management (`rtk config`)**: Instead of manual file edits, read and update personal guardrails and DLP patterns directly from the command line:
+  - View merged configuration: `rtk config show`
+  - Guard a dangerous command: `rtk config deny add "<pattern>"`
+  - Add custom secret patterns: `rtk config dlp add "<regex>"`
 
 ## 6. Local Savings Dashboard (`rtk dashboard`)
 If you or the user want to view the savings dashboard:
@@ -68,3 +72,11 @@ If you or the user want to view the savings dashboard:
 rtk dashboard
 ```
 This compiles local statistics into an HTML dashboard showing invocations, saved tokens, and estimated financial savings in USD, opening automatically in the web browser. Or view raw statistics in-terminal with `rtk stats`.
+
+## 7. Cache Maintenance & DB Garbage Collection (`rtk gc`)
+To keep disk usage low and ensure fast dashboard queries, RTK implements a 30-day Time-To-Live (TTL) cache retention policy:
+- **Auto-GC**: Log records older than 30 days are automatically deleted during standard command interception writes.
+- **Manual GC**: You can manually trigger a database cleanup and vacuum execution at any time:
+  ```bash
+  rtk gc
+  ```

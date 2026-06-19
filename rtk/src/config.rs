@@ -81,6 +81,87 @@ pub fn create_default_config() -> Result<(), std::io::Error> {
     Ok(())
 }
 
+fn global_config_path() -> Option<std::path::PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(|home| Path::new(&home).join(".config/rtk/config.json"))
+}
+
+fn modify_config<F>(f: F) -> anyhow::Result<()>
+where
+    F: FnOnce(&mut serde_json::Map<String, serde_json::Value>),
+{
+    create_default_config().map_err(|e| anyhow::anyhow!("failed to create default config: {e}"))?;
+
+    let path = global_config_path()
+        .ok_or_else(|| anyhow::anyhow!("could not determine global config directory"))?;
+
+    let content = fs::read_to_string(&path)
+        .map_err(|e| anyhow::anyhow!("failed to read global config: {e}"))?;
+
+    let mut val: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| anyhow::anyhow!("failed to parse global config JSON: {e}"))?;
+
+    if let Some(obj) = val.as_object_mut() {
+        f(obj);
+    } else {
+        let mut obj = serde_json::Map::new();
+        f(&mut obj);
+        val = serde_json::Value::Object(obj);
+    }
+
+    let updated = serde_json::to_string_pretty(&val)
+        .map_err(|e| anyhow::anyhow!("failed to serialize updated config: {e}"))?;
+
+    fs::write(&path, updated).map_err(|e| anyhow::anyhow!("failed to write global config: {e}"))?;
+
+    Ok(())
+}
+
+pub fn config_show() -> anyhow::Result<()> {
+    let merged_json = serde_json::json!({
+        "denied_commands": CONFIG.denied_commands,
+        "dlp": {
+            "custom_patterns": CONFIG.custom_dlp_patterns
+        }
+    });
+    println!("{}", serde_json::to_string_pretty(&merged_json)?);
+    Ok(())
+}
+
+pub fn config_deny_add(pattern: &str) -> anyhow::Result<()> {
+    modify_config(|obj| {
+        let denied = obj
+            .entry("denied_commands")
+            .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+        if let Some(arr) = denied.as_array_mut() {
+            let item = serde_json::Value::String(pattern.to_string());
+            if !arr.contains(&item) {
+                arr.push(item);
+            }
+        }
+    })
+}
+
+pub fn config_dlp_add(pattern: &str) -> anyhow::Result<()> {
+    modify_config(|obj| {
+        let dlp = obj
+            .entry("dlp")
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        if let Some(dlp_obj) = dlp.as_object_mut() {
+            let custom_patterns = dlp_obj
+                .entry("custom_patterns")
+                .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+            if let Some(arr) = custom_patterns.as_array_mut() {
+                let item = serde_json::Value::String(pattern.to_string());
+                if !arr.contains(&item) {
+                    arr.push(item);
+                }
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +192,60 @@ mod tests {
         config.merge_from_str(json).unwrap();
         assert_eq!(config.denied_commands.len(), 1);
         assert_eq!(config.custom_dlp_patterns.len(), 0);
+    }
+
+    #[test]
+    fn test_modify_config() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("rtk_config_modify_test_{}", rand_suffix()));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        // Temporarily override HOME and USERPROFILE env vars
+        let original_home = std::env::var_os("HOME");
+        let original_userprofile = std::env::var_os("USERPROFILE");
+        std::env::set_var("HOME", &temp_dir);
+        std::env::set_var("USERPROFILE", &temp_dir);
+
+        // Add to deny
+        config_deny_add("forbidden_cmd").unwrap();
+        // Add to dlp
+        config_dlp_add("PAT_[a-z]+").unwrap();
+
+        // Read file and check
+        let path = temp_dir.join(".config/rtk/config.json");
+        assert!(path.exists());
+        let content = fs::read_to_string(&path).unwrap();
+        let val: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        let denied = val["denied_commands"].as_array().unwrap();
+        assert!(denied.contains(&serde_json::Value::String("forbidden_cmd".to_string())));
+        assert!(denied.contains(&serde_json::Value::String("git reset --hard".to_string()))); // from default template
+
+        let custom_patterns = val["dlp"]["custom_patterns"].as_array().unwrap();
+        assert!(custom_patterns.contains(&serde_json::Value::String("PAT_[a-z]+".to_string())));
+
+        // Test config_show does not error
+        assert!(config_show().is_ok());
+
+        // Restore env vars
+        if let Some(h) = original_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
+        }
+        if let Some(up) = original_userprofile {
+            std::env::set_var("USERPROFILE", up);
+        } else {
+            std::env::remove_var("USERPROFILE");
+        }
+
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    fn rand_suffix() -> u32 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
     }
 }
