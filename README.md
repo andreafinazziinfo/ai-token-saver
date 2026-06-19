@@ -116,7 +116,16 @@ Add this to your `settings.json` (`~/.claude/settings.json` or `%USERPROFILE%\.g
 **For Terminals (Cursor, Aider, Bash/Zsh)**
 If you didn't use the auto-installer, add these aliases to your `~/.bashrc` or `~/.zshrc`:
 ```bash
-alias git="rtk git"; alias cargo="rtk cargo"; alias pytest="rtk pytest"; alias ls="rtk ls"; alias npm="rtk npm"
+alias git="rtk git"
+alias cargo="rtk cargo"
+alias pytest="rtk pytest"
+alias ls="rtk ls"
+alias npm="rtk npm"
+alias yarn="rtk yarn"
+alias pnpm="rtk pnpm"
+alias dotnet="rtk dotnet"
+alias composer="rtk composer"
+alias terraform="rtk terraform"
 ```
 </details>
 
@@ -245,11 +254,13 @@ graph TD
 > This section is specifically written for AI Coding Assistants to read and follow. If you are an AI agent, you MUST follow these guidelines.
 
 1. **Intercepted Commands**: Running standard tools (e.g., `pytest`, `cargo test`) yields filtered outputs. If a log is truncated, a cache note appears. **DO NOT re-run the command** to view failures; instead, run `rtk show-log <id>` to retrieve the raw database record.
-2. **Context Packaging**: DO NOT execute `cat` on many files. Use `rtk pack . --strip` to read directories. Pass `--limit <max_tokens>` to prevent overflows.
+2. **Context Packaging**: DO NOT execute `cat` on many files. Use `rtk pack . --strip` to read directories. Pass `--limit <max_tokens>` to prevent overflows. Use `--skeleton` to collapse function bodies into API signatures.
 3. **Long-Term State Memory**: Use `rtk memory set/get` to save project-specific settings (like open ports, DB URLs, architecture decisions) across chat sessions. Use `rtk memory search` for semantic retrieval.
 4. **Hidden Chain-of-Thought**: When solving complex logic, **DO NOT write long reasoning in the chat**. Pipe it to `rtk think` (e.g., `cat << 'EOF' | rtk think`) to save output tokens, and only print a brief summary to the user.
 5. **Stale Context Rule**: If you modify the project's architecture, you MUST proactively overwrite old rules using `rtk memory set <key> <val>` to prevent stale RAG context hallucinations.
-6. **Behavioral Rules**: RTK enforces *Ponytail* and *Caveman* styles. Implement the minimal amount of code possible. **DO NOT write boilerplate, unrequested features, or restructure folders.** Keep diffs extremely narrow.
+6. **DLP Awareness**: RTK automatically redacts API keys, JWT tokens, PEM private keys, and database credentials from all outputs. If you see `[REDACTED_API_KEY]` or `[REDACTED_SECRET]`, do NOT attempt to reconstruct or guess the original value.
+7. **Guardrails**: RTK blocks dangerous commands like `rm -rf /`, `git push --force`, `git reset --hard`. If your command is denied, respect the guardrail and use a safer alternative.
+8. **Behavioral Rules**: RTK enforces *Ponytail* and *Caveman* styles. Implement the minimal amount of code possible. **DO NOT write boilerplate, unrequested features, or restructure folders.** Keep diffs extremely narrow.
 
 ---
 
