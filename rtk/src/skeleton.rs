@@ -1,10 +1,111 @@
 pub fn skeletonize(content: &str, extension: &str) -> String {
+    // Try AST-based skeletonization first
+    if let Some(skel) = skeletonize_ast(content, extension) {
+        return skel;
+    }
+
+    // Fallbacks
     match extension.to_lowercase().as_str() {
         "rs" | "go" | "java" | "c" | "cpp" | "cc" | "cxx" | "h" | "hpp" | "kt" => skeletonize_braces(content),
         "py" => skeletonize_indentation(content),
         "js" | "ts" | "jsx" | "tsx" => skeletonize_braces(content),
         _ => content.to_string(), // Fallback: don't skeletonize unsupported files
     }
+}
+
+fn skeletonize_ast(content: &str, extension: &str) -> Option<String> {
+    use tree_sitter::Parser;
+
+    let mut parser = Parser::new();
+    let language = match extension.to_lowercase().as_str() {
+        "rs" => tree_sitter_rust::language(),
+        "py" => tree_sitter_python::language(),
+        "js" | "jsx" => tree_sitter_javascript::language(),
+        "ts" => tree_sitter_typescript::language_typescript(),
+        "tsx" => tree_sitter_typescript::language_tsx(),
+        "go" => tree_sitter_go::language(),
+        "java" => tree_sitter_java::language(),
+        _ => return None,
+    };
+    
+    parser.set_language(&language.into()).ok()?;
+    let tree = parser.parse(content, None)?;
+    let root = tree.root_node();
+
+    // To avoid complex AST queries, we do a simple regex-like approach on the AST:
+    // We collect ranges of all `block` or `statement_block` nodes that are children of function-like nodes.
+    let mut ranges_to_collapse = Vec::new();
+    
+    let mut cursor = root.walk();
+    let mut reached_root = false;
+    
+    while !reached_root {
+        let node = cursor.node();
+        let kind = node.kind();
+        
+        // Typical function block nodes across languages
+        if kind == "block" || kind == "statement_block" {
+            if let Some(parent) = node.parent() {
+                let p_kind = parent.kind();
+                if p_kind.contains("function") || p_kind.contains("method") || p_kind.contains("arrow") || p_kind == "func_literal" {
+                    // Python uses `block` for everything. Let's just drop it if it's inside a function.
+                    // Keep the start and end tokens (e.g. `{` and `}`)
+                    ranges_to_collapse.push((node.start_byte(), node.end_byte(), kind));
+                }
+            }
+        }
+
+        if cursor.goto_first_child() {
+            continue;
+        }
+        
+        if cursor.goto_next_sibling() {
+            continue;
+        }
+        
+        loop {
+            if !cursor.goto_parent() {
+                reached_root = true;
+                break;
+            }
+            if cursor.goto_next_sibling() {
+                break;
+            }
+        }
+    }
+    
+    if ranges_to_collapse.is_empty() {
+        return None; // Fallback to manual if AST found nothing
+    }
+
+    // Sort by start byte, filter overlapping
+    ranges_to_collapse.sort_by_key(|r| r.0);
+    
+    let mut out = String::with_capacity(content.len());
+    let mut last_idx = 0;
+    
+    for (start, end, kind) in ranges_to_collapse {
+        if start < last_idx { continue; }
+        
+        out.push_str(&content[last_idx..start]);
+        
+        if kind == "block" {
+            // Check if it's brace-based or indentation-based (Python)
+            let is_python = extension == "py";
+            if is_python {
+                out.push_str("    pass  # collapsed");
+            } else {
+                out.push_str("{ /* collapsed */ }");
+            }
+        } else {
+            out.push_str("{ /* collapsed */ }");
+        }
+        
+        last_idx = end;
+    }
+    
+    out.push_str(&content[last_idx..]);
+    Some(out)
 }
 
 fn skeletonize_braces(content: &str) -> String {

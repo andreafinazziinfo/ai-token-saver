@@ -23,6 +23,7 @@ mod skeleton;
 mod status;
 mod sync_rules;
 mod tracking;
+mod dotnet;
 
 #[derive(Parser)]
 #[command(
@@ -55,6 +56,31 @@ enum Commands {
     },
     /// Run an npm subcommand with filtered output
     Npm {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    /// Run a yarn subcommand with filtered output
+    Yarn {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    /// Run a pnpm subcommand with filtered output
+    Pnpm {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    /// Run a composer subcommand with filtered output
+    Composer {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    /// Run a terraform subcommand with filtered output
+    Terraform {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    /// Run a dotnet subcommand with filtered output
+    Dotnet {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
@@ -171,6 +197,8 @@ enum MemoryCommands {
     Set { key: String, value: String },
     /// Retrieve a project memory value by key
     Get { key: String },
+    /// Search memory values semantically (FTS5)
+    Search { query: String },
     /// List all memory key-value pairs for the current project
     List,
 }
@@ -199,10 +227,15 @@ fn main() {
                 _ => passthrough("cargo", &args),
             }
         }
-        Commands::Npm { args } => {
-            // NPM output is notoriously long, let's distill it by default
-            run_distilled("npm", &args)
-        }
+        Commands::Npm { args } => run_distilled("npm", &args),
+        Commands::Yarn { args } => run_distilled("yarn", &args),
+        Commands::Pnpm { args } => run_distilled("pnpm", &args),
+        Commands::Composer { args } => run_distilled("composer", &args),
+        Commands::Terraform { args } => run_distilled("terraform", &args),
+        Commands::Dotnet { args } => {
+            dotnet::execute_dotnet(&args);
+            Ok(())
+        },
         Commands::Pytest { args } => run_filtered("pytest", &args, pytest_filter::filter),
         Commands::Ls { args } => run_filtered("ls", &args, ls_filter::filter),
         Commands::Gradle { args } => run_filtered(&get_gradle_bin(), &args, gradle::filter),
@@ -237,6 +270,19 @@ fn main() {
             }),
             MemoryCommands::Get { key } => tracking::memory_get(&key).map(|val| {
                 print!("{val}");
+            }),
+            MemoryCommands::Search { query } => tracking::memory_search(&query).map(|results| {
+                if results.is_empty() {
+                    println!("No semantic matches found for: '{}'", query);
+                } else {
+                    println!("========================================");
+                    println!("          SEMANTIC SEARCH RESULTS       ");
+                    println!("========================================");
+                    for (k, v) in results {
+                        println!("- {k}:\n  {v}\n");
+                    }
+                    println!("========================================");
+                }
             }),
             MemoryCommands::List => tracking::memory_list().map(|list| {
                 if list.is_empty() {
@@ -381,6 +427,16 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
             }
         }
         Err(e) => eprintln!("rtk: tracking warning: {e}"),
+    }
+
+    if let Some(warning) = tracking::check_autonomy(&filtered_db) {
+        if !out_print.trim().is_empty() {
+            out_print.push_str(warning);
+            out_print.push('\n');
+        } else if !err_print.trim().is_empty() {
+            err_print.push_str(warning);
+            err_print.push('\n');
+        }
     }
 
     if !out_print.is_empty() { print!("{out_print}"); }

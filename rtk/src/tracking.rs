@@ -44,7 +44,26 @@ fn open_db() -> Result<Connection> {
             val              TEXT    NOT NULL,
             project_path     TEXT    NOT NULL,
             PRIMARY KEY (key, project_path)
-        );",
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS project_memory_fts USING fts5(
+            key, 
+            val, 
+            project_path UNINDEXED, 
+            content='project_memory', 
+            content_rowid='rowid'
+        );
+        
+        -- Triggers to keep FTS index in sync
+        CREATE TRIGGER IF NOT EXISTS project_memory_ai AFTER INSERT ON project_memory BEGIN
+          INSERT INTO project_memory_fts(rowid, key, val, project_path) VALUES (new.rowid, new.key, new.val, new.project_path);
+        END;
+        CREATE TRIGGER IF NOT EXISTS project_memory_ad AFTER DELETE ON project_memory BEGIN
+          INSERT INTO project_memory_fts(project_memory_fts, rowid, key, val, project_path) VALUES('delete', old.rowid, old.key, old.val, old.project_path);
+        END;
+        CREATE TRIGGER IF NOT EXISTS project_memory_au AFTER UPDATE ON project_memory BEGIN
+          INSERT INTO project_memory_fts(project_memory_fts, rowid, key, val, project_path) VALUES('delete', old.rowid, old.key, old.val, old.project_path);
+          INSERT INTO project_memory_fts(rowid, key, val, project_path) VALUES (new.rowid, new.key, new.val, new.project_path);
+        END;",
     )
     .context("create DB tables")?;
 
@@ -56,8 +75,17 @@ fn open_db() -> Result<Connection> {
 
 // Approximate token count: 1 token ~= 4 characters (standard LLM heuristic)
 // Matches the status-line percentage math. Not exact model tokens.
-fn count_tokens(text: &str) -> i64 {
+pub fn count_tokens(text: &str) -> i64 {
     (text.len().div_ceil(4)) as i64
+}
+
+/// Returns a warning string if the output is dangerously large.
+pub fn check_autonomy(text: &str) -> Option<&'static str> {
+    if count_tokens(text) > 3000 {
+        Some("\n[RTK AUTONOMY: Contesto saturo. L'output appena generato è enorme. Usa Profile MAX o sii molto sintetico nella prossima risposta per evitare di saturare la memoria.]")
+    } else {
+        None
+    }
 }
 
 /// Record one filtered execution. Returns the ID of the inserted row.
@@ -215,6 +243,39 @@ pub fn memory_list() -> Result<Vec<(String, String)>> {
     let rows = stmt.query_map(params![pwd], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
     })?;
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row?);
+    }
+    Ok(results)
+}
+
+/// Search project memory using FTS5 semantic full-text search.
+pub fn memory_search(query: &str) -> Result<Vec<(String, String)>> {
+    let conn = open_db()?;
+    let pwd = std::env::current_dir()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    
+    // FTS syntax: wrap words with asterisks for fuzzy prefix matching
+    let words: Vec<&str> = query.split_whitespace().collect();
+    let fts_query = if words.len() > 1 {
+        let mapped: Vec<String> = words.iter().map(|w| format!("{}*", w)).collect();
+        mapped.join(" OR ")
+    } else {
+        format!("{}*", query)
+    };
+
+    let mut stmt = conn.prepare(
+        "SELECT key, val FROM project_memory_fts 
+         WHERE project_path = ?1 AND project_memory_fts MATCH ?2 
+         ORDER BY rank LIMIT 5"
+    )?;
+    
+    let rows = stmt.query_map(params![pwd, fts_query], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    
     let mut results = Vec::new();
     for row in rows {
         results.push(row?);

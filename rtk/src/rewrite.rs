@@ -120,6 +120,22 @@ fn auto_rewrite(cmd: &str) -> Option<String> {
             "build" | "run" => Some(cmd.replacen("docker", "rtk docker", 1)),
             _ => None,
         },
+        "dotnet" if words.len() >= 2 => match words[1] {
+            "build" | "run" | "test" => Some(cmd.replacen("dotnet", "rtk dotnet", 1)),
+            _ => None,
+        },
+        "yarn" | "pnpm" if words.len() >= 2 => match words[1] {
+            "install" => Some(cmd.replacen(words[0], &format!("rtk {}", words[0]), 1)),
+            _ => None,
+        },
+        "composer" if words.len() >= 2 => match words[1] {
+            "install" | "update" => Some(cmd.replacen("composer", "rtk composer", 1)),
+            _ => None,
+        },
+        "terraform" if words.len() >= 2 => match words[1] {
+            "plan" | "apply" => Some(cmd.replacen("terraform", "rtk terraform", 1)),
+            _ => None,
+        },
         "pytest" => Some(cmd.replacen("pytest", "rtk pytest", 1)),
         "ls" => Some(cmd.replacen("ls", "rtk ls", 1)),
         "gradle" | "./gradlew" | "gradlew" => Some(cmd.replacen(words[0], "rtk gradle", 1)),
