@@ -1,0 +1,37 @@
+   Compiling rtk v0.1.0 (/path/to/rtk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.94s
+     Running unittests src/main.rs (target/debug/deps/rtk-9a7fff56eeb1e7dc)
+
+running 17 tests
+test git_diff::tests::test_empty_input_fallback ... ok
+test git_diff::tests::test_fallback_on_empty_output ... ok
+test git_diff::tests::test_hunk_collapse ... ok
+test git_diff::tests::test_long_line_truncated ... ok
+test git_diff::tests::test_char_savings ... ok
+test git_diff::tests::test_no_context_lines ... ok
+test git_diff::tests::test_small_hunk_not_collapsed ... ok
+test rewrite::tests::test_deny_force_push ... ok
+test rewrite::tests::test_cargo_test_rewrite ... ok
+test rewrite::tests::test_git_diff_passthrough_args ... ok
+test git_diff::tests::test_token_savings ... ok
+test rewrite::tests::test_git_status_rewrite ... ok
+test rewrite::tests::test_git_push_is_ask_not_auto ... ok
+test rewrite::tests::test_no_match_returns_none ... ok
+test tracking::tests::count_tokens_basic ... ok
+test tracking::tests::record_writes_row ... ok
+test git_diff::tests::test_snapshot ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/integration_test.rs (target/debug/deps/integration_test-3ed94ddd80237427)
+
+running 6 tests
+test git_status_token_savings_gte_60pct ... ignored
+test rewrite_force_push_exit_2 ... ignored
+test rewrite_git_push_exit_3 ... ignored
+test rewrite_git_status_exit_0 ... ignored
+test rewrite_unknown_cmd_exit_1 ... ignored
+test rtk_binary_is_in_path ... ignored
+
+test result: ok. 0 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -730,38 +730,77 @@ def mock_think_input() -> str:
 # BENCHMARK RUNNER
 # ============================================================================
 
+# BENCHMARK RUNNER
+# ============================================================================
+
+import math
+
+def calculate_stats(data: list) -> tuple:
+    """Return (mean, min, max, stddev)."""
+    if not data:
+        return 0.0, 0.0, 0.0, 0.0
+    mean = sum(data) / len(data)
+    var = sum((x - mean) ** 2 for x in data) / len(data)
+    stddev = math.sqrt(var)
+    return mean, min(data), max(data), stddev
+
 class BenchmarkResult:
     def __init__(self, name: str, phase: str, category: str,
-                 std_tokens: int, rtk_tokens: int, direction: str = "input"):
+                 std_runs, rtk_runs, direction: str = "input"):
+        if isinstance(std_runs, (int, float)):
+            std_runs = [std_runs]
+        if isinstance(rtk_runs, (int, float)):
+            rtk_runs = [rtk_runs]
         self.name = name
         self.phase = phase
         self.category = category
-        self.std_tokens = std_tokens
-        self.rtk_tokens = rtk_tokens
-        self.tokens_saved = std_tokens - rtk_tokens
         self.direction = direction
-        if std_tokens > 0:
-            self.savings_pct = (self.tokens_saved / std_tokens) * 100
-        else:
-            self.savings_pct = 0.0
+        
+        # Calculate stats for standard tokens
+        self.std_mean, self.std_min, self.std_max, self.std_stddev = calculate_stats(std_runs)
+        
+        # Calculate stats for rtk tokens
+        self.rtk_mean, self.rtk_min, self.rtk_max, self.rtk_stddev = calculate_stats(rtk_runs)
+        
+        # Map std_tokens and rtk_tokens to their averages to preserve compatibility
+        self.std_tokens = int(self.std_mean)
+        self.rtk_tokens = int(self.rtk_mean)
+        self.tokens_saved = self.std_tokens - self.rtk_tokens
+        
+        # Calculate savings percentage per run to get accurate stddev of percentage
+        pct_runs = []
+        for s, r in zip(std_runs, rtk_runs):
+            if s > 0:
+                pct_runs.append(((s - r) / s) * 100)
+            else:
+                pct_runs.append(0.0)
+        
+        self.savings_pct, self.pct_min, self.pct_max, self.pct_stddev = calculate_stats(pct_runs)
 
 def benchmark_simulated(name: str, phase: str, category: str,
                         raw_output: str, filtered_output: str,
                         direction: str = "input") -> BenchmarkResult:
-    """Benchmark using simulated mock data."""
-    std_tokens = count_tokens(raw_output)
-    rtk_tokens = count_tokens(filtered_output)
-    return BenchmarkResult(name, phase, category, std_tokens, rtk_tokens, direction)
+    """Benchmark using simulated mock data (N=10 runs)."""
+    std_runs = []
+    rtk_runs = []
+    # Tokenizing is deterministic, but we repeat 10 times for consistency
+    for _ in range(10):
+        std_runs.append(count_tokens(raw_output))
+        rtk_runs.append(count_tokens(filtered_output))
+    return BenchmarkResult(name, phase, category, std_runs, rtk_runs, direction)
 
 def benchmark_real(name: str, phase: str, category: str,
                    standard_cmd: str, rtk_command: str,
                    direction: str = "input") -> BenchmarkResult:
-    """Benchmark using real CLI commands."""
-    std_out = run_cmd(standard_cmd, cwd=str(PROJECT_ROOT))
-    rtk_out = rtk_cmd(rtk_command)
-    std_tokens = count_tokens(std_out)
-    rtk_tokens = count_tokens(rtk_out)
-    return BenchmarkResult(name, phase, category, std_tokens, rtk_tokens, direction)
+    """Benchmark using real CLI commands (N=10 runs)."""
+    std_runs = []
+    rtk_runs = []
+    for _ in range(10):
+        std_out = run_cmd(standard_cmd, cwd=str(PROJECT_ROOT))
+        rtk_out = rtk_cmd(rtk_command)
+        std_runs.append(count_tokens(std_out))
+        rtk_runs.append(count_tokens(rtk_out))
+    return BenchmarkResult(name, phase, category, std_runs, rtk_runs, direction)
 
 def run_all_benchmarks() -> list:
     """Execute every benchmark and return results."""
@@ -952,6 +991,15 @@ def generate_report(results: list):
     for phase, data in phase_data.items():
         pct = ((data["std"] - data["rtk"]) / data["std"] * 100) if data["std"] > 0 else 0
         print(f"{phase:<20} {data['count']:>6} {data['std']:>12,} {data['rtk']:>12,} {pct:>11.1f}%")
+
+    # Statistical variability details
+    print("\n" + "=" * 90)
+    print("📈 STATISTICAL VARIABILITY DETAILS (N=10 Runs)")
+    print("=" * 90)
+    print(f"\n{'Feature':<35} {'Std Avg':>10} {'RTK Avg':>10} {'RTK Min':>8} {'RTK Max':>8} {'RTK StdDev':>10} {'Savings StdDev':>15}")
+    print("-" * 105)
+    for r in results:
+        print(f"{r.name:<35} {r.std_tokens:>10,} {r.rtk_tokens:>10,} {r.rtk_min:>8.0f} {r.rtk_max:>8.0f} ±{r.rtk_stddev:>8.1f} ±{r.pct_stddev:>13.2f}%")
 
     # Cost analysis
     print("\n" + "=" * 70)

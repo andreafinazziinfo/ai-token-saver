@@ -1,0 +1,11 @@
+[package]
+name = "rtk-filters"
+version = "0.1.0"
+edition = "2021"
+description = "RTK — pre-built parser filters for CLI command outputs"
+
+[dependencies]
+regex = "1"
+
+[dev-dependencies]
+insta = "1"

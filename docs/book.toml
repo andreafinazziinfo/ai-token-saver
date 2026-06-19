@@ -1,0 +1,12 @@
+[book]
+authors = ["Andrea Finazzi"]
+language = "en"
+multilingual = false
+src = "src"
+title = "RTK — Runtime Token Toolkit Documentation"
+
+[preprocessor.links]
+
+[output.html]
+git-repository-url = "https://github.com/andreafinazzi/rtk"
+preferred-dark-theme = "navy"

@@ -193,13 +193,14 @@ alias terraform="rtk terraform"
 
 *   **Input Wrappers (15 tools)**: `rtk git status/diff/log`, `rtk cargo test/build/check`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk yarn`, `rtk pnpm`, `rtk composer`, `rtk terraform`, `rtk dotnet`, `rtk gradle`, `rtk go_test`, `rtk ls`.
 *   **Context Virtualization**: `rtk show-log <id>` (reads full uncompressed log), `rtk gc` (cleans old DB logs and reclaims space).
-*   **Directory Packing**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
+*   **Directory Packaging**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
 *   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>`.
 *   **Hidden Chain-of-Thought**: `rtk think` (reads from stdin to store reasoning in the FTS5 DB out of the chat context).
 *   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
 *   **Command Rewriting**: `rtk rewrite "<command>"` (PreToolUse hook engine: auto-allows, denies, or asks for dangerous commands).
 *   **Configuration**: `rtk config show`, `rtk config deny add "<pattern>"`, `rtk config dlp add "<regex>"`.
-*   **Telemetry & Status**: `rtk status`, `rtk stats`, `rtk dashboard`.
+*   **Telemetry, Stats & Audit**: `rtk status`, `rtk stats`, `rtk dashboard`, `rtk audit` (aggregates savings metrics, prints summary and writes `rtk-audit.md`).
+*   **Dynamic Plugins**: `rtk plugin -- <command>` (runs a command using custom rules from `plugins.toml`).
 
 <details>
 <summary><b>Personal Configuration & Guardrails (Click to expand)</b></summary>
@@ -208,6 +209,19 @@ RTK uses `~/.config/rtk/config.json` and local `.rtk.json`.
 *   **Show config**: `rtk config show`
 *   **Add Guardrail**: `rtk config deny add "git push.*--force"` (Prevents AI from running this).
 *   **Add DLP Regex**: `rtk config dlp add "MY_API_KEY_[0-9a-zA-Z]{32}"` (Redacts custom secrets).
+</details>
+
+<details>
+<summary><b>Dynamic Plugins Configuration (plugins.toml) (Click to expand)</b></summary>
+
+To wrap and filter tools not natively supported by RTK core, create a global `~/.config/rtk/plugins.toml` or a local `./plugins.toml`:
+```toml
+[[plugin]]
+bin = "ruff"
+drop_prefixes = ["ℹ️", "DEBUG", "Analyzing"]
+keep_prefixes = ["Error:", "Found"]
+```
+Then run the tool using `rtk plugin -- ruff check .` (or alias `ruff` to `rtk plugin -- ruff`).
 </details>
 
 <details>

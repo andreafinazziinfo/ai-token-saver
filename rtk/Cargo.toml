@@ -1,25 +1,8 @@
-[package]
-name = "rtk"
-version = "0.1.0"
-edition = "2021"
-description = "RTK — token-efficient CLI wrapper for Claude Code"
-
-[[bin]]
-name = "rtk"
-path = "src/main.rs"
-
-[dependencies]
-anyhow = "1"
-clap = { version = "4", features = ["derive"] }
-regex = "1"
-rusqlite = { version = "0.31", features = ["bundled"] }
-serde_json = "1"
-tree-sitter = "0.22"
-tree-sitter-rust = "0.21"
-tree-sitter-python = "0.21"
-tree-sitter-javascript = "0.21"
-tree-sitter-typescript = "0.21"
-tree-sitter-go = "0.21"
-tree-sitter-java = "0.21"
-[dev-dependencies]
-insta = "1"
+[workspace]
+resolver = "2"
+members = [
+    "rtk-filters",
+    "rtk-memory",
+    "rtk-pack",
+    "rtk-cli",
+]
