@@ -23,46 +23,6 @@
   <a href="https://github.com/andreafinazziinfo/ai-token-saver/network/members"><img src="https://img.shields.io/github/forks/andreafinazziinfo/ai-token-saver.svg" alt="GitHub forks"/></a>
 </p>
 
-```text
-                  ___ _____ _  __  _____   _  __
-                 / _ \_   _| |/ / |_   _| | |/ /
-                | | | || | | ' /    | |   | ' / 
-                | |_| || | | . \    | |   | . \ 
-                 \___/ |_| |_|\_\   |_|   |_|\_\
-        
-     ⚡ THE THREE-PHASE CONTEXT ENGINE FOR AUTONOMOUS AGENTS ⚡
-
-  📥 PHASE 1: INPUT VIRTUALIZATION
-  ┌──────────────────────────────────────────────────────────────┐
-  │ [ Raw Terminal Command ] ──> Intercept & Rewrite Hook        │
-  │                                                              │
-  │    git status/diff/log ──┐                                   │
-  │    cargo build/test    ──┼──> [ RTK Filters ]                │
-  │    pytest, docker, npm ──┼──> Strips noise, compiler junk    │
-  │    dotnet, gradle, go  ──┼──> and package manager warnings   │
-  │    ls -laR, rtk pack   ──┘                                   │
-  └──────────────────────────────┬───────────────────────────────┘
-                                 │
-                                 ├──> [ Signal to Chat ] (Avg -82.5% Tokens)
-                                 │
-                                 └──> [ Raw Cache Log ] ──> [( SQLite FTS5 )]
-                                                            │  • Key-Value Store     │
-  🧠 PHASE 2: MEMORY & REASONING                            │  • Semantic search     │
-  ┌─────────────────────────────────────────────────────────┼──> • Raw command cache │
-  │ [ cat reasoning | rtk think ] ──> Hidden Thought Loop ──┘                        │
-  │ [ API Keys / Secrets / JWT ]  ──> dlp::redact (100% Secure)                      │
-  └──────────────────────────────────────────────────────────────────────────────────┘
-                                 │
-  📤 PHASE 3: OUTPUT AUTONOMY    ▼
-  ┌──────────────────────────────────────────────────────────────────────────────────┐
-  │ [ Output Persona Rules ] ──> Inject System Prompts                               │
-  │                                                                                  │
-  │    🗣️ Caveman Persona    ──> Cuts AI response length by ~75%                     │
-  │    🧑‍💻 Ponytail Persona   ──> Prevents over-engineered, boilerplate code (-54%)  │
-  │    🚀 Budget Guardrails  ──> Auto-warns when response exceeds 3k tokens         │
-  └──────────────────────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 **AI Token Saver (RTK)** is a high-performance, Rust-based CLI designed to aggressively optimize how Autonomous Agents (like Claude Code, Cursor, Windsurf, Antigravity) interact with your project.
@@ -72,6 +32,50 @@ Modern LLMs are incredibly smart, but they suffer from **Context Window Exhausti
 
 ### 💡 The Solution
 RTK solves this by intercepting commands, stripping the noise, caching the raw data in a local FTS5 vector database, and returning only the pure semantic signal. By enforcing YAGNI developer behaviors and compressing outputs, the toolkit saves an **average of 82.5% of tokens** across 17 verified scenarios (ranging from 41% to 96%).
+
+### ⚙️ Three-Phase Efficacy Pipeline
+```mermaid
+graph TD
+    %% Define color classes
+    classDef phase1 fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef phase2 fill:#581c87,stroke:#a855f7,stroke-width:2px,color:#fff;
+    classDef phase3 fill:#065f46,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef database fill:#0f172a,stroke:#64748b,stroke-width:2px,color:#cbd5e1;
+    classDef raw fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fca5a5;
+
+    %% Nodes
+    subgraph P1["📥 PHASE 1: INPUT VIRTUALIZATION (Avg -82.6% Tokens)"]
+        RawCmds["⚠️ Noisy Commands<br/>(git, cargo, pytest, docker, npm...)"]:::raw
+        RTKEngine["⚙️ RTK Filter Engine"]:::phase1
+        DLP["🛡️ DLP Redactor<br/>(Scrubs keys/secrets)"]:::phase1
+        FilteredOut["✅ Pure Signal Output<br/>(To LLM Context)"]:::phase1
+    end
+
+    subgraph P2["🧠 PHASE 2: REASONING & MEMORY (-96.5% Tokens)"]
+        RTKThink["🤫 rtk think<br/>(Reasoning Stdin)"]:::phase2
+        FTS5["🗄️ SQLite FTS5 Database<br/>(Persistent Context Vault)"]:::database
+        RTKMemory["🧠 rtk memory set/get<br/>(Project State)"]:::phase2
+    end
+
+    subgraph P3["📤 PHASE 3: OUTPUT AUTONOMY (-54% to -75% Output)"]
+        SystemRules["📜 Auto-Injected Rules<br/>(.cursor/rules, .agents)"]:::phase3
+        Caveman["🗣️ Caveman Persona<br/>(Compressed responses)"]:::phase3
+        Ponytail["🧑‍💻 Ponytail Persona<br/>(YAGNI/Minimal code)"]:::phase3
+    end
+
+    %% Flows
+    RawCmds --> RTKEngine
+    RTKEngine --> DLP
+    DLP --> FilteredOut
+    RTKEngine -- "Cache Raw Log" --> FTS5
+    
+    RTKThink --> FTS5
+    RTKMemory <--> FTS5
+
+    SystemRules --> Caveman
+    SystemRules --> Ponytail
+    Caveman & Ponytail --> FilteredOut
+```
 
 ---
 
