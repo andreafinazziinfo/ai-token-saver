@@ -131,7 +131,7 @@ pub fn run_init(profile: &str) -> Result<()> {
     println!("==========================================================");
     println!("🎉 RTK AI Rules Bootstrapped Successfully!");
     println!("==========================================================");
-    
+
     if !aliases_installed {
         println!("To complete your setup:");
         println!("1. Activate transparent terminal filtering in Claude Code by adding");
@@ -144,7 +144,9 @@ pub fn run_init(profile: &str) -> Result<()> {
         println!("         \"hooks\": [");
         println!("           {{");
         println!("             \"type\": \"command\",");
-        println!("             \"command\": \"bash /path/to/ai-token-saver/hooks/rtk-rewrite.sh\",");
+        println!(
+            "             \"command\": \"bash /path/to/ai-token-saver/hooks/rtk-rewrite.sh\","
+        );
         println!("             \"timeout\": 5000");
         println!("           }}");
         println!("         ]]");
@@ -329,7 +331,7 @@ fn auto_install_aliases() -> Result<bool> {
     if let Some(h) = home {
         let mut installed = false;
         let shells = [".bashrc", ".zshrc", ".profile"];
-        
+
         for shell in shells {
             let path = h.join(shell);
             if path.exists() {

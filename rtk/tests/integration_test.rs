@@ -60,30 +60,31 @@ fn rewrite_git_push_exit_3() {
 #[test]
 fn e2e_ide_pipeline_flow() {
     // 1. Simulate Claude sending a command that the hook catches
-    let rewrite_out = rtk_bin()
-        .args(["rewrite", "cargo test"])
-        .output()
-        .unwrap();
-    
+    let rewrite_out = rtk_bin().args(["rewrite", "cargo test"]).output().unwrap();
+
     assert_eq!(rewrite_out.status.code(), Some(0));
-    let rewritten_cmd = String::from_utf8_lossy(&rewrite_out.stdout).trim().to_string();
+    let rewritten_cmd = String::from_utf8_lossy(&rewrite_out.stdout)
+        .trim()
+        .to_string();
     assert_eq!(rewritten_cmd, "rtk cargo test");
 
     // 2. Execute the proxied command
-    let run_out = rtk_bin()
-        .args(["cargo", "test"])
-        .output()
-        .unwrap();
+    let run_out = rtk_bin().args(["cargo", "test"]).output().unwrap();
 
     assert!(run_out.status.success() || run_out.status.code() == Some(101));
     let stdout_str = String::from_utf8_lossy(&run_out.stdout);
-    
+
     // 3. Verify output contains standard RTK wrappers or cargo output
-    assert!(stdout_str.contains("cargo") || stdout_str.contains("RTK") || stdout_str.contains("test"));
-    
+    assert!(
+        stdout_str.contains("cargo") || stdout_str.contains("RTK") || stdout_str.contains("test")
+    );
+
     // We can also verify that a local SQLite DB was hit, but since
     // tests run concurrently, checking .rtk dir requires creating a temp dir.
-    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
     let temp_dir = std::env::temp_dir().join(format!("rtk_e2e_{timestamp}"));
     fs::create_dir_all(&temp_dir).unwrap();
 
@@ -92,13 +93,13 @@ fn e2e_ide_pipeline_flow() {
         .args(["cargo", "test"])
         .output()
         .unwrap();
-    
+
     assert!(proxied_run.status.success());
-    
+
     // Verify that .rtk/logs.db or project_memory_fts.db was created
     // The DB logic usually writes to `.rtk/project_memory_fts.db` and `.rtk/logs.db`
     assert!(temp_dir.join(".rtk").exists());
-    
+
     fs::remove_dir_all(temp_dir).unwrap();
 }
 
