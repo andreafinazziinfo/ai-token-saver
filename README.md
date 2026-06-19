@@ -61,12 +61,12 @@ alias git="rtk git"; alias cargo="rtk cargo"; alias pytest="rtk pytest"; alias l
 
 ## 💻 Command Reference
 
-*   **Input Wrappers**: `rtk git status`, `rtk git diff`, `rtk cargo test`, `rtk pytest`, `rtk docker`, etc.
-*   **Context Virtualization**: `rtk show-log <id>` (reads full uncompressed log), `rtk gc` (cleans DB).
+*   **Input Wrappers**: `rtk git status`, `rtk git diff`, `rtk git log`, `rtk cargo test`, `rtk cargo build`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk gradle`, `rtk go test`, `rtk ls`.
+*   **Context Virtualization**: `rtk show-log <id>` (reads full uncompressed log), `rtk gc` (cleans old DB logs and reclaims space).
 *   **Directory Packing**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
 *   **Project Memory**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`.
-*   **Profiles & Status**: `rtk init --profile <low|medium|high|max>`, `rtk status`.
-*   **Telemetry**: `rtk stats`, `rtk dashboard`.
+*   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
+*   **Telemetry & Status**: `rtk status`, `rtk stats`, `rtk dashboard`.
 
 <details>
 <summary><b>Personal Configuration & Guardrails (Click to expand)</b></summary>
@@ -102,6 +102,35 @@ sequenceDiagram
         RTK-->>Hook: Exit 1
         Hook->>Cmd: Run original command
     end
+```
+
+**Context Directory Packaging (`rtk pack`)**
+```mermaid
+graph TD
+    Start([Run: rtk pack path --strip --skeleton]) --> Canonical[Canonicalize Root Path]
+    Canonical --> LoadIgnores[Load Ignore Patterns<br>Defaults + .gitignore + .rtkignore]
+    LoadIgnores --> LoadConfig[Load config.json / .rtk.json<br>For DLP patterns]
+    LoadConfig --> StartRecurse[Recursively Traverse Directory]
+    StartRecurse --> NextEntry{Get Next Entry}
+    
+    NextEntry -- No More Entries --> End([Output XML Context Block])
+    NextEntry -- Has Entry --> CheckIgnore{Matches Ignore Pattern?}
+    CheckIgnore -- Yes --> NextEntry
+    CheckIgnore -- No --> IsDirectory{Is Directory?}
+    
+    IsDirectory -- Yes --> RecurseDir[Recurse into Directory] --> NextEntry
+    IsDirectory -- No --> IsBinary{Is Binary?}
+    IsBinary -- Yes --> NextEntry
+    
+    IsBinary -- No --> ReadFile[Read Content] --> CheckStrip{--strip?}
+    CheckStrip -- Yes --> Minify[Minify: Strip comments/empty lines] --> CheckSkeleton
+    CheckStrip -- No --> CheckSkeleton{--skeleton?}
+    
+    CheckSkeleton -- Yes --> Skeletonize[Collapse function bodies] --> DLPRedact
+    CheckSkeleton -- No --> DLPRedact[Apply DLP Redact]
+    
+    DLPRedact --> WrapXML["Wrap in &lt;file path='...'&gt;&lt;![CDATA[...]]&gt;&lt;/file&gt;"]
+    WrapXML --> NextEntry
 ```
 </details>
 
