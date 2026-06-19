@@ -55,10 +55,12 @@ If you add or update rule files in `.cursor/rules/` or `.agents/rules/` at the w
 rtk sync-rules
 ```
 
-## 5. Data Loss Prevention (DLP) Guard
+## 5. Data Loss Prevention (DLP) Guard & Guardrails
 The toolkit automatically scrubs credentials, private keys, JWTs, and high-entropy secrets from command outputs and pack buffers before returning them to you.
 - **Auto-Redaction**: Redacted fields appear as `[REDACTED_API_KEY]`, `[REDACTED_JWT]`, `[REDACTED_SECRET]`, or `[REDACTED_CREDENTIALS]`.
 - **Zero Leakage**: Ensure you do not try to bypass this guard or log credentials, as they are securely filtered at the proxy layer.
+- **Custom Patterns**: You can add your own custom regex scanner patterns in `~/.config/rtk/config.json` or `.rtk.json` inside the `dlp.custom_patterns` list to redact project-specific keys.
+- **Personal Guardrails**: Configure `denied_commands` inside `~/.config/rtk/config.json` or `.rtk.json` to automatically reject destructive/dangerous commands (ex: `git push.*--force`) with exit code `2`, avoiding accidental command executions on your terminal by AI agents.
 
 ## 6. Local Savings Dashboard (`rtk dashboard`)
 If you or the user want to view the savings dashboard:

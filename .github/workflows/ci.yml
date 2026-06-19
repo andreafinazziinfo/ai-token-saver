@@ -42,3 +42,9 @@ jobs:
 
     - name: Run Unit Tests
       run: cargo test --manifest-path rtk/Cargo.toml
+
+    - name: Security Audit
+      uses: rustsec/audit-check@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        path: rtk

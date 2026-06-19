@@ -39,6 +39,10 @@ pub fn run(raw: &str) -> Result<()> {
 }
 
 fn is_denied(cmd: &str) -> bool {
+    is_denied_internal(cmd, &crate::config::CONFIG.denied_commands)
+}
+
+fn is_denied_internal(cmd: &str, custom_denied: &[String]) -> bool {
     lazy_static! {
         static ref DENY: Vec<Regex> = vec![
             Regex::new(r"^rm\s+-rf?\s+/").unwrap(),
@@ -46,7 +50,21 @@ fn is_denied(cmd: &str) -> bool {
             Regex::new(r"^git\s+reset\s+--hard").unwrap(),
         ];
     }
-    DENY.iter().any(|re| re.is_match(cmd))
+    if DENY.iter().any(|re| re.is_match(cmd)) {
+        return true;
+    }
+
+    for pattern in custom_denied {
+        if let Ok(re) = Regex::new(pattern) {
+            if re.is_match(cmd) {
+                return true;
+            }
+        } else if cmd.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn is_chained(cmd: &str) -> bool {
@@ -240,5 +258,19 @@ mod tests {
         assert_eq!(auto_rewrite("ls | grep foo"), None);
         assert_eq!(auto_rewrite("pytest || exit 1"), None);
         assert_eq!(ask_rewrite("git push && echo ok"), None);
+    }
+
+    #[test]
+    fn test_custom_denied_commands() {
+        let custom_denied = vec![
+            "git push.*--force-with-lease".to_string(),
+            "secret-utility".to_string(),
+        ];
+        assert!(is_denied_internal(
+            "git push origin main --force-with-lease",
+            &custom_denied
+        ));
+        assert!(is_denied_internal("secret-utility run", &custom_denied));
+        assert!(!is_denied_internal("git push origin main", &custom_denied));
     }
 }

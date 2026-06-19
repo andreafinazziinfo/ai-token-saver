@@ -180,6 +180,41 @@ rtk dashboard
 
 ---
 
+## 🔒 Personal Configuration & Guardrails
+
+RTK supports local-first configuration files that allow developers to set personal guardrails and customized DLP rules. 
+
+### 1. Configuration File Locations
+RTK reads and merges configuration parameters from two cascading locations:
+1. **User Global Config**: `~/.config/rtk/config.json` (created automatically during `rtk init`).
+2. **Project Local Config**: `.rtk.json` located in the root of the workspace.
+
+*Note: Project local settings override/merge into the user's global settings.*
+
+### 2. Configuration Options (`config.json` / `.rtk.json`)
+The configuration uses a clean JSON structure:
+
+```json
+{
+  "denied_commands": [
+    "git push.*--force",
+    "git reset --hard",
+    "rm -rf /"
+  ],
+  "dlp": {
+    "custom_patterns": [
+      "MY_PROJECT_SECRET_[a-zA-Z0-9]{12}",
+      "(?i)api-key-[a-z]+"
+    ]
+  }
+}
+```
+
+*   **`denied_commands`**: A list of strings or regex patterns. If an LLM agent attempts to execute a command matching any of these patterns, RTK immediately rejects it with exit code `2` (Denied), protecting your codebase from destructive actions.
+*   **`dlp.custom_patterns`**: A list of regex patterns to match project-specific tokens, credentials, or secrets. RTK will redact matches to `[REDACTED_SECRET]` before they are stored in telemetry logs or returned to the LLM agent.
+
+---
+
 ## ⚙️ Installation & Setup
 
 ### 1. Requirements

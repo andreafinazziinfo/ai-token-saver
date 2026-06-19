@@ -4,6 +4,7 @@ use std::path::Path;
 
 mod cargo_build;
 mod cargo_test;
+mod config;
 mod dashboard;
 mod distiller;
 mod dlp;

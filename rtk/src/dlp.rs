@@ -53,6 +53,18 @@ pub fn redact(text: &str) -> String {
         .replace_all(&redacted, "[REDACTED_API_KEY]")
         .into_owned();
 
+    // 3.5. Redact custom user-configured DLP patterns
+    lazy_static! {
+        static ref CUSTOM_REGEXES: Vec<Regex> = {
+            crate::config::CONFIG
+                .custom_dlp_patterns
+                .iter()
+                .filter_map(|pat| Regex::new(pat).ok())
+                .collect()
+        };
+    }
+    redacted = redact_custom_patterns_internal(&redacted, &CUSTOM_REGEXES);
+
     // 4. Entropy-based scanner for other random secrets
     let mut final_text = String::with_capacity(redacted.len());
     let mut current_word = String::new();
@@ -73,6 +85,14 @@ pub fn redact(text: &str) -> String {
     }
 
     final_text
+}
+
+fn redact_custom_patterns_internal(text: &str, regexes: &[Regex]) -> String {
+    let mut current = text.to_string();
+    for re in regexes {
+        current = re.replace_all(&current, "[REDACTED_SECRET]").into_owned();
+    }
+    current
 }
 
 fn check_and_redact_word(word: &str) -> String {
@@ -159,5 +179,16 @@ mod tests {
         let output = redact(input);
         assert!(output.contains("4f20c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2"));
         assert!(!output.contains("[REDACTED_SECRET]"));
+    }
+
+    #[test]
+    fn test_custom_dlp_patterns() {
+        let regexes = vec![
+            Regex::new(r"MY_TOKEN_\d{4}").unwrap(),
+            Regex::new(r"(?i)custom-secret-[a-z]+").unwrap(),
+        ];
+        let input = "Here is MY_TOKEN_1234 and custom-secret-xyz value.";
+        let output = redact_custom_patterns_internal(input, &regexes);
+        assert!(output.contains("Here is [REDACTED_SECRET] and [REDACTED_SECRET] value."));
     }
 }

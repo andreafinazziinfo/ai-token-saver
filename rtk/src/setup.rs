@@ -105,6 +105,18 @@ pub fn run_init() -> Result<()> {
     // Automatically try to install the shell hook into Claude/Gemini settings.json
     let _ = auto_install_hook();
 
+    // Create user default config.json
+    if crate::config::create_default_config().is_ok() {
+        if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
+            let config_path = Path::new(&home).join(".config/rtk/config.json");
+            println!(
+                "🔒 Created personal guardrails configuration template in: {}",
+                config_path.display()
+            );
+            println!();
+        }
+    }
+
     println!("==========================================================");
     println!("🎉 RTK AI Rules Bootstrapped Successfully!");
     println!("==========================================================");
@@ -343,6 +355,44 @@ mod tests {
         assert_eq!(inner_hooks.len(), 2);
         assert_eq!(inner_hooks[1]["command"], "bash /path/to/rtk-rewrite.sh");
         assert_eq!(json["existing_setting"], true);
+    }
+
+    #[test]
+    fn test_create_default_config() {
+        let temp_dir = std::env::temp_dir().join(format!("rtk_config_test_{}", rand_suffix()));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        // Temporarily override HOME and USERPROFILE env vars
+        let original_home = std::env::var_os("HOME");
+        let original_userprofile = std::env::var_os("USERPROFILE");
+        std::env::set_var("HOME", &temp_dir);
+        std::env::set_var("USERPROFILE", &temp_dir);
+
+        // Call our creation helper
+        let res = crate::config::create_default_config();
+        assert!(res.is_ok());
+
+        // Verify that the file was created in <temp_dir>/.config/rtk/config.json
+        let expected_path = temp_dir.join(".config/rtk/config.json");
+        assert!(expected_path.exists());
+
+        let content = fs::read_to_string(&expected_path).unwrap();
+        assert!(content.contains("denied_commands"));
+        assert!(content.contains("custom_patterns"));
+
+        // Restore env vars
+        if let Some(h) = original_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
+        }
+        if let Some(up) = original_userprofile {
+            std::env::set_var("USERPROFILE", up);
+        } else {
+            std::env::remove_var("USERPROFILE");
+        }
+
+        fs::remove_dir_all(temp_dir).unwrap();
     }
 
     fn rand_suffix() -> u32 {
