@@ -17,7 +17,7 @@
 
 Modern LLMs are incredibly smart, but they suffer from *Context Window Exhaustion*: they fill their memory with useless terminal logs (like 1000 lines of `npm install` warnings) and long reasoning loops, causing them to slow down, hallucinate, and rack up massive API bills.
 
-RTK solves this by intercepting commands, stripping the noise, caching the raw data in a local FTS5 vector database, and returning only the pure semantic signal. By enforcing YAGNI developer behaviors and compressing outputs, the toolkit saves **60% to 95% of tokens** in common coding operations.
+RTK solves this by intercepting commands, stripping the noise, caching the raw data in a local FTS5 vector database, and returning only the pure semantic signal. By enforcing YAGNI developer behaviors and compressing outputs, the toolkit saves an **average of 82.4% of tokens** across 17 verified scenarios (ranging from 41% to 96%).
 
 ---
 
@@ -124,12 +124,14 @@ alias git="rtk git"; alias cargo="rtk cargo"; alias pytest="rtk pytest"; alias l
 
 ## 💻 Command Reference
 
-*   **Input Wrappers**: `rtk git status`, `rtk git diff`, `rtk git log`, `rtk cargo test`, `rtk cargo build`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk gradle`, `rtk go test`, `rtk ls`.
+*   **Input Wrappers (15 tools)**: `rtk git status/diff/log`, `rtk cargo test/build/check`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk yarn`, `rtk pnpm`, `rtk composer`, `rtk terraform`, `rtk dotnet`, `rtk gradle`, `rtk go_test`, `rtk ls`.
 *   **Context Virtualization**: `rtk show-log <id>` (reads full uncompressed log), `rtk gc` (cleans old DB logs and reclaims space).
 *   **Directory Packing**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
 *   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>`.
 *   **Hidden Chain-of-Thought**: `rtk think` (reads from stdin to store reasoning in the FTS5 DB out of the chat context).
 *   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
+*   **Command Rewriting**: `rtk rewrite "<command>"` (PreToolUse hook engine: auto-allows, denies, or asks for dangerous commands).
+*   **Configuration**: `rtk config show`, `rtk config deny add "<pattern>"`, `rtk config dlp add "<regex>"`.
 *   **Telemetry & Status**: `rtk status`, `rtk stats`, `rtk dashboard`.
 
 <details>
@@ -149,22 +151,53 @@ sequenceDiagram
     actor LLM as AI Agent / Developer
     participant Hook as Shell Hook (PreToolUse)
     participant RTK as RTK CLI
-    participant DB as SQLite DB (rtk.db)
+    participant Filter as Filters (15 Modules)
+    participant DLP as DLP Redaction
+    participant DB as SQLite FTS5 DB
     participant Cmd as Target Command
 
-    LLM->>Hook: Execute Shell Command (e.g. ls -l)
-    Hook->>RTK: rtk rewrite "ls -l"
-    alt Rewrite Rule Matched
-        RTK-->>Hook: Exit 0 (Rewritten)
-        Hook->>RTK: Run: rtk ls -l
-        RTK->>Cmd: Execute "ls -l"
-        Cmd-->>RTK: Raw Output (100 lines)
-        RTK->>RTK: Filter & DLP Redact
-        RTK->>DB: Store Raw Output
-        RTK-->>LLM: Return Filtered Output + "[Full output cached. Access with: rtk show-log 42]"
-    else No Match
-        RTK-->>Hook: Exit 1
-        Hook->>Cmd: Run original command
+    rect rgb(30, 60, 100)
+    Note over LLM,Cmd: 📥 PHASE 1 — INPUT VIRTUALIZATION
+    LLM->>Hook: Execute Command (e.g. cargo test)
+    Hook->>RTK: rtk rewrite "cargo test"
+    alt Rewrite Matched (Exit 0)
+        RTK-->>Hook: Rewritten to rtk cargo test
+        Hook->>RTK: Run: rtk cargo test
+        RTK->>Cmd: Execute cargo test
+        Cmd-->>RTK: Raw Output (1,290 tokens)
+        RTK->>Filter: cargo_test::filter()
+        Filter-->>RTK: Filtered Output (94 tokens, -92.7%)
+        RTK->>DLP: Redact Secrets (API keys, JWT, PEM)
+        DLP-->>RTK: Clean Output
+        RTK->>DB: Cache Raw Log (id=42)
+        RTK-->>LLM: Filtered Output + [rtk show-log 42]
+    else Denied (Exit 2)
+        RTK-->>Hook: BLOCKED (e.g. git push --force)
+    else No Match (Exit 1)
+        Hook->>Cmd: Passthrough original command
+    end
+    end
+
+    rect rgb(60, 30, 80)
+    Note over LLM,DB: 🧠 PHASE 2 — REASONING & MEMORY
+    LLM->>RTK: cat <<EOF | rtk think (462 tokens)
+    RTK->>DB: Store in FTS5 Memory
+    RTK-->>LLM: [Thought offloaded] (16 tokens, -96.5%)
+    LLM->>RTK: rtk memory set db_port 5432
+    RTK->>DB: Store Key-Value Pair
+    LLM->>RTK: rtk memory search "database"
+    RTK->>DB: FTS5 Semantic Search
+    DB-->>RTK: Matching Entries
+    RTK-->>LLM: Relevant Context
+    end
+
+    rect rgb(30, 80, 50)
+    Note over LLM,Cmd: 📤 PHASE 3 — OUTPUT AUTONOMY
+    LLM->>RTK: rtk init --profile high
+    RTK->>RTK: Inject Caveman (~75% output reduction)
+    RTK->>RTK: Inject Ponytail (~54% less code)
+    RTK-->>LLM: AI rules installed in .cursor/rules/
+    Note over RTK: check_autonomy() monitors output > 3000 tokens
     end
 ```
 
@@ -190,11 +223,17 @@ graph TD
     CheckStrip -- Yes --> Minify[Minify: Strip comments/empty lines] --> CheckSkeleton
     CheckStrip -- No --> CheckSkeleton{--skeleton?}
     
-    CheckSkeleton -- Yes --> Skeletonize[Collapse function bodies] --> DLPRedact
+    CheckSkeleton -- Yes --> Skeletonize[Collapse function bodies
+    via Tree-Sitter AST] --> DLPRedact
     CheckSkeleton -- No --> DLPRedact[Apply DLP Redact]
     
     DLPRedact --> WrapXML["Wrap in &lt;file path='...'&gt;&lt;![CDATA[...]]&gt;&lt;/file&gt;"]
     WrapXML --> NextEntry
+    End --> CheckLimit{--limit set?}
+    CheckLimit -- Yes --> ValidateLimit{Tokens > Limit?}
+    ValidateLimit -- Yes --> Error([ERROR: Pack exceeded token limit!])
+    ValidateLimit -- No --> Print([Print XML to stdout])
+    CheckLimit -- No --> Print
 ```
 </details>
 
