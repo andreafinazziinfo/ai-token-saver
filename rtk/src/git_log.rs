@@ -11,11 +11,16 @@ pub fn filter(input: &str) -> String {
     let mut pending_hash: Option<&str> = None;
 
     for line in input.lines() {
-        // "commit <40-char-hash>" — may optionally have refs after: "commit abc… (HEAD -> main)"
-        if line.starts_with("commit ") && line.len() >= 47 {
-            let hash = &line[7..14]; // first 7 chars of hash
-            pending_hash = Some(hash);
-            continue;
+        // "commit <hash>" — may optionally have refs after: "commit abc… (HEAD -> main)"
+        if line.starts_with("commit ") {
+            let parts: Vec<&str> = line[7..].split_whitespace().collect();
+            if let Some(full_hash) = parts.first() {
+                if full_hash.len() >= 7 && full_hash.chars().all(|c| c.is_ascii_hexdigit()) {
+                    let end_idx = std::cmp::min(7, full_hash.len());
+                    pending_hash = Some(&full_hash[..end_idx]);
+                    continue;
+                }
+            }
         }
 
         // Header fields — skip
@@ -51,7 +56,7 @@ mod tests {
     use super::*;
 
     fn count_tokens(s: &str) -> usize {
-        s.split_whitespace().count()
+        (s.len() as f64 / 4.0).ceil() as usize
     }
 
     const SAMPLE_LOG: &str = concat!(

@@ -187,7 +187,7 @@ fn main() {
         Commands::Cargo { args } => {
             let subcmd = args.first().map(|s| s.as_str()).unwrap_or("");
             match subcmd {
-                "test" => run_filtered("cargo", &args, cargo_test::filter),
+                "test" => run_filtered_combined("cargo", &args, cargo_test::filter),
                 "build" | "check" => run_filtered_stderr("cargo", &args, cargo_build::filter),
                 _ => passthrough("cargo", &args),
             }
@@ -198,7 +198,7 @@ fn main() {
         }
         Commands::Pytest { args } => run_filtered("pytest", &args, pytest_filter::filter),
         Commands::Ls { args } => run_filtered("ls", &args, ls_filter::filter),
-        Commands::Gradle { args } => run_filtered(get_gradle_bin(), &args, gradle::filter),
+        Commands::Gradle { args } => run_filtered(&get_gradle_bin(), &args, gradle::filter),
         Commands::GoTest { args } => {
             let mut full_args = vec!["test".to_string()];
             full_args.extend(args);
@@ -276,16 +276,25 @@ fn main() {
     }
 }
 
-fn get_gradle_bin() -> &'static str {
-    if Path::new("./gradlew").exists() || Path::new("gradlew.bat").exists() {
-        if cfg!(target_os = "windows") {
-            "gradlew.bat"
-        } else {
-            "./gradlew"
+fn get_gradle_bin() -> String {
+    let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    loop {
+        let wrapper_unix = current.join("gradlew");
+        let wrapper_win = current.join("gradlew.bat");
+        
+        if wrapper_unix.exists() || wrapper_win.exists() {
+            if cfg!(target_os = "windows") {
+                return wrapper_win.to_string_lossy().to_string();
+            } else {
+                return wrapper_unix.to_string_lossy().to_string();
+            }
         }
-    } else {
-        "gradle"
+        
+        if !current.pop() {
+            break;
+        }
     }
+    "gradle".to_string()
 }
 
 fn run_filtered(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
@@ -471,6 +480,56 @@ fn passthrough(bin: &str, args: &[String]) -> Result<()> {
 
     if !status.success() {
         std::process::exit(status.code().unwrap_or(1));
+    }
+    Ok(())
+}
+
+/// Like `run_filtered` but filters combined **stdout + stderr**.
+/// Useful for test runners like `cargo test` that interleave output.
+fn run_filtered_combined(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
+    let output = std::process::Command::new(bin)
+        .args(args)
+        .output()
+        .with_context(|| format!("failed to execute {bin}"))?;
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    let stderr_str = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stderr_str}\n{stdout_str}");
+
+    let filtered = filter(&combined);
+
+    // DLP sensitive data scrubbing
+    let redacted_filtered = dlp::redact(&filtered);
+    let redacted_combined = dlp::redact(&combined);
+
+    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
+    let mut final_filtered = redacted_filtered.clone();
+
+    match tracking::record(
+        cmd_label.trim(),
+        &redacted_combined,
+        &redacted_filtered,
+        &redacted_combined,
+    ) {
+        Ok(log_id) => {
+            if redacted_filtered.len() < redacted_combined.len()
+                && !redacted_filtered.trim().is_empty()
+            {
+                final_filtered.push_str(&format!(
+                    "\n[Full output cached. Access with: rtk show-log {}]\n",
+                    log_id
+                ));
+            }
+        }
+        Err(e) => {
+            eprintln!("rtk: tracking warning: {e}");
+        }
+    }
+
+    print!("{final_filtered}");
+
+    if !output.status.success() {
+        std::process::exit(output.status.code().unwrap_or(1));
     }
     Ok(())
 }

@@ -18,6 +18,9 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
         return input.to_string();
     }
 
+    let head_lines = std::cmp::min(HEAD_LINES, limit / 2);
+    let tail_lines = std::cmp::min(TAIL_LINES, limit.saturating_sub(head_lines));
+
     lazy_static! {
         // Match standard error keywords in logs (case-insensitive)
         static ref ERROR_KEYWORD: Regex = Regex::new(
@@ -42,7 +45,7 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
     };
 
     // 1. Output the header/context lines
-    for i in 0..HEAD_LINES {
+    for i in 0..head_lines {
         if i < total_lines {
             out.push_str(raw_lines[i]);
             out.push('\n');
@@ -50,8 +53,8 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
     }
 
     // 2. Process middle lines
-    let middle_start = HEAD_LINES;
-    let middle_end = total_lines.saturating_sub(TAIL_LINES);
+    let middle_start = head_lines;
+    let middle_end = total_lines.saturating_sub(tail_lines);
 
     if middle_start < middle_end {
         for i in middle_start..middle_end {
@@ -72,7 +75,7 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
     flush_collapsed(&mut collapsed_count, &mut out);
 
     // 3. Output the tail/result lines
-    let actual_tail_start = std::cmp::max(middle_end, HEAD_LINES);
+    let actual_tail_start = std::cmp::max(middle_end, head_lines);
     for i in actual_tail_start..total_lines {
         out.push_str(raw_lines[i]);
         out.push('\n');

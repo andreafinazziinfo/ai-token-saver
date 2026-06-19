@@ -30,7 +30,7 @@ When you need to read or understand the contents of a directory, folder, or the 
   rtk pack [path] --strip --skeleton --limit <token_budget>
   ```
   - Always use `--strip` (or `-s`) to strip full-line comments and empty lines.
-  - Use `--skeleton` (or `-k`) to generate skeletal structures (method/function signatures) for Rust, Python, and JS/TS, allowing you to load huge files with very few tokens.
+  - Use `--skeleton` (or `-k`) to generate skeletal structures (method/function signatures) for Rust, Python, JS/TS, Go, Java, C, C++, and Kotlin, allowing you to load huge files with very few tokens.
   - Always use `--limit <n>` (or `-l <n>`) to specify a safe token budget limit and avoid context blowups.
 
 ## 3. Project Context Memory Syncing (`rtk memory`)

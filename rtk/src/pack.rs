@@ -86,8 +86,17 @@ pub fn strip_content(content: &str, extension: &str) -> String {
     let mut result = String::with_capacity(content.len());
     let mut last_was_empty = false;
 
+    let mut in_multiline_comment = false;
+
     for line in content.lines() {
         let trimmed = line.trim();
+
+        if in_multiline_comment {
+            if trimmed.contains("*/") || trimmed.contains("\"\"\"") || trimmed.contains("-->") {
+                in_multiline_comment = false;
+            }
+            continue;
+        }
 
         if trimmed.is_empty() {
             if !last_was_empty {
@@ -110,6 +119,21 @@ pub fn strip_content(content: &str, extension: &str) -> String {
         };
 
         if is_comment {
+            continue;
+        }
+
+        // Detect start of multiline comment
+        let is_multiline_start = match extension {
+            "rs" | "js" | "ts" | "go" | "java" | "cpp" | "c" | "css" | "swift" | "scala" => {
+                trimmed.starts_with("/*") && !trimmed.ends_with("*/")
+            }
+            "py" => trimmed.starts_with("\"\"\"") && !trimmed.ends_with("\"\"\""),
+            "html" | "xml" | "md" => trimmed.starts_with("<!--") && !trimmed.ends_with("-->"),
+            _ => false,
+        };
+
+        if is_multiline_start {
+            in_multiline_comment = true;
             continue;
         }
 
@@ -166,11 +190,12 @@ fn pack_recursive(
 
             // Always run DLP sensitive data scrubbing for safety
             let redacted = crate::dlp::redact(&processed);
+            let safe_cdata = redacted.replace("]]>", "]]]]><![CDATA[>");
 
             out.push_str(&format!("  <file path=\"{relative_path}\">\n"));
             out.push_str("    <![CDATA[\n");
-            out.push_str(&redacted);
-            if !redacted.ends_with('\n') {
+            out.push_str(&safe_cdata);
+            if !safe_cdata.ends_with('\n') {
                 out.push('\n');
             }
             out.push_str("    ]]>\n");

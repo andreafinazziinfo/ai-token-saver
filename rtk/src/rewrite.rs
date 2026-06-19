@@ -39,7 +39,8 @@ pub fn run(raw: &str) -> Result<()> {
 }
 
 fn is_denied(cmd: &str) -> bool {
-    is_denied_internal(cmd, &crate::config::CONFIG.denied_commands)
+    let config = crate::config::get_config();
+    is_denied_internal(cmd, &config.denied_commands)
 }
 
 fn is_denied_internal(cmd: &str, custom_denied: &[String]) -> bool {
@@ -150,11 +151,11 @@ fn auto_rewrite(cmd: &str) -> Option<String> {
             ),
             (
                 Regex::new(r"^pytest(\s|$)").unwrap(),
-                Box::new(|c| format!("rtk pytest{}", &c[6..]))
+                Box::new(|c| c.replacen("pytest", "rtk pytest", 1))
             ),
             (
                 Regex::new(r"^ls(\s|$)").unwrap(),
-                Box::new(|c| format!("rtk ls{}", &c[2..]))
+                Box::new(|c| c.replacen("ls", "rtk ls", 1))
             ),
             (
                 Regex::new(r"^(?:\./)?gradlew?(\s|$)").unwrap(),

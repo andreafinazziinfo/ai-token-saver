@@ -1,6 +1,6 @@
 pub fn skeletonize(content: &str, extension: &str) -> String {
     match extension.to_lowercase().as_str() {
-        "rs" => skeletonize_braces(content),
+        "rs" | "go" | "java" | "c" | "cpp" | "cc" | "cxx" | "h" | "hpp" | "kt" => skeletonize_braces(content),
         "py" => skeletonize_indentation(content),
         "js" | "ts" | "jsx" | "tsx" => skeletonize_braces(content),
         _ => content.to_string(), // Fallback: don't skeletonize unsupported files
@@ -16,13 +16,12 @@ fn skeletonize_braces(content: &str) -> String {
         let trimmed = line.trim();
 
         if skip_nesting > 0 {
-            // Count braces in skipped lines
-            for c in line.chars() {
-                if c == '{' {
-                    skip_nesting += 1;
-                } else if c == '}' {
-                    skip_nesting -= 1;
-                }
+            let (open, close) = count_braces(line);
+            skip_nesting += open;
+            if skip_nesting > close {
+                skip_nesting -= close;
+            } else {
+                skip_nesting = 0;
             }
             if skip_nesting == 0 {
                 // Suffix with closing brace
@@ -36,10 +35,12 @@ fn skeletonize_braces(content: &str) -> String {
             || trimmed.contains("enum ")
             || trimmed.contains("trait ")
             || trimmed.contains("class ")
-            || trimmed.contains("interface ");
+            || trimmed.contains("interface ")
+            || trimmed.contains("type ");
 
         let is_fn = !is_container
             && (trimmed.contains("fn ")
+                || trimmed.contains("func ")
                 || trimmed.contains("function ")
                 || trimmed.contains("=>")
                 || (trimmed.contains('(')
@@ -53,8 +54,7 @@ fn skeletonize_braces(content: &str) -> String {
                     && !trimmed.contains("match ")));
 
         if is_fn {
-            let open_braces = trimmed.chars().filter(|&c| c == '{').count();
-            let close_braces = trimmed.chars().filter(|&c| c == '}').count();
+            let (open_braces, close_braces) = count_braces(line);
 
             if open_braces > close_braces {
                 // Output line, insert collapse comment, start skipping
@@ -152,6 +152,40 @@ fn get_indent_level(line: &str) -> usize {
         }
     }
     count
+}
+
+fn count_braces(line: &str) -> (usize, usize) {
+    let mut open = 0;
+    let mut close = 0;
+    let mut in_string = false;
+    let mut in_char = false;
+    let mut chars = line.chars().peekable();
+    
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            chars.next(); // skip escaped char
+            continue;
+        }
+        if c == '"' && !in_char {
+            in_string = !in_string;
+            continue;
+        }
+        if c == '\'' && !in_string {
+            in_char = !in_char;
+            continue;
+        }
+        if !in_string && !in_char {
+            if c == '/' && chars.peek() == Some(&'/') {
+                break; // line comment
+            }
+            if c == '{' {
+                open += 1;
+            } else if c == '}' {
+                close += 1;
+            }
+        }
+    }
+    (open, close)
 }
 
 #[cfg(test)]

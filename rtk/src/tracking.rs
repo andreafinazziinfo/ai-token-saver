@@ -6,6 +6,14 @@ fn db_path() -> PathBuf {
     if let Ok(p) = std::env::var("RTK_DB_PATH") {
         return PathBuf::from(p);
     }
+    
+    // On Windows, prefer LOCALAPPDATA
+    if cfg!(target_os = "windows") {
+        if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+            return PathBuf::from(local_appdata).join("rtk").join("rtk.db");
+        }
+    }
+
     // XDG_DATA_HOME / ~/.local/share — matches the status-line's first probe path
     let base = std::env::var("XDG_DATA_HOME")
         .map(PathBuf::from)
@@ -46,11 +54,10 @@ fn open_db() -> Result<Connection> {
     Ok(conn)
 }
 
-// Approximate token count: whitespace-split word count.
-// Matches the test helper in git_diff.rs and is consistent with status-line
-// percentage math. Not exact model tokens.
+// Approximate token count: 1 token ~= 4 characters (standard LLM heuristic)
+// Matches the status-line percentage math. Not exact model tokens.
 fn count_tokens(text: &str) -> i64 {
-    text.split_whitespace().count() as i64
+    (text.len() as f64 / 4.0).ceil() as i64
 }
 
 /// Record one filtered execution. Returns the ID of the inserted row.
@@ -155,7 +162,7 @@ pub fn get_savings_data() -> Result<(i64, i64, i64, i64, f64)> {
 pub fn get_command_breakdown() -> Result<Vec<(String, i64, i64)>> {
     let conn = open_db()?;
     let mut stmt = conn.prepare(
-        "SELECT command, COUNT(*), SUM(original_tokens - filtered_tokens) FROM tracking GROUP BY command ORDER BY COUNT(*) DESC"
+        "SELECT cmd, COUNT(*), SUM(original_tokens - filtered_tokens) FROM tracking GROUP BY cmd ORDER BY COUNT(*) DESC"
     )?;
 
     let rows = stmt.query_map([], |r| {
@@ -222,9 +229,9 @@ mod tests {
 
     #[test]
     fn count_tokens_basic() {
-        assert_eq!(count_tokens("hello world foo"), 3);
+        assert_eq!(count_tokens("hello world foo"), 4);
         assert_eq!(count_tokens(""), 0);
-        assert_eq!(count_tokens("  lots   of   space  "), 3);
+        assert_eq!(count_tokens("  lots   of   space  "), 6);
     }
 
     #[test]
@@ -232,8 +239,8 @@ mod tests {
         let tmp = env::temp_dir().join(format!("rtk_test_{}.db", std::process::id()));
         env::set_var("RTK_DB_PATH", &tmp);
 
-        let original = "a b c d e f g h i j"; // 10 tokens
-        let filtered = "a b c"; // 3 tokens
+        let original = "a b c d e f g h i j"; // 19 chars -> 5 tokens
+        let filtered = "a b c"; // 5 chars -> 2 tokens
         let log_id = record("git diff", original, filtered, original).expect("record failed");
 
         let conn = Connection::open(&tmp).unwrap();
@@ -245,8 +252,8 @@ mod tests {
             )
             .expect("query failed");
 
-        assert_eq!(orig, 10);
-        assert_eq!(filt, 3);
+        assert_eq!(orig, 5);
+        assert_eq!(filt, 2);
 
         let raw = get_raw_log(log_id).expect("get_raw_log failed");
         assert_eq!(raw, original);

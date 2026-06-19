@@ -19,10 +19,10 @@ pub fn filter(input: &str) -> String {
         // Group 3: owner (e.g. username)
         // Group 4: group (e.g. username)
         // Group 5: size in bytes (e.g. 1234)
-        // Group 6: date/time (e.g. Jun 18 22:00 or Jun 18  2026)
+        // Group 6: date/time (e.g. Jun 18 22:00, or 2023-06-18 22:00, or 18 Giu 2026)
         // Group 7: filename
         static ref LS_L_LINE: Regex = Regex::new(
-            r"^([drwx-]{10})\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+([A-Z][a-z]{2}\s+\d+\s+[\d:]{4,5})\s+(.+)$"
+            r"^([bcdlp\-][rwx\-sStT]{9}[@+]?)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+((?:\S+\s+){1,2}\S+)\s+(.+)$"
         ).unwrap();
 
         static ref TOTAL_LINE: Regex = Regex::new(r"^total\s+\d+$").unwrap();
@@ -133,6 +133,17 @@ mod tests {
             out.contains("-rwxr-xr-x   1.0M Jun 18 22:00 run.sh"),
             "incorrect run.sh formatting"
         );
+    }
+
+    #[test]
+    fn test_filter_ls_l_macos_and_iso() {
+        let input = concat!(
+            "drwxr-xr-x@ 5 user group 4096 18 Giu 22:00 dir_mac\n",
+            "-rw-r--r--+ 1 user group 1234 2023-06-18 22:00 file_acl.txt\n",
+        );
+        let out = filter(input);
+        assert!(out.contains("drwxr-xr-x@   4.0K 18 Giu 22:00 dir_mac"));
+        assert!(out.contains("-rw-r--r--+   1.2K 2023-06-18 22:00 file_acl.txt"));
     }
 
     #[test]

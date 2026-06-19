@@ -17,8 +17,12 @@ pub fn redact(text: &str) -> String {
         // OpenAI: sk-proj-...
         // Stripe: sk_live_... / sk_test_...
         // AWS client id/secret: AKIA...
+        // Anthropic: sk-ant-...
+        // GitHub: ghp_...
+        // Google: AIza...
+        // Slack: xox...
         static ref API_KEYS: Regex = Regex::new(
-            r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16})\b"
+            r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|sk-ant-api[0-9a-zA-Z\-_]{30,}|ghp_[a-zA-Z0-9]{36}|xox[baprs]-[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{35}|AKIA[0-9A-Z]{16})\b"
         ).unwrap();
 
         // Database credentials in URI: e.g. postgres://user:password@host
@@ -54,16 +58,15 @@ pub fn redact(text: &str) -> String {
         .into_owned();
 
     // 3.5. Redact custom user-configured DLP patterns
-    lazy_static! {
-        static ref CUSTOM_REGEXES: Vec<Regex> = {
-            crate::config::CONFIG
-                .custom_dlp_patterns
-                .iter()
-                .filter_map(|pat| Regex::new(pat).ok())
-                .collect()
-        };
-    }
-    redacted = redact_custom_patterns_internal(&redacted, &CUSTOM_REGEXES);
+    // We compile these on the fly to support dynamic config updates mid-session.
+    // redact() is typically called once per CLI invocation, so overhead is negligible.
+    let config = crate::config::get_config();
+    let custom_regexes: Vec<Regex> = config
+        .custom_dlp_patterns
+        .iter()
+        .filter_map(|pat| Regex::new(pat).ok())
+        .collect();
+    redacted = redact_custom_patterns_internal(&redacted, &custom_regexes);
 
     // 4. Entropy-based scanner for other random secrets
     let mut final_text = String::with_capacity(redacted.len());
@@ -99,10 +102,11 @@ fn check_and_redact_word(word: &str) -> String {
     if word.len() >= 24 && word.len() <= 128 {
         let is_git_hash = word.len() == 40 && word.chars().all(|c| c.is_ascii_hexdigit());
 
-        if !is_git_hash {
+        let is_base64_like = word.ends_with("==") || word.ends_with('=');
+        if !is_git_hash && !is_base64_like {
             let entropy = shannon_entropy(word);
-            // High entropy threshold: 4.5 bits/symbol is very high for random strings
-            if entropy > 4.5 {
+            // High entropy threshold: 4.7 bits/symbol reduces false positives on UUIDs/Base64
+            if entropy > 4.7 {
                 return "[REDACTED_SECRET]".to_string();
             }
         }

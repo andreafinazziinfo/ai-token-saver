@@ -36,7 +36,9 @@ impl UserConfig {
             if let Some(arr) = val.get("denied_commands").and_then(|v| v.as_array()) {
                 for item in arr {
                     if let Some(s) = item.as_str() {
-                        self.denied_commands.push(s.to_string());
+                        if regex::Regex::new(s).is_ok() {
+                            self.denied_commands.push(s.to_string());
+                        }
                     }
                 }
             }
@@ -44,7 +46,9 @@ impl UserConfig {
                 if let Some(arr) = dlp_obj.get("custom_patterns").and_then(|v| v.as_array()) {
                     for item in arr {
                         if let Some(s) = item.as_str() {
-                            self.custom_dlp_patterns.push(s.to_string());
+                            if regex::Regex::new(s).is_ok() {
+                                self.custom_dlp_patterns.push(s.to_string());
+                            }
                         }
                     }
                 }
@@ -54,8 +58,8 @@ impl UserConfig {
     }
 }
 
-lazy_static::lazy_static! {
-    pub static ref CONFIG: UserConfig = UserConfig::load();
+pub fn get_config() -> UserConfig {
+    UserConfig::load()
 }
 
 pub fn create_default_config() -> Result<(), std::io::Error> {
@@ -119,10 +123,11 @@ where
 }
 
 pub fn config_show() -> anyhow::Result<()> {
+    let config = get_config();
     let merged_json = serde_json::json!({
-        "denied_commands": CONFIG.denied_commands,
+        "denied_commands": config.denied_commands,
         "dlp": {
-            "custom_patterns": CONFIG.custom_dlp_patterns
+            "custom_patterns": config.custom_dlp_patterns
         }
     });
     println!("{}", serde_json::to_string_pretty(&merged_json)?);
@@ -130,6 +135,8 @@ pub fn config_show() -> anyhow::Result<()> {
 }
 
 pub fn config_deny_add(pattern: &str) -> anyhow::Result<()> {
+    regex::Regex::new(pattern)
+        .map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
     modify_config(|obj| {
         let denied = obj
             .entry("denied_commands")
@@ -144,6 +151,8 @@ pub fn config_deny_add(pattern: &str) -> anyhow::Result<()> {
 }
 
 pub fn config_dlp_add(pattern: &str) -> anyhow::Result<()> {
+    regex::Regex::new(pattern)
+        .map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
     modify_config(|obj| {
         let dlp = obj
             .entry("dlp")

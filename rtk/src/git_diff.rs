@@ -117,7 +117,7 @@ mod tests {
     use insta::assert_snapshot;
 
     fn count_tokens(s: &str) -> usize {
-        s.split_whitespace().count()
+        (s.len() as f64 / 4.0).ceil() as usize
     }
 
     #[test]

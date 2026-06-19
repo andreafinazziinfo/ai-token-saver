@@ -142,7 +142,7 @@ These commands run automatically when intercepted by shell hooks:
 #### `rtk pack [path] [--strip] [--skeleton] [--limit <max_tokens>]`
 Searches a folder and creates an XML file representation of its files. 
 *   Use `-s` or `--strip` to remove comments and collapse blank lines.
-*   Use `-k` or `--skeleton` to generate a skeleton structure of files, stripping function bodies for supported languages (Rust, Python, JS/TS).
+*   Use `-k` or `--skeleton` to generate a skeleton structure of files, stripping function bodies for supported languages (Rust, Python, JS/TS, Go, Java, C/C++, Kotlin).
 *   Use `-l` or `--limit` to specify a maximum token budget (whitespace count). The command will error out if the limit is exceeded:
 ```bash
 rtk pack . --strip --skeleton --limit 50000
