@@ -1,17 +1,15 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub fn filter(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
 
-    lazy_static! {
-        // Drop task execution lines like:
-        // > Task :compileJava
-        // > Task :processResources UP-TO-DATE
-        static ref TASK_LINE: Regex = Regex::new(r"^>\s*Task\s+:").unwrap();
-        // Drop progress/download status lines
-        static ref PROGRESS_LINE: Regex = Regex::new(r"^(Download|Caching|Download progress|Preparing)\b").unwrap();
-    }
+    // Drop task execution lines like:
+    // > Task :compileJava
+    // > Task :processResources UP-TO-DATE
+    static TASK_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^>\s*Task\s+:").unwrap());
+    // Drop progress/download status lines
+    static PROGRESS_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(Download|Caching|Download progress|Preparing)\b").unwrap());
 
     for line in input.lines() {
         let trimmed = line.trim();

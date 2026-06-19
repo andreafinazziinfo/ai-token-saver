@@ -34,24 +34,20 @@ impl UserConfig {
     pub fn merge_from_str(&mut self, content: &str) -> Result<(), serde_json::Error> {
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
             if let Some(arr) = val.get("denied_commands").and_then(|v| v.as_array()) {
-                for item in arr {
-                    if let Some(s) = item.as_str() {
-                        if regex::Regex::new(s).is_ok() {
-                            self.denied_commands.push(s.to_string());
-                        }
-                    }
-                }
+                self.denied_commands.extend(
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .filter(|s| regex::Regex::new(s).is_ok())
+                        .map(String::from),
+                );
             }
-            if let Some(dlp_obj) = val.get("dlp") {
-                if let Some(arr) = dlp_obj.get("custom_patterns").and_then(|v| v.as_array()) {
-                    for item in arr {
-                        if let Some(s) = item.as_str() {
-                            if regex::Regex::new(s).is_ok() {
-                                self.custom_dlp_patterns.push(s.to_string());
-                            }
-                        }
-                    }
-                }
+            if let Some(arr) = val.pointer("/dlp/custom_patterns").and_then(|v| v.as_array()) {
+                self.custom_dlp_patterns.extend(
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .filter(|s| regex::Regex::new(s).is_ok())
+                        .map(String::from),
+                );
             }
         }
         Ok(())

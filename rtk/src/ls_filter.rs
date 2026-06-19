@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 const MAX_FILES_TO_SHOW: usize = 20;
 
@@ -12,21 +12,19 @@ const MAX_FILES_TO_SHOW: usize = 20;
 ///     Keep permissions, simplified size, and filename.
 ///   - If file listing exceeds MAX_FILES_TO_SHOW entries, collapse the middle and show a summary.
 pub fn filter(input: &str) -> String {
-    lazy_static! {
-        // Regex to parse GNU ls -l lines:
-        // Group 1: permissions (e.g. -rw-r--r--)
-        // Group 2: link count (e.g. 1)
-        // Group 3: owner (e.g. username)
-        // Group 4: group (e.g. username)
-        // Group 5: size in bytes (e.g. 1234)
-        // Group 6: date/time (e.g. Jun 18 22:00, or 2023-06-18 22:00, or 18 Giu 2026)
-        // Group 7: filename
-        static ref LS_L_LINE: Regex = Regex::new(
-            r"^([bcdlp\-][rwx\-sStT]{9}[@+]?)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+((?:\S+\s+){1,2}\S+)\s+(.+)$"
-        ).unwrap();
+    // Regex to parse GNU ls -l lines:
+    // Group 1: permissions (e.g. -rw-r--r--)
+    // Group 2: link count (e.g. 1)
+    // Group 3: owner (e.g. username)
+    // Group 4: group (e.g. username)
+    // Group 5: size in bytes (e.g. 1234)
+    // Group 6: date/time (e.g. Jun 18 22:00, or 2023-06-18 22:00, or 18 Giu 2026)
+    // Group 7: filename
+    static LS_L_LINE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^([bcdlp\-][rwx\-sStT]{9}[@+]?)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+((?:\S+\s+){1,2}\S+)\s+(.+)$").unwrap()
+    });
 
-        static ref TOTAL_LINE: Regex = Regex::new(r"^total\s+\d+$").unwrap();
-    }
+    static TOTAL_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^total\s+\d+$").unwrap());
 
     let mut lines: Vec<String> = Vec::new();
     let mut file_entries = 0;

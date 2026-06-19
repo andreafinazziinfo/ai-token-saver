@@ -6,7 +6,7 @@
 ///   2           → deny rule matched
 ///   3 + stdout  → ask rule matched (rewrite output but prompt user)
 use anyhow::Result;
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 use regex::Regex;
 
 pub fn run(raw: &str) -> Result<()> {
@@ -44,13 +44,13 @@ fn is_denied(cmd: &str) -> bool {
 }
 
 fn is_denied_internal(cmd: &str, custom_denied: &[String]) -> bool {
-    lazy_static! {
-        static ref DENY: Vec<Regex> = vec![
+    static DENY: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+        vec![
             Regex::new(r"^rm\s+-rf?\s+/").unwrap(),
             Regex::new(r"^git\s+push\s+.*--force").unwrap(),
             Regex::new(r"^git\s+reset\s+--hard").unwrap(),
-        ];
-    }
+        ]
+    });
     if DENY.iter().any(|re| re.is_match(cmd)) {
         return true;
     }
@@ -81,19 +81,9 @@ fn ask_rewrite(cmd: &str) -> Option<String> {
     if is_chained(cmd) {
         return None;
     }
-    lazy_static! {
-        static ref ASK: Vec<(Regex, &'static str)> = vec![
-            (Regex::new(r"^git\s+push(\s|$)").unwrap(), "rtk git push"),
-            (
-                Regex::new(r"^git\s+commit(\s|$)").unwrap(),
-                "rtk git commit"
-            ),
-        ];
-    }
-    for (re, replacement) in ASK.iter() {
-        if re.is_match(cmd) {
-            return Some(replacement.to_string());
-        }
+    let words: Vec<&str> = cmd.split_whitespace().collect();
+    if words.len() >= 2 && words[0] == "git" && (words[1] == "push" || words[1] == "commit") {
+        return Some(format!("rtk git {}", words[1]));
     }
     None
 }
@@ -103,88 +93,38 @@ fn auto_rewrite(cmd: &str) -> Option<String> {
     if is_chained(cmd) {
         return None;
     }
-    lazy_static! {
-        static ref AUTO: Vec<(Regex, Box<dyn Fn(&str) -> String + Send + Sync>)> = vec![
-            (
-                Regex::new(r"^git\s+status(\s|$)").unwrap(),
-                Box::new(|_| "rtk git status".into())
-            ),
-            (
-                Regex::new(r"^git\s+diff(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("git", "rtk git", 1))
-            ),
-            (
-                Regex::new(r"^git\s+log(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("git", "rtk git", 1))
-            ),
-            (
-                Regex::new(r"^git\s+branch(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("git", "rtk git", 1))
-            ),
-            (
-                Regex::new(r"^git\s+stash(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("git", "rtk git", 1))
-            ),
-            (
-                Regex::new(r"^git\s+show(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("git", "rtk git", 1))
-            ),
-            (
-                Regex::new(r"^cargo\s+test(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
-            ),
-            (
-                Regex::new(r"^cargo\s+build(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
-            ),
-            (
-                Regex::new(r"^cargo\s+check(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
-            ),
-            (
-                Regex::new(r"^cargo\s+clippy(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("cargo", "rtk cargo", 1))
-            ),
-            (
-                Regex::new(r"^npm\s+install(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("npm", "rtk npm", 1))
-            ),
-            (
-                Regex::new(r"^pytest(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("pytest", "rtk pytest", 1))
-            ),
-            (
-                Regex::new(r"^ls(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("ls", "rtk ls", 1))
-            ),
-            (
-                Regex::new(r"^(?:\./)?gradlew?(\s|$)").unwrap(),
-                Box::new(|c| {
-                    if c.starts_with("./gradlew") {
-                        c.replacen("./gradlew", "rtk gradle", 1)
-                    } else if c.starts_with("gradlew") {
-                        c.replacen("gradlew", "rtk gradle", 1)
-                    } else {
-                        c.replacen("gradle", "rtk gradle", 1)
-                    }
-                })
-            ),
-            (
-                Regex::new(r"^go\s+test(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("go test", "rtk go_test", 1))
-            ),
-            (
-                Regex::new(r"^docker\s+(build|run)(\s|$)").unwrap(),
-                Box::new(|c| c.replacen("docker", "rtk docker", 1))
-            ),
-        ];
+    let words: Vec<&str> = cmd.split_whitespace().collect();
+    if words.is_empty() {
+        return None;
     }
-    for (re, rewriter) in AUTO.iter() {
-        if re.is_match(cmd) {
-            return Some(rewriter(cmd));
-        }
+
+    match words[0] {
+        "git" if words.len() >= 2 => match words[1] {
+            "status" => Some("rtk git status".to_string()),
+            "diff" | "log" | "branch" | "stash" | "show" => Some(cmd.replacen("git", "rtk git", 1)),
+            _ => None,
+        },
+        "cargo" if words.len() >= 2 => match words[1] {
+            "test" | "build" | "check" | "clippy" => Some(cmd.replacen("cargo", "rtk cargo", 1)),
+            _ => None,
+        },
+        "go" if words.len() >= 2 => match words[1] {
+            "test" => Some(cmd.replacen("go test", "rtk go_test", 1)),
+            _ => None,
+        },
+        "npm" if words.len() >= 2 => match words[1] {
+            "install" => Some(cmd.replacen("npm", "rtk npm", 1)),
+            _ => None,
+        },
+        "docker" if words.len() >= 2 => match words[1] {
+            "build" | "run" => Some(cmd.replacen("docker", "rtk docker", 1)),
+            _ => None,
+        },
+        "pytest" => Some(cmd.replacen("pytest", "rtk pytest", 1)),
+        "ls" => Some(cmd.replacen("ls", "rtk ls", 1)),
+        "gradle" | "./gradlew" | "gradlew" => Some(cmd.replacen(words[0], "rtk gradle", 1)),
+        _ => None,
     }
-    None
 }
 
 #[cfg(test)]

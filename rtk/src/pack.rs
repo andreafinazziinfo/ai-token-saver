@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::fs;
+use std::io::Read;
 use std::path::Path;
 
 /// Packs directory contents into a single XML representation.
@@ -206,44 +207,13 @@ fn pack_recursive(
 }
 
 fn is_binary_file(path: &Path) -> bool {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|s| s.to_lowercase())
-        .unwrap_or_default();
-
-    matches!(
-        ext.as_str(),
-        "png"
-            | "jpg"
-            | "jpeg"
-            | "gif"
-            | "ico"
-            | "exe"
-            | "dll"
-            | "so"
-            | "dylib"
-            | "zip"
-            | "tar"
-            | "gz"
-            | "pdf"
-            | "db"
-            | "sqlite"
-            | "bin"
-            | "woff"
-            | "woff2"
-            | "ttf"
-            | "eot"
-            | "mp3"
-            | "mp4"
-            | "wav"
-            | "avi"
-            | "mov"
-            | "dmg"
-            | "iso"
-            | "lock"
-            | "pyc"
-    )
+    if let Ok(mut file) = fs::File::open(path) {
+        let mut buffer = [0; 1024];
+        if let Ok(n) = file.read(&mut buffer) {
+            return buffer[..n].contains(&0);
+        }
+    }
+    false
 }
 
 #[cfg(test)]

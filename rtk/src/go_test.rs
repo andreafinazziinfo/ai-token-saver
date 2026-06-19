@@ -1,17 +1,15 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub fn filter(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
 
-    lazy_static! {
-        // Drop test run start line (=== RUN)
-        static ref RUN_LINE: Regex = Regex::new(r"^===\s*RUN\b").unwrap();
-        // Drop test pass line (--- PASS)
-        static ref PASS_LINE: Regex = Regex::new(r"^---\s*PASS\b").unwrap();
-        // Drop ok status lines for packages with no output
-        static ref PACKAGE_OK: Regex = Regex::new(r"^ok\s+[^\s]+\s+[0-9\.]+s\s*(?:\[no tests to run\])?$").unwrap();
-    }
+    // Drop test run start line (=== RUN)
+    static RUN_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^===\s*RUN\b").unwrap());
+    // Drop test pass line (--- PASS)
+    static PASS_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^---\s*PASS\b").unwrap());
+    // Drop ok status lines for packages with no output
+    static PACKAGE_OK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^ok\s+[^\s]+\s+[0-9\.]+s\s*(?:\[no tests to run\])?$").unwrap());
 
     for line in input.lines() {
         let trimmed = line.trim();

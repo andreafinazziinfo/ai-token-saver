@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 const DEFAULT_LINE_LIMIT: usize = 80;
 const HEAD_LINES: usize = 15;
@@ -21,17 +21,19 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
     let head_lines = std::cmp::min(HEAD_LINES, limit / 2);
     let tail_lines = std::cmp::min(TAIL_LINES, limit.saturating_sub(head_lines));
 
-    lazy_static! {
-        // Match standard error keywords in logs (case-insensitive)
-        static ref ERROR_KEYWORD: Regex = Regex::new(
+    // Match standard error keywords in logs (case-insensitive)
+    static ERROR_KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
             r"(?i)\b(error|panic|failed|exception|fatal|critical|severe|warning)\b"
-        ).unwrap();
+        ).unwrap()
+    });
 
-        // Match common compiler/tool diagnostic markers
-        static ref DIAGNOSTIC_LINE: Regex = Regex::new(
+    // Match common compiler/tool diagnostic markers
+    static DIAGNOSTIC_LINE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
             r"^(error|warning|note|info|err|warn):\s+|^\[(ERROR|WARN|FATAL|SEVERE)\]"
-        ).unwrap();
-    }
+        ).unwrap()
+    });
 
     let mut out = String::with_capacity(input.len() / 4);
     let mut collapsed_count = 0;

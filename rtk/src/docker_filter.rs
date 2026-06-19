@@ -1,25 +1,25 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub fn filter(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
 
-    lazy_static! {
-        // Match docker layer pull statuses:
-        // b3c9a63d9178: Pulling fs layer
-        // b3c9a63d9178: Downloading [=========>] 12.1MB/45MB
-        // b3c9a63d9178: Waiting
-        // b3c9a63d9178: Verifying Checksum
-        // b3c9a63d9178: Download complete
-        // b3c9a63d9178: Pull complete
-        static ref DOCKER_PULL: Regex = Regex::new(
+    // Match docker layer pull statuses:
+    // b3c9a63d9178: Pulling fs layer
+    // b3c9a63d9178: Downloading [=========>] 12.1MB/45MB
+    // b3c9a63d9178: Waiting
+    // b3c9a63d9178: Verifying Checksum
+    // b3c9a63d9178: Download complete
+    // b3c9a63d9178: Pull complete
+    static DOCKER_PULL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
             r"^[a-f0-9]{12}:\s+(Pulling fs layer|Waiting|Downloading|Extracting|Verifying|Download complete|Pull complete|Already exists)\b"
-        ).unwrap();
+        ).unwrap()
+    });
 
-        // Match generic download bars like:
-        // [1/2] [===>               ]
-        static ref PROGRESS_BAR: Regex = Regex::new(r"\[[=\->\s]{5,}\]").unwrap();
-    }
+    // Match generic download bars like:
+    // [1/2] [===>               ]
+    static PROGRESS_BAR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[=\->\s]{5,}\]").unwrap());
 
     for line in input.lines() {
         let trimmed = line.trim();

@@ -297,177 +297,6 @@ fn get_gradle_bin() -> String {
     "gradle".to_string()
 }
 
-fn run_filtered(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
-    let output = std::process::Command::new(bin)
-        .args(args)
-        .output()
-        .with_context(|| format!("failed to execute {bin}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let filtered = filter(&stdout);
-
-    // DLP sensitive data scrubbing
-    let redacted_filtered = dlp::redact(&filtered);
-    let redacted_stdout = dlp::redact(&stdout);
-
-    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-    let mut final_output = redacted_filtered.clone();
-
-    match tracking::record(
-        cmd_label.trim(),
-        &redacted_stdout,
-        &redacted_filtered,
-        &redacted_stdout,
-    ) {
-        Ok(log_id) => {
-            if redacted_filtered.len() < redacted_stdout.len()
-                && !redacted_filtered.trim().is_empty()
-            {
-                final_output.push_str(&format!(
-                    "\n[Full output cached. Access with: rtk show-log {}]\n",
-                    log_id
-                ));
-            }
-        }
-        Err(e) => {
-            eprintln!("rtk: tracking warning: {e}");
-        }
-    }
-
-    print!("{final_output}");
-
-    if !output.stderr.is_empty() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprint!("{}", dlp::redact(&stderr));
-    }
-
-    if !output.status.success() {
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
-    Ok(())
-}
-
-/// Like `run_filtered` but filters **stderr** instead of stdout.
-/// Used for commands whose meaningful output is entirely on stderr
-/// (e.g. `cargo build`, `cargo check`).
-fn run_filtered_stderr(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
-    let output = std::process::Command::new(bin)
-        .args(args)
-        .output()
-        .with_context(|| format!("failed to execute {bin}"))?;
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let filtered = filter(&stderr);
-
-    // DLP sensitive data scrubbing
-    let redacted_filtered = dlp::redact(&filtered);
-    let redacted_stderr = dlp::redact(&stderr);
-
-    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-    let mut final_filtered = redacted_filtered.clone();
-
-    match tracking::record(
-        cmd_label.trim(),
-        &redacted_stderr,
-        &redacted_filtered,
-        &redacted_stderr,
-    ) {
-        Ok(log_id) => {
-            if redacted_filtered.len() < redacted_stderr.len()
-                && !redacted_filtered.trim().is_empty()
-            {
-                final_filtered.push_str(&format!(
-                    "\n[Full output cached. Access with: rtk show-log {}]\n",
-                    log_id
-                ));
-            }
-        }
-        Err(e) => {
-            eprintln!("rtk: tracking warning: {e}");
-        }
-    }
-
-    // stdout (usually empty for build/check) passes through unchanged (scrubbed for safety)
-    if !output.stdout.is_empty() {
-        print!("{}", dlp::redact(&String::from_utf8_lossy(&output.stdout)));
-    }
-    // filtered diagnostics go back to stderr
-    eprint!("{final_filtered}");
-
-    if !output.status.success() {
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
-    Ok(())
-}
-
-/// Runs a command and applies the generic distiller on its output.
-fn run_distilled(bin: &str, args: &[String]) -> Result<()> {
-    let output = std::process::Command::new(bin)
-        .args(args)
-        .output()
-        .with_context(|| format!("failed to execute {bin}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    let combined_original = format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
-    let redacted_combined = dlp::redact(&combined_original);
-
-    let distilled_stdout = distiller::distill(&stdout, None);
-    let distilled_stderr = distiller::distill(&stderr, None);
-
-    // DLP sensitive data scrubbing
-    let redacted_dist_stdout = dlp::redact(&distilled_stdout);
-    let redacted_dist_stderr = dlp::redact(&distilled_stderr);
-
-    let mut final_stdout = redacted_dist_stdout.clone();
-    let mut final_stderr = redacted_dist_stderr.clone();
-
-    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-
-    // Calculate total original and filtered characters/tokens
-    let total_orig_len = stdout.len() + stderr.len();
-    let total_filt_len = distilled_stdout.len() + distilled_stderr.len();
-
-    match tracking::record(
-        cmd_label.trim(),
-        &redacted_combined,
-        &format!("{}\n{}", redacted_dist_stdout, redacted_dist_stderr),
-        &redacted_combined,
-    ) {
-        Ok(log_id) => {
-            if total_filt_len < total_orig_len {
-                if !final_stdout.trim().is_empty() {
-                    final_stdout.push_str(&format!(
-                        "\n[Full output cached. Access with: rtk show-log {}]\n",
-                        log_id
-                    ));
-                } else if !final_stderr.trim().is_empty() {
-                    final_stderr.push_str(&format!(
-                        "\n[Full output cached. Access with: rtk show-log {}]\n",
-                        log_id
-                    ));
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("rtk: tracking warning: {e}");
-        }
-    }
-
-    if !redacted_dist_stdout.is_empty() {
-        print!("{final_stdout}");
-    }
-    if !redacted_dist_stderr.is_empty() {
-        eprint!("{final_stderr}");
-    }
-
-    if !output.status.success() {
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
-    Ok(())
-}
-
 fn has_flag(args: &[String], flags: &[&str]) -> bool {
     args.iter().any(|a| flags.contains(&a.as_str()))
 }
@@ -484,52 +313,89 @@ fn passthrough(bin: &str, args: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// Like `run_filtered` but filters combined **stdout + stderr**.
-/// Useful for test runners like `cargo test` that interleave output.
-fn run_filtered_combined(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
+enum FilterMode {
+    Stdout(fn(&str) -> String),
+    Stderr(fn(&str) -> String),
+    Combined(fn(&str) -> String),
+    Distilled,
+}
+
+fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<()> {
     let output = std::process::Command::new(bin)
         .args(args)
         .output()
         .with_context(|| format!("failed to execute {bin}"))?;
 
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let stderr_str = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{stderr_str}\n{stdout_str}");
-
-    let filtered = filter(&combined);
-
-    // DLP sensitive data scrubbing
-    let redacted_filtered = dlp::redact(&filtered);
-    let redacted_combined = dlp::redact(&combined);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    
+    let (mut out_print, mut err_print, raw_db, filtered_db) = match mode {
+        FilterMode::Stdout(filter) => {
+            let filtered = filter(&stdout);
+            let r_filtered = dlp::redact(&filtered);
+            let r_stdout = dlp::redact(&stdout);
+            (r_filtered.clone(), dlp::redact(&stderr), r_stdout.clone(), r_filtered)
+        }
+        FilterMode::Stderr(filter) => {
+            let filtered = filter(&stderr);
+            let r_filtered = dlp::redact(&filtered);
+            let r_stderr = dlp::redact(&stderr);
+            (dlp::redact(&stdout), r_filtered.clone(), r_stderr.clone(), r_filtered)
+        }
+        FilterMode::Combined(filter) => {
+            let combined = format!("{stderr}\n{stdout}");
+            let filtered = filter(&combined);
+            let r_filtered = dlp::redact(&filtered);
+            let r_combined = dlp::redact(&combined);
+            (r_filtered.clone(), String::new(), r_combined.clone(), r_filtered)
+        }
+        FilterMode::Distilled => {
+            let d_stdout = distiller::distill(&stdout, None);
+            let d_stderr = distiller::distill(&stderr, None);
+            let r_d_out = dlp::redact(&d_stdout);
+            let r_d_err = dlp::redact(&d_stderr);
+            let r_comb = dlp::redact(&format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"));
+            (r_d_out.clone(), r_d_err.clone(), r_comb, format!("{r_d_out}\n{r_d_err}"))
+        }
+    };
 
     let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-    let mut final_filtered = redacted_filtered.clone();
-
-    match tracking::record(
-        cmd_label.trim(),
-        &redacted_combined,
-        &redacted_filtered,
-        &redacted_combined,
-    ) {
+    
+    match tracking::record(cmd_label.trim(), &raw_db, &filtered_db, &raw_db) {
         Ok(log_id) => {
-            if redacted_filtered.len() < redacted_combined.len()
-                && !redacted_filtered.trim().is_empty()
-            {
-                final_filtered.push_str(&format!(
-                    "\n[Full output cached. Access with: rtk show-log {}]\n",
-                    log_id
-                ));
+            if filtered_db.len() < raw_db.len() && !filtered_db.trim().is_empty() {
+                let msg = format!("\n[Full output cached. Access with: rtk show-log {log_id}]\n");
+                if !out_print.trim().is_empty() {
+                    out_print.push_str(&msg);
+                } else if !err_print.trim().is_empty() {
+                    err_print.push_str(&msg);
+                }
             }
         }
-        Err(e) => {
-            eprintln!("rtk: tracking warning: {e}");
-        }
+        Err(e) => eprintln!("rtk: tracking warning: {e}"),
     }
 
-    print!("{final_filtered}");
+    if !out_print.is_empty() { print!("{out_print}"); }
+    if !err_print.is_empty() { eprint!("{err_print}"); }
 
     if !output.status.success() {
         std::process::exit(output.status.code().unwrap_or(1));
     }
     Ok(())
+}
+
+fn run_filtered(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
+    execute_with_filter(bin, args, FilterMode::Stdout(filter))
+}
+
+fn run_filtered_stderr(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
+    execute_with_filter(bin, args, FilterMode::Stderr(filter))
+}
+
+fn run_filtered_combined(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
+    execute_with_filter(bin, args, FilterMode::Combined(filter))
+}
+
+fn run_distilled(bin: &str, args: &[String]) -> Result<()> {
+    execute_with_filter(bin, args, FilterMode::Distilled)
 }

@@ -1,35 +1,37 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub fn redact(text: &str) -> String {
-    lazy_static! {
-        // Match PEM Private Keys
-        static ref PRIVATE_KEY: Regex = Regex::new(
-            r"(?s)-----BEGIN [A-Z ]+-----.*?-----END [A-Z ]+-----"
-        ).unwrap();
+    // Match PEM Private Keys
+    static PRIVATE_KEY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?s)-----BEGIN [A-Z ]+-----.*?-----END [A-Z ]+-----").unwrap()
+    });
 
-        // Match JWT Tokens
-        static ref JWT: Regex = Regex::new(
-            r"\beyJh[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]*\b"
-        ).unwrap();
+    // Match JWT Tokens
+    static JWT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\beyJh[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]*\b").unwrap()
+    });
 
-        // Match typical API keys:
-        // OpenAI: sk-proj-...
-        // Stripe: sk_live_... / sk_test_...
-        // AWS client id/secret: AKIA...
-        // Anthropic: sk-ant-...
-        // GitHub: ghp_...
-        // Google: AIza...
-        // Slack: xox...
-        static ref API_KEYS: Regex = Regex::new(
+    // Match typical API keys:
+    // OpenAI: sk-proj-...
+    // Stripe: sk_live_... / sk_test_...
+    // AWS client id/secret: AKIA...
+    // Anthropic: sk-ant-...
+    // GitHub: ghp_...
+    // Google: AIza...
+    // Slack: xox...
+    static API_KEYS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
             r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|sk-ant-api[0-9a-zA-Z\-_]{30,}|ghp_[a-zA-Z0-9]{36}|xox[baprs]-[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{35}|AKIA[0-9A-Z]{16})\b"
-        ).unwrap();
+        ).unwrap()
+    });
 
-        // Database credentials in URI: e.g. postgres://user:password@host
-        static ref DB_URI: Regex = Regex::new(
+    // Database credentials in URI: e.g. postgres://user:password@host
+    static DB_URI: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
             r"\b[a-zA-Z0-9\+]+://[a-zA-Z0-9_\-\.]+:[^@\s]+@[a-zA-Z0-9_\-\.]+"
-        ).unwrap();
-    }
+        ).unwrap()
+    });
 
     // 1. First redact specific large patterns (private keys)
     let mut redacted = PRIVATE_KEY

@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 const MAX_LINE: usize = 80;
 /// Hunks with more changed lines than this are collapsed to a summary.
@@ -16,10 +16,8 @@ const HUNK_HEAD_LINES: usize = 3;
 ///   - Truncate: lines > 80 chars get `…` suffix
 ///   - Fallback: return input unchanged if filter produces empty output
 pub fn filter(input: &str) -> String {
-    lazy_static! {
-        static ref DIFF_FILE: Regex = Regex::new(r"^diff --git a/.+ b/(.+)$").unwrap();
-        static ref HUNK: Regex = Regex::new(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@").unwrap();
-    }
+    static DIFF_FILE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^diff --git a/.+ b/(.+)$").unwrap());
+    static HUNK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@").unwrap());
 
     let mut out = String::with_capacity(input.len() / 4);
     let mut hunk_header = String::new();

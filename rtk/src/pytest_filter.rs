@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 /// Filter `pytest` output.
 ///
@@ -11,11 +11,10 @@ use regex::Regex;
 ///   - Retain short test summary and final outcome line.
 ///   - Fallback: return input unchanged if filter produces empty output.
 pub fn filter(input: &str) -> String {
-    lazy_static! {
-        static ref HEADER_LINE: Regex = Regex::new(r"^={3,}\s+(.+)\s+={3,}$").unwrap();
-        static ref PREAMBLE_LINE: Regex =
-            Regex::new(r"^(platform|plugins|rootdir|configfile|collected|plugins)[:\s]").unwrap();
-    }
+    static HEADER_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^={3,}\s+(.+)\s+={3,}$").unwrap());
+    static PREAMBLE_LINE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(platform|plugins|rootdir|configfile|collected|plugins)[:\s]").unwrap()
+    });
 
     let mut out = String::with_capacity(input.len() / 3);
     let mut in_warnings = false;
