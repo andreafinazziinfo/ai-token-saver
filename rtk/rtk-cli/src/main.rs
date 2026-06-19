@@ -2,7 +2,10 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
-use rtk_filters::{cargo_build, cargo_test, docker_filter, git_diff, git_log, git_status, go_test, gradle, ls_filter, pytest_filter};
+use rtk_filters::{
+    cargo_build, cargo_test, docker_filter, git_diff, git_log, git_status, go_test, gradle,
+    ls_filter, pytest_filter,
+};
 use rtk_memory::{config, dlp, status, think, tracking};
 use rtk_pack::pack;
 
@@ -449,7 +452,10 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
             let d_stderr = distiller::distill(&stderr, None);
             let r_d_out = dlp::redact_with_source(&d_stdout, &cmd_label);
             let r_d_err = dlp::redact_with_source(&d_stderr, &cmd_label);
-            let r_comb = dlp::redact_with_source(&format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"), &cmd_label);
+            let r_comb = dlp::redact_with_source(
+                &format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"),
+                &cmd_label,
+            );
             (
                 r_d_out.clone(),
                 r_d_err.clone(),
@@ -488,7 +494,10 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
                     let d_stderr = distiller::distill(&stderr, None);
                     let r_d_out = dlp::redact_with_source(&d_stdout, &cmd_label);
                     let r_d_err = dlp::redact_with_source(&d_stderr, &cmd_label);
-                    let r_comb = dlp::redact_with_source(&format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"), &cmd_label);
+                    let r_comb = dlp::redact_with_source(
+                        &format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"),
+                        &cmd_label,
+                    );
                     (
                         r_d_out.clone(),
                         r_d_err.clone(),
@@ -496,7 +505,8 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
                         format!("{r_d_out}\n{r_d_err}"),
                     )
                 }
-                _ => { // stdout default
+                _ => {
+                    // stdout default
                     let filtered = plugins::filter_plugin(&stdout, plugin);
                     let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
                     let r_stdout = dlp::redact_with_source(&stdout, &cmd_label);

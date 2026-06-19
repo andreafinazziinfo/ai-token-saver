@@ -2,11 +2,11 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 fn write_audit_log(source: &str, label: &str, secret: &str) {
+    use std::collections::hash_map::DefaultHasher;
     use std::fs::OpenOptions;
+    use std::hash::{Hash, Hasher};
     use std::io::Write;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
 
     // Calculate stable hash of the secret
     let mut hasher = DefaultHasher::new();
@@ -21,10 +21,10 @@ fn write_audit_log(source: &str, label: &str, secret: &str) {
     if let Some(h) = home {
         let audit_dir = h.join(".config/rtk");
         let audit_path = audit_dir.join("audit.log");
-        
+
         // Ensure directory exists
         let _ = std::fs::create_dir_all(&audit_dir);
-        
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -35,11 +35,7 @@ fn write_audit_log(source: &str, label: &str, secret: &str) {
             .append(true)
             .open(&audit_path)
         {
-            let _ = writeln!(
-                file,
-                "{} | {} | {} | {:016x}",
-                now, source, label, hash_val
-            );
+            let _ = writeln!(file, "{} | {} | {} | {:016x}", now, source, label, hash_val);
         }
     }
 }
@@ -159,7 +155,6 @@ pub fn redact_with_source(text: &str, source: &str) -> String {
 
     final_text
 }
-
 
 fn check_and_redact_word(word: &str, source: &str) -> String {
     if word.len() >= 24 && word.len() <= 128 {

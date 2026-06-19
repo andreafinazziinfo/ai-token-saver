@@ -35,7 +35,7 @@ jobs:
           ${{ runner.os }}-cargo-
 
     - name: Check Formatting
-      run: cargo fmt --manifest-path rtk/Cargo.toml -- --check
+      run: cargo fmt --manifest-path rtk/Cargo.toml --all -- --check
 
     - name: Clippy Linting
       run: cargo clippy --manifest-path rtk/Cargo.toml -- -D warnings

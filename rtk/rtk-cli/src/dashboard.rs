@@ -1,5 +1,5 @@
-use rtk_memory::tracking;
 use anyhow::{Context, Result};
+use rtk_memory::tracking;
 use std::fs;
 use std::path::Path;
 

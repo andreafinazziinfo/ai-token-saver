@@ -258,10 +258,13 @@ args = ["check"]
 filter_mode = "stdout"
 "#;
         std::fs::write("plugins.toml", toml_content).unwrap();
-        
+
         let result = auto_rewrite("ruff check src/main.rs");
-        assert_eq!(result, Some("rtk plugin ruff-check check src/main.rs".to_string()));
-        
+        assert_eq!(
+            result,
+            Some("rtk plugin ruff-check check src/main.rs".to_string())
+        );
+
         std::fs::remove_file("plugins.toml").ok();
     }
 }

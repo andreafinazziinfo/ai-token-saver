@@ -208,6 +208,7 @@ pub fn get_command_breakdown() -> Result<Vec<(String, i64, i64)>> {
 }
 
 /// Fetch complete audit breakdown statistics (cmd, count, original, filtered, saved)
+#[allow(clippy::type_complexity)]
 pub fn get_audit_breakdown() -> Result<Vec<(String, i64, i64, i64, i64)>> {
     let conn = open_db()?;
     let mut stmt = conn.prepare(
@@ -392,15 +393,18 @@ pub fn run_audit(output_path: &str) -> Result<()> {
     println!("Total Commands Intercepted:      {}", count);
     println!("Original Tokens:                 {}", original);
     println!("Filtered Tokens:                 {}", filtered);
-    println!("Tokens Saved:                    {} ({:.1}%)", saved, savings_pct);
+    println!(
+        "Tokens Saved:                    {} ({:.1}%)",
+        saved, savings_pct
+    );
     println!("Estimated API Cost Saved (USD):  ${:.4}", cost_saved);
     println!("Estimated Developer Hours Saved: {:.2} hrs", hours_saved);
     println!("----------------------------------------------------------");
-    
+
     // Write report to file
     std::fs::write(output_path, report_content)
         .with_context(|| format!("failed to write audit report to {}", output_path))?;
-        
+
     println!("Audit report successfully written to: {}", output_path);
     println!("==========================================================");
 
@@ -503,7 +507,7 @@ mod tests {
         // Test get_audit_breakdown
         let breakdown = get_audit_breakdown().unwrap();
         assert_eq!(breakdown.len(), 2);
-        
+
         // Test run_audit writes to file successfully
         let audit_md_path = env::temp_dir().join(format!("rtk_audit_{}.md", std::process::id()));
         run_audit(&audit_md_path.to_string_lossy()).unwrap();

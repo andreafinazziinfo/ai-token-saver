@@ -64,13 +64,18 @@ pub fn filter_plugin(input: &str, plugin: &Plugin) -> String {
         let mut keep = true;
 
         if let Some(ref drop) = plugin.drop_prefixes {
-            if drop.iter().any(|prefix| line.trim_start().starts_with(prefix)) {
+            if drop
+                .iter()
+                .any(|prefix| line.trim_start().starts_with(prefix))
+            {
                 keep = false;
             }
         }
 
         if let Some(ref k_pref) = plugin.keep_prefixes {
-            let matches_keep = k_pref.iter().any(|prefix| line.trim_start().starts_with(prefix));
+            let matches_keep = k_pref
+                .iter()
+                .any(|prefix| line.trim_start().starts_with(prefix));
             let has_error = line.to_lowercase().contains("error")
                 || line.to_lowercase().contains("warning")
                 || line.to_lowercase().contains("failed");
