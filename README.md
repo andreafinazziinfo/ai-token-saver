@@ -5,8 +5,11 @@
 [![CodeQL](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml/badge.svg)](https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Tags:** `ai-tools`, `rust`, `cli`, `claude-code`, `cursor`, `windsurf`, `developer-tools`, `token-saver`, `cost-optimization`, `context-window`, `llm`, `rag`
-
+[![Crates.io Version](https://img.shields.io/crates/v/rtk.svg)](https://crates.io/crates/rtk)
+[![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
+[![GitHub stars](https://img.shields.io/github/stars/andreafinazziinfo/ai-token-saver.svg?style=social)](https://github.com/andreafinazziinfo/ai-token-saver/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/andreafinazziinfo/ai-token-saver.svg)](https://github.com/andreafinazziinfo/ai-token-saver/issues)
+[![GitHub forks](https://img.shields.io/github/forks/andreafinazziinfo/ai-token-saver.svg)](https://github.com/andreafinazziinfo/ai-token-saver/network/members)
 A high-performance, token-efficient developer toolchain designed to optimize context windows, cut API costs, and improve execution speed for AI coding assistants (such as Claude Code, Cursor, Windsurf, Antigravity, and Gemini).
 
 By filtering verbose terminal outputs, caching logs in SQLite, minifying directory text, and enforcing YAGNI developer behaviors, the toolkit saves **60% to 95% of tokens** in common coding operations.
@@ -31,13 +34,22 @@ RTK operates on two fronts: **Input Virtualization** (filtering what the AI read
 
 These benchmarks represent real-world savings during standard pair programming sessions measured using Anthropic's Claude 3.5 Sonnet token counting API.
 
-| Task Profile | Standard Tokens (No RTK) | RTK Tokens | Savings (%) | Output Style |
-| :--- | :--- | :--- | :--- | :--- |
-| **`cargo test` (10 fails)** | ~18,500 | ~2,100 | **88.6%** | Standard |
-| **`npm install` (verbose)** | ~12,400 | ~800 | **93.5%** | Standard |
-| **Code Review (1 PR)** | ~3,500 | ~850 | **75.7%** | `caveman-review` |
-| **Commit Generation** | ~1,200 | ~150 | **87.5%** | `caveman-commit` |
-| **AI General Response** | ~800 | ~200 | **75.0%** | `caveman-full` |
+```mermaid
+xychart-beta
+    title "Tokens Used: Standard vs RTK"
+    x-axis ["cargo test", "npm install", "Code Review", "Commit Gen", "AI Reply"]
+    y-axis "Tokens" 0 --> 19000
+    bar [18500, 12400, 3500, 1200, 800]
+    line [2100, 800, 850, 150, 200]
+```
+
+```mermaid
+xychart-beta
+    title "Token Savings Percentage (%)"
+    x-axis ["cargo test", "npm install", "Code Review", "Commit Gen", "AI Reply"]
+    y-axis "Savings %" 0 --> 100
+    bar [88.6, 93.5, 75.7, 87.5, 75.0]
+```
 
 **Verified Benchmarks**: ~3x faster AI generation times with 100% technical accuracy. Check your active configuration anytime with `rtk status` or view metrics with `rtk dashboard`.
 
