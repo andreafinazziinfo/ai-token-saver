@@ -23,6 +23,46 @@
   <a href="https://github.com/andreafinazziinfo/ai-token-saver/network/members"><img src="https://img.shields.io/github/forks/andreafinazziinfo/ai-token-saver.svg" alt="GitHub forks"/></a>
 </p>
 
+```text
+                  ___ _____ _  __  _____   _  __
+                 / _ \_   _| |/ / |_   _| | |/ /
+                | | | || | | ' /    | |   | ' / 
+                | |_| || | | . \    | |   | . \ 
+                 \___/ |_| |_|\_\   |_|   |_|\_\
+        
+     ⚡ THE THREE-PHASE CONTEXT ENGINE FOR AUTONOMOUS AGENTS ⚡
+
+  📥 PHASE 1: INPUT VIRTUALIZATION
+  ┌──────────────────────────────────────────────────────────────┐
+  │ [ Raw Terminal Command ] ──> Intercept & Rewrite Hook        │
+  │                                                              │
+  │    git status/diff/log ──┐                                   │
+  │    cargo build/test    ──┼──> [ RTK Filters ]                │
+  │    pytest, docker, npm ──┼──> Strips noise, compiler junk    │
+  │    dotnet, gradle, go  ──┼──> and package manager warnings   │
+  │    ls -laR, rtk pack   ──┘                                   │
+  └──────────────────────────────┬───────────────────────────────┘
+                                 │
+                                 ├──> [ Signal to Chat ] (Avg -82.5% Tokens)
+                                 │
+                                 └──> [ Raw Cache Log ] ──> [( SQLite FTS5 )]
+                                                            │  • Key-Value Store     │
+  🧠 PHASE 2: MEMORY & REASONING                            │  • Semantic search     │
+  ┌─────────────────────────────────────────────────────────┼──> • Raw command cache │
+  │ [ cat reasoning | rtk think ] ──> Hidden Thought Loop ──┘                        │
+  │ [ API Keys / Secrets / JWT ]  ──> dlp::redact (100% Secure)                      │
+  └──────────────────────────────────────────────────────────────────────────────────┘
+                                 │
+  📤 PHASE 3: OUTPUT AUTONOMY    ▼
+  ┌──────────────────────────────────────────────────────────────────────────────────┐
+  │ [ Output Persona Rules ] ──> Inject System Prompts                               │
+  │                                                                                  │
+  │    🗣️ Caveman Persona    ──> Cuts AI response length by ~75%                     │
+  │    🧑‍💻 Ponytail Persona   ──> Prevents over-engineered, boilerplate code (-54%)  │
+  │    🚀 Budget Guardrails  ──> Auto-warns when response exceeds 3k tokens         │
+  └──────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 **AI Token Saver (RTK)** is a high-performance, Rust-based CLI designed to aggressively optimize how Autonomous Agents (like Claude Code, Cursor, Windsurf, Antigravity) interact with your project.
