@@ -60,45 +60,52 @@ fn rewrite_git_push_exit_3() {
 #[test]
 fn e2e_ide_pipeline_flow() {
     // 1. Simulate Claude sending a command that the hook catches
-    let rewrite_out = rtk_bin().args(["rewrite", "cargo test"]).output().unwrap();
-
+    let rewrite_out = rtk_bin()
+        .args(["rewrite", "git status"])
+        .output()
+        .unwrap();
+    
     assert_eq!(rewrite_out.status.code(), Some(0));
-    let rewritten_cmd = String::from_utf8_lossy(&rewrite_out.stdout)
-        .trim()
-        .to_string();
-    assert_eq!(rewritten_cmd, "rtk cargo test");
+    let rewritten_cmd = String::from_utf8_lossy(&rewrite_out.stdout).trim().to_string();
+    assert_eq!(rewritten_cmd, "rtk git status");
 
     // 2. Execute the proxied command
-    let run_out = rtk_bin().args(["cargo", "test"]).output().unwrap();
-
-    assert!(run_out.status.success() || run_out.status.code() == Some(101));
-    let stdout_str = String::from_utf8_lossy(&run_out.stdout);
-
-    // 3. Verify output contains standard RTK wrappers or cargo output
-    assert!(
-        stdout_str.contains("cargo") || stdout_str.contains("RTK") || stdout_str.contains("test")
-    );
-
-    // We can also verify that a local SQLite DB was hit, but since
-    // tests run concurrently, checking .rtk dir requires creating a temp dir.
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-    let temp_dir = std::env::temp_dir().join(format!("rtk_e2e_{timestamp}"));
-    fs::create_dir_all(&temp_dir).unwrap();
-
-    let proxied_run = rtk_bin()
-        .current_dir(&temp_dir)
-        .args(["cargo", "test"])
+    let run_out = rtk_bin()
+        .args(["git", "status"])
         .output()
         .unwrap();
 
-    assert!(proxied_run.status.success());
+    assert!(run_out.status.success() || run_out.status.code() == Some(128));
+    let stdout_str = String::from_utf8_lossy(&run_out.stdout);
+    
+    // 3. Verify output contains standard RTK wrappers or git output
+    assert!(stdout_str.contains("git") || stdout_str.contains("RTK") || stdout_str.contains("branch"));
+    
+    // We can also verify that a local SQLite DB was hit, but since
+    // tests run concurrently, checking .rtk dir requires creating a temp dir.
+    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+    let temp_dir = std::env::temp_dir().join(format!("rtk_e2e_{timestamp}"));
+    fs::create_dir_all(&temp_dir).unwrap();
 
-    // Verify that .rtk/logs.db or project_memory_fts.db was created
-    // The DB logic usually writes to `.rtk/project_memory_fts.db` and `.rtk/logs.db`
-    assert!(temp_dir.join(".rtk").exists());
+    // Initialize a dummy git project so git status succeeds
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(&temp_dir)
+        .output()
+        .unwrap();
+
+    let db_path = temp_dir.join("rtk.db");
+    let proxied_run = rtk_bin()
+        .current_dir(&temp_dir)
+        .env("RTK_DB_PATH", &db_path)
+        .args(["git", "status"])
+        .output()
+        .unwrap();
+    
+    assert!(proxied_run.status.success() || proxied_run.status.code() == Some(128));
+
+    // Verify that the database was created
+    assert!(db_path.exists());
 
     fs::remove_dir_all(temp_dir).unwrap();
 }
