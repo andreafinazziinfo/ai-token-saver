@@ -32,7 +32,7 @@ pub struct UserConfig {
     pub denied_commands: Vec<String>,
     /// Custom Data Loss Prevention regex patterns to scrub sensitive data.
     pub custom_dlp_patterns: Vec<String>,
-    
+
     // P1 savings profiles
     pub output_profiles: std::collections::HashMap<String, ProfileSettings>,
     pub default_profile: String,
@@ -148,7 +148,7 @@ impl UserConfig {
                         .map(String::from),
                 );
             }
-            
+
             // P1 profiles
             if let Some(profiles_val) = val.get("output_profiles").and_then(|v| v.as_object()) {
                 for (k, v_obj) in profiles_val {
@@ -157,11 +157,11 @@ impl UserConfig {
                     }
                 }
             }
-            
+
             if let Some(def) = val.get("default_profile").and_then(|v| v.as_str()) {
                 self.default_profile = def.to_string();
             }
-            
+
             if let Some(overrides_val) = val.get("overrides").and_then(|v| v.as_object()) {
                 for (k, v_str) in overrides_val {
                     if let Some(profile_name) = v_str.as_str() {
@@ -182,7 +182,7 @@ impl UserConfig {
                 }
             }
         }
-        
+
         if let Some(settings) = self.output_profiles.get(&self.default_profile) {
             settings.clone()
         } else {
@@ -321,7 +321,10 @@ pub fn config_profile_set(name: &str) -> anyhow::Result<()> {
         ));
     }
     modify_config(|obj| {
-        obj.insert("default_profile".to_string(), serde_json::Value::String(name.to_string()));
+        obj.insert(
+            "default_profile".to_string(),
+            serde_json::Value::String(name.to_string()),
+        );
     })
 }
 
@@ -433,7 +436,7 @@ mod tests {
         assert_eq!(config.default_profile, "developer");
         assert_eq!(config.overrides.get("git diff").unwrap(), "strict");
         assert_eq!(config.overrides.get("cargo test").unwrap(), "developer");
-        
+
         let custom_profile = config.output_profiles.get("custom").unwrap();
         assert_eq!(custom_profile.max_line_length, Some(50));
         assert_eq!(custom_profile.remove_comments, Some(true));

@@ -5,7 +5,9 @@ use std::path::Path;
 pub fn agents_init(template: &str) -> Result<()> {
     let agents_path = Path::new("AGENTS.md");
     if agents_path.exists() {
-        return Err(anyhow::anyhow!("AGENTS.md already exists in the current directory."));
+        return Err(anyhow::anyhow!(
+            "AGENTS.md already exists in the current directory."
+        ));
     }
 
     let content = match template {
@@ -139,7 +141,7 @@ pub fn agents_doctor() -> Result<()> {
                 let absolute_pos = start + pos;
                 let link_start = absolute_pos + "file:///".len();
                 let link_end = line[link_start..]
-                    .find(|c| c == ')' || c == '"' || c == ' ' || c == '#')
+                    .find([')', '"', ' ', '#'])
                     .map(|p| link_start + p)
                     .unwrap_or(line.len());
 

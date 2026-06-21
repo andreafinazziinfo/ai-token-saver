@@ -16,13 +16,14 @@ fn open_db() -> Result<Connection> {
     } else {
         let rtk_dir = std::env::current_dir()?.join(".rtk");
         if !rtk_dir.exists() {
-            std::fs::create_dir_all(&rtk_dir).with_context(|| format!("create {}", rtk_dir.display()))?;
+            std::fs::create_dir_all(&rtk_dir)
+                .with_context(|| format!("create {}", rtk_dir.display()))?;
         }
         rtk_dir.join("rtk.db")
     };
-    
+
     let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
-    
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS artifacts (
             id            TEXT PRIMARY KEY,
@@ -32,8 +33,9 @@ fn open_db() -> Result<Connection> {
             created_at    TEXT NOT NULL DEFAULT (datetime('now'))
         )",
         [],
-    ).context("create artifacts table")?;
-    
+    )
+    .context("create artifacts table")?;
+
     Ok(conn)
 }
 
@@ -59,7 +61,7 @@ pub fn artifact_list() -> Result<Vec<Artifact>> {
             created_at: r.get(4)?,
         })
     })?;
-    
+
     let mut list = Vec::new();
     for row in rows {
         list.push(row?);
@@ -69,7 +71,9 @@ pub fn artifact_list() -> Result<Vec<Artifact>> {
 
 pub fn artifact_get(id: &str) -> Result<Artifact> {
     let conn = open_db()?;
-    let mut stmt = conn.prepare("SELECT id, type, content, metadata_json, created_at FROM artifacts WHERE id = ?1")?;
+    let mut stmt = conn.prepare(
+        "SELECT id, type, content, metadata_json, created_at FROM artifacts WHERE id = ?1",
+    )?;
     let art = stmt.query_row(params![id], |r| {
         Ok(Artifact {
             id: r.get(0)?,
@@ -103,7 +107,13 @@ mod tests {
         env::set_var("RTK_DB_PATH", &tmp);
 
         // Add artifact
-        artifact_add("art-1", "reasoning", "First reasoning trace", Some("{\"model\":\"claude\"}")).unwrap();
+        artifact_add(
+            "art-1",
+            "reasoning",
+            "First reasoning trace",
+            Some("{\"model\":\"claude\"}"),
+        )
+        .unwrap();
         artifact_add("art-2", "summary", "A short summary", None).unwrap();
 
         // List
@@ -115,7 +125,10 @@ mod tests {
         // Get
         let single = artifact_get("art-1").unwrap();
         assert_eq!(single.content, "First reasoning trace");
-        assert_eq!(single.metadata_json, Some("{\"model\":\"claude\"}".to_string()));
+        assert_eq!(
+            single.metadata_json,
+            Some("{\"model\":\"claude\"}".to_string())
+        );
 
         // GC old
         // Manually insert an old artifact
@@ -124,7 +137,8 @@ mod tests {
             "INSERT INTO artifacts (id, type, content, metadata_json, created_at) \
              VALUES ('old-art', 'cli-log', 'logs...', NULL, datetime('now', '-32 days'))",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         let count_before = artifact_list().unwrap().len();
         assert_eq!(count_before, 3);

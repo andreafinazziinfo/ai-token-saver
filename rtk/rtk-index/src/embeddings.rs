@@ -3,9 +3,9 @@ use anyhow::{anyhow, Result};
 #[cfg(feature = "embeddings")]
 use std::path::Path;
 #[cfg(feature = "embeddings")]
-use tract_onnx::prelude::*;
-#[cfg(feature = "embeddings")]
 use tokenizers::Tokenizer;
+#[cfg(feature = "embeddings")]
+use tract_onnx::prelude::*;
 
 #[cfg(feature = "embeddings")]
 pub struct OnnxEmbedder {
@@ -25,8 +25,16 @@ impl OnnxEmbedder {
 
     pub fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
         let encoding = self.tokenizer.encode(text, true).map_err(|e| anyhow!(e))?;
-        let ids = encoding.get_ids().iter().map(|&x| x as i64).collect::<Vec<i64>>();
-        let attention_mask = encoding.get_attention_mask().iter().map(|&x| x as i64).collect::<Vec<i64>>();
+        let ids = encoding
+            .get_ids()
+            .iter()
+            .map(|&x| x as i64)
+            .collect::<Vec<i64>>();
+        let attention_mask = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&x| x as i64)
+            .collect::<Vec<i64>>();
         let seq_len = ids.len();
 
         if seq_len == 0 {
@@ -35,7 +43,8 @@ impl OnnxEmbedder {
 
         // Convert to 2D arrays with shape [1, seq_len]
         let input_ids_tensor = tract_ndarray::Array2::from_shape_vec((1, seq_len), ids.clone())?;
-        let attention_mask_tensor = tract_ndarray::Array2::from_shape_vec((1, seq_len), attention_mask.clone())?;
+        let attention_mask_tensor =
+            tract_ndarray::Array2::from_shape_vec((1, seq_len), attention_mask.clone())?;
 
         // Run model
         let outputs = self.model.run(tvec!(
@@ -46,7 +55,7 @@ impl OnnxEmbedder {
         // Extract last_hidden_state (usually index 0)
         let output_tensor = outputs[0].to_array_view::<f32>()?;
         let shape = output_tensor.shape();
-        
+
         if shape.len() < 3 {
             return Err(anyhow!("Unexpected output tensor shape: {:?}", shape));
         }
@@ -100,11 +109,18 @@ pub struct OnnxEmbedder;
 
 #[cfg(not(feature = "embeddings"))]
 impl OnnxEmbedder {
-    pub fn load_model(_model_path: &std::path::Path, _tokenizer_path: &std::path::Path) -> Result<Self> {
-        Err(anyhow!("Embeddings feature is disabled. Recompile with --features embeddings"))
+    pub fn load_model(
+        _model_path: &std::path::Path,
+        _tokenizer_path: &std::path::Path,
+    ) -> Result<Self> {
+        Err(anyhow!(
+            "Embeddings feature is disabled. Recompile with --features embeddings"
+        ))
     }
     pub fn embed_text(&self, _text: &str) -> Result<Vec<f32>> {
-        Err(anyhow!("Embeddings feature is disabled. Recompile with --features embeddings"))
+        Err(anyhow!(
+            "Embeddings feature is disabled. Recompile with --features embeddings"
+        ))
     }
 }
 

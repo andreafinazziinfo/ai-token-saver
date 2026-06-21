@@ -25,7 +25,11 @@ pub fn run_doctor() -> Result<()> {
     print!("💰 Pricing Registry: ");
     let registry = pricing::get_registry();
     if !registry.models.is_empty() {
-        println!("✅ OK (revision: {}, {} models loaded)", registry.pricing_revision, registry.models.len());
+        println!(
+            "✅ OK (revision: {}, {} models loaded)",
+            registry.pricing_revision,
+            registry.models.len()
+        );
     } else {
         println!("❌ FAILED (no models loaded in registry)");
         all_ok = false;
@@ -36,7 +40,7 @@ pub fn run_doctor() -> Result<()> {
     let home = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from);
-    
+
     let mut alias_found = false;
     if let Some(h) = home {
         let shells = [".bashrc", ".zshrc", ".profile"];
@@ -52,12 +56,14 @@ pub fn run_doctor() -> Result<()> {
             }
         }
     }
-    
+
     if alias_found {
         println!("✅ OK");
     } else {
         println!("⚠️  WARNING (aliases not found in ~/.bashrc, ~/.zshrc or ~/.profile)");
-        println!("   👉 Suggestion: Run `rtk init` to automatically install aliases and shell hooks.");
+        println!(
+            "   👉 Suggestion: Run `rtk init` to automatically install aliases and shell hooks."
+        );
     }
 
     // 4. Check Rust version

@@ -1,6 +1,6 @@
+use crate::parser::ParsedSymbol;
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
-use crate::parser::ParsedSymbol;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DbSymbol {
@@ -26,13 +26,14 @@ pub fn open_db() -> Result<Connection> {
     } else {
         let rtk_dir = std::env::current_dir()?.join(".rtk");
         if !rtk_dir.exists() {
-            std::fs::create_dir_all(&rtk_dir).with_context(|| format!("create {}", rtk_dir.display()))?;
+            std::fs::create_dir_all(&rtk_dir)
+                .with_context(|| format!("create {}", rtk_dir.display()))?;
         }
         rtk_dir.join("rtk.db")
     };
-    
+
     let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
-    
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS symbols (
             id         TEXT PRIMARY KEY,
@@ -43,8 +44,9 @@ pub fn open_db() -> Result<Connection> {
             line_end   INTEGER NOT NULL
         )",
         [],
-    ).context("create symbols table")?;
-    
+    )
+    .context("create symbols table")?;
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS dependencies (
             caller_id        TEXT NOT NULL,
@@ -54,8 +56,9 @@ pub fn open_db() -> Result<Connection> {
             PRIMARY KEY (caller_id, callee_name, dependency_kind)
         )",
         [],
-    ).context("create dependencies table")?;
-    
+    )
+    .context("create dependencies table")?;
+
     Ok(conn)
 }
 
@@ -68,14 +71,14 @@ pub fn clear_index(conn: &Connection) -> Result<()> {
 pub fn insert_symbols(conn: &Connection, symbols: &[ParsedSymbol]) -> Result<()> {
     let mut stmt_sym = conn.prepare(
         "INSERT OR REPLACE INTO symbols (id, name, kind, file_path, line_start, line_end) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
     )?;
-    
+
     let mut stmt_dep = conn.prepare(
         "INSERT OR REPLACE INTO dependencies (caller_id, callee_name, callee_file_path, dependency_kind) \
          VALUES (?1, ?2, ?3, ?4)"
     )?;
-    
+
     for sym in symbols {
         stmt_sym.execute(params![
             sym.id,
@@ -85,28 +88,23 @@ pub fn insert_symbols(conn: &Connection, symbols: &[ParsedSymbol]) -> Result<()>
             sym.line_start as i64,
             sym.line_end as i64
         ])?;
-        
+
         for call in &sym.calls {
             // Find if there is a known destination file for this callee name (heuristic)
             // For now, save caller_id and callee_name
-            stmt_dep.execute(params![
-                sym.id,
-                call,
-                None::<String>,
-                "CALL"
-            ])?;
+            stmt_dep.execute(params![sym.id, call, None::<String>, "CALL"])?;
         }
     }
-    
+
     Ok(())
 }
 
 pub fn find_symbols(conn: &Connection, name_query: &str) -> Result<Vec<DbSymbol>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, kind, file_path, line_start, line_end FROM symbols \
-         WHERE name LIKE ?1"
+         WHERE name LIKE ?1",
     )?;
-    
+
     let q = format!("%{}%", name_query);
     let rows = stmt.query_map(params![q], |r| {
         Ok(DbSymbol {
@@ -118,7 +116,7 @@ pub fn find_symbols(conn: &Connection, name_query: &str) -> Result<Vec<DbSymbol>
             line_end: r.get(5)?,
         })
     })?;
-    
+
     let mut list = Vec::new();
     for row in rows {
         list.push(row?);
@@ -127,7 +125,8 @@ pub fn find_symbols(conn: &Connection, name_query: &str) -> Result<Vec<DbSymbol>
 }
 
 pub fn get_all_symbols(conn: &Connection) -> Result<Vec<DbSymbol>> {
-    let mut stmt = conn.prepare("SELECT id, name, kind, file_path, line_start, line_end FROM symbols")?;
+    let mut stmt =
+        conn.prepare("SELECT id, name, kind, file_path, line_start, line_end FROM symbols")?;
     let rows = stmt.query_map([], |r| {
         Ok(DbSymbol {
             id: r.get(0)?,
@@ -146,7 +145,9 @@ pub fn get_all_symbols(conn: &Connection) -> Result<Vec<DbSymbol>> {
 }
 
 pub fn get_all_dependencies(conn: &Connection) -> Result<Vec<DbDependency>> {
-    let mut stmt = conn.prepare("SELECT caller_id, callee_name, callee_file_path, dependency_kind FROM dependencies")?;
+    let mut stmt = conn.prepare(
+        "SELECT caller_id, callee_name, callee_file_path, dependency_kind FROM dependencies",
+    )?;
     let rows = stmt.query_map([], |r| {
         Ok(DbDependency {
             caller_id: r.get(0)?,
@@ -167,9 +168,9 @@ pub fn get_symbol_references(conn: &Connection, symbol_name: &str) -> Result<Vec
         "SELECT s.id, s.name, s.kind, s.file_path, s.line_start, s.line_end \
          FROM dependencies d \
          JOIN symbols s ON d.caller_id = s.id \
-         WHERE d.callee_name = ?1"
+         WHERE d.callee_name = ?1",
     )?;
-    
+
     let rows = stmt.query_map(params![symbol_name], |r| {
         Ok(DbSymbol {
             id: r.get(0)?,
@@ -180,7 +181,7 @@ pub fn get_symbol_references(conn: &Connection, symbol_name: &str) -> Result<Vec
             line_end: r.get(5)?,
         })
     })?;
-    
+
     let mut list = Vec::new();
     for row in rows {
         list.push(row?);

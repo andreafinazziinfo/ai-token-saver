@@ -193,7 +193,8 @@ fn test_rtk_artifact_lifecycle() {
     std::env::set_var("RTK_DB_PATH", &db_path);
 
     // Add artifact to DB directly
-    rtk_db::artifact::artifact_add("art-cli-1", "reasoning", "cli test reasoning content", None).unwrap();
+    rtk_db::artifact::artifact_add("art-cli-1", "reasoning", "cli test reasoning content", None)
+        .unwrap();
 
     // Call CLI: rtk artifact list
     let list_out = rtk_bin()
@@ -237,7 +238,7 @@ fn test_rtk_index_cli_lifecycle() {
         .as_millis();
     let temp_dir = std::env::temp_dir().join(format!("rtk_index_cli_test_{timestamp}"));
     std::fs::create_dir_all(&temp_dir).unwrap();
-    
+
     let db_path = temp_dir.join("rtk_index.db");
     std::env::set_var("RTK_INDEX_DB_PATH", &db_path);
 
@@ -324,7 +325,7 @@ fn test_rtk_budget_and_mcp_cli_lifecycle() {
 
     let db_path = temp_dir.join("rtk.db");
     let index_db_path = temp_dir.join("rtk_index.db");
-    
+
     // 1. Run budget check
     let budget_out = rtk_bin()
         .current_dir(&temp_dir)
@@ -345,7 +346,9 @@ fn test_rtk_budget_and_mcp_cli_lifecycle() {
         .expect("rtk not found");
     assert!(model_out.status.success());
     let model_str = String::from_utf8_lossy(&model_out.stdout);
-    assert!(model_str.contains("Routing Suggestion: task 'complex-refactoring' -> use model 'claude-3.5-sonnet'"));
+    assert!(model_str.contains(
+        "Routing Suggestion: task 'complex-refactoring' -> use model 'claude-3.5-sonnet'"
+    ));
 
     // 3. Setup temporary file to index & test MCP call
     let main_rs_path = temp_dir.join("main.rs");
@@ -364,7 +367,13 @@ fn test_rtk_budget_and_mcp_cli_lifecycle() {
     let mcp_out = rtk_bin()
         .current_dir(&temp_dir)
         .env("RTK_INDEX_DB_PATH", &index_db_path)
-        .args(["mcp", "call", "search_code", "--args", "{\"query\":\"my_unique_mcp_test_func\"}"])
+        .args([
+            "mcp",
+            "call",
+            "search_code",
+            "--args",
+            "{\"query\":\"my_unique_mcp_test_func\"}",
+        ])
         .output()
         .expect("rtk not found");
     assert!(mcp_out.status.success());
@@ -394,7 +403,14 @@ fn test_rtk_budget_and_mcp_cli_lifecycle() {
     let export_out = rtk_bin()
         .current_dir(&temp_dir)
         .env("RTK_INDEX_DB_PATH", &index_db_path)
-        .args(["graph", "export", "--format", "obsidian", "--output", "obsidian_out/"])
+        .args([
+            "graph",
+            "export",
+            "--format",
+            "obsidian",
+            "--output",
+            "obsidian_out/",
+        ])
         .output()
         .expect("rtk not found");
     assert!(export_out.status.success());
@@ -414,6 +430,3 @@ fn test_rtk_budget_and_mcp_cli_lifecycle() {
 
     std::fs::remove_dir_all(&temp_dir).unwrap();
 }
-
-
-

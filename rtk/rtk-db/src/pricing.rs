@@ -36,8 +36,8 @@ pub fn get_registry() -> &'static PricingRegistry {
 pub fn get_model_price(model_id: &str) -> Option<&'static ModelPrice> {
     let target = model_id.to_lowercase();
     REGISTRY.models.iter().find(|m| {
-        m.model_id.to_lowercase() == target 
-            || target.contains(&m.model_id.to_lowercase()) 
+        m.model_id.to_lowercase() == target
+            || target.contains(&m.model_id.to_lowercase())
             || m.model_id.to_lowercase().contains(&target)
     })
 }

@@ -49,7 +49,14 @@ pub fn execute_dotnet(args: &[String]) {
 
     let filtered_output = filtered_lines.join("\n");
     let cmd_str = format!("dotnet {}", args.join(" "));
-    let log_id = record(&cmd_str, &full_output, &filtered_output, &full_output, Some(duration_ms)).unwrap_or(0);
+    let log_id = record(
+        &cmd_str,
+        &full_output,
+        &filtered_output,
+        &full_output,
+        Some(duration_ms),
+    )
+    .unwrap_or(0);
 
     let mut final_out = filtered_output.clone();
     if !filtered_output.trim().is_empty() && full_output.len() > filtered_output.len() {

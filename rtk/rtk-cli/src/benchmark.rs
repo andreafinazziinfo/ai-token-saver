@@ -23,7 +23,7 @@ pub fn export_json(output_path: &str) -> Result<()> {
     let logs = tracking::get_recent_logs(50000).context("fetch logs for json export")?;
     let commit_sha = get_git_commit();
     let registry = pricing::get_registry();
-    
+
     let now = std::time::SystemTime::now();
     let timestamp = match now.duration_since(std::time::UNIX_EPOCH) {
         Ok(d) => d.as_secs().to_string(),
@@ -41,7 +41,7 @@ pub fn export_json(output_path: &str) -> Result<()> {
             };
             let model = log.model.unwrap_or_else(|| "unknown".to_string());
             let cost_saved = pricing::calculate_savings(saved, &model);
-            
+
             json!({
                 "id": log.id,
                 "cmd": log.cmd,
@@ -68,13 +68,15 @@ pub fn export_json(output_path: &str) -> Result<()> {
     });
 
     let content = serde_json::to_string_pretty(&export_data).context("serialize json export")?;
-    std::fs::write(output_path, content).with_context(|| format!("write json to {}", output_path))?;
+    std::fs::write(output_path, content)
+        .with_context(|| format!("write json to {}", output_path))?;
     Ok(())
 }
 
 pub fn export_csv(output_path: &str) -> Result<()> {
     let logs = tracking::get_recent_logs(50000).context("fetch logs for csv export")?;
-    let mut file = File::create(output_path).with_context(|| format!("create csv file {}", output_path))?;
+    let mut file =
+        File::create(output_path).with_context(|| format!("create csv file {}", output_path))?;
 
     // Header
     writeln!(
@@ -91,9 +93,9 @@ pub fn export_csv(output_path: &str) -> Result<()> {
         };
         let model = log.model.unwrap_or_else(|| "unknown".to_string());
         let cost_saved = pricing::calculate_savings(saved, &model);
-        
+
         let escaped_cmd = log.cmd.replace('"', "\"\"");
-        
+
         writeln!(
             file,
             "{},{},\"{}\",{},{},{},{},{:.2},{:.6},{}",

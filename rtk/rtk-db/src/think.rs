@@ -63,24 +63,24 @@ pub fn inspect() -> Result<()> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-    
+
     let mut stmt = conn.prepare(
         "SELECT key, val, datetime(cast(substr(key, 9) as integer), 'unixepoch', 'localtime') AS dt \
          FROM project_memory \
          WHERE project_path = ?1 AND key LIKE 'thought_%' \
          ORDER BY key DESC"
     )?;
-    
+
     let rows = stmt.query_map([pwd], |r| {
         let key: String = r.get(0)?;
         let val: String = r.get(1)?;
         let dt: Option<String> = r.get(2)?;
         Ok((key, val, dt.unwrap_or_else(|| "Unknown".to_string())))
     })?;
-    
+
     println!("🧠 Offloaded thoughts in this project:");
     println!("========================================");
-    
+
     let mut count = 0;
     for row in rows {
         let (_key, val, dt) = row?;
@@ -89,7 +89,7 @@ pub fn inspect() -> Result<()> {
         println!("----------------------------------------");
         count += 1;
     }
-    
+
     if count == 0 {
         println!("No offloaded thoughts found.");
     } else {
@@ -104,14 +104,14 @@ pub fn gc() -> Result<()> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-    
+
     let deleted = conn.execute(
         "DELETE FROM project_memory \
          WHERE project_path = ?1 AND key LIKE 'thought_%' \
          AND cast(substr(key, 9) as integer) < cast(strftime('%s', 'now', '-30 days') as integer)",
         [pwd],
     )?;
-    
+
     println!("🗑️ Purged {} thought logs older than 30 days.", deleted);
     Ok(())
 }
@@ -149,10 +149,14 @@ mod tests {
             .as_secs()
             - (35 * 24 * 3600);
         let old_key = format!("thought_{}", old_time);
-        
+
         conn.execute(
             "INSERT INTO project_memory (key, val, project_path) VALUES (?1, ?2, ?3)",
-            [old_key, "Old thought that should be purged".to_string(), pwd],
+            [
+                old_key,
+                "Old thought that should be purged".to_string(),
+                pwd,
+            ],
         )
         .unwrap();
 
@@ -184,5 +188,3 @@ mod tests {
         env::remove_var("RTK_PROJECT_DB_PATH");
     }
 }
-
-

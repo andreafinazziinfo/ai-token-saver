@@ -7,13 +7,14 @@ fn open_db() -> Result<Connection> {
     } else {
         let rtk_dir = std::env::current_dir()?.join(".rtk");
         if !rtk_dir.exists() {
-            std::fs::create_dir_all(&rtk_dir).with_context(|| format!("create {}", rtk_dir.display()))?;
+            std::fs::create_dir_all(&rtk_dir)
+                .with_context(|| format!("create {}", rtk_dir.display()))?;
         }
         rtk_dir.join("rtk.db")
     };
-    
+
     let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
-    
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS session_state (
             project_path  TEXT NOT NULL,
@@ -23,8 +24,9 @@ fn open_db() -> Result<Connection> {
             PRIMARY KEY (project_path, key)
         )",
         [],
-    ).context("create session_state table")?;
-    
+    )
+    .context("create session_state table")?;
+
     Ok(conn)
 }
 
@@ -38,7 +40,7 @@ fn get_project_path() -> String {
 pub fn session_init() -> Result<()> {
     let conn = open_db()?;
     let pwd = get_project_path();
-    
+
     let defaults = [
         ("decisions", "[]"),
         ("active_tasks", "[]"),
@@ -58,11 +60,9 @@ pub fn session_init() -> Result<()> {
 pub fn session_get() -> Result<String> {
     let conn = open_db()?;
     let pwd = get_project_path();
-    
-    let mut stmt = conn.prepare(
-        "SELECT key, val FROM session_state WHERE project_path = ?1"
-    )?;
-    
+
+    let mut stmt = conn.prepare("SELECT key, val FROM session_state WHERE project_path = ?1")?;
+
     let mut map = serde_json::Map::new();
     let rows = stmt.query_map(params![pwd], |r| {
         let k: String = r.get(0)?;
@@ -72,7 +72,8 @@ pub fn session_get() -> Result<String> {
 
     for row in rows {
         let (k, v) = row?;
-        let parsed_val: serde_json::Value = serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v));
+        let parsed_val: serde_json::Value =
+            serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v));
         map.insert(k, parsed_val);
     }
 
@@ -83,7 +84,7 @@ pub fn session_get() -> Result<String> {
 pub fn session_update(key: &str, value: &str) -> Result<()> {
     let conn = open_db()?;
     let pwd = get_project_path();
-    
+
     let formatted_val = if serde_json::from_str::<serde_json::Value>(value).is_ok() {
         value.to_string()
     } else {
@@ -101,11 +102,9 @@ pub fn session_update(key: &str, value: &str) -> Result<()> {
 pub fn session_export() -> Result<String> {
     let conn = open_db()?;
     let pwd = get_project_path();
-    
-    let mut stmt = conn.prepare(
-        "SELECT key, val FROM session_state WHERE project_path = ?1"
-    )?;
-    
+
+    let mut stmt = conn.prepare("SELECT key, val FROM session_state WHERE project_path = ?1")?;
+
     let rows = stmt.query_map(params![pwd], |r| {
         let k: String = r.get(0)?;
         let v: String = r.get(1)?;
@@ -119,26 +118,43 @@ pub fn session_export() -> Result<String> {
 
     for row in rows {
         let (k, v) = row?;
-        let parsed: serde_json::Value = serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v));
+        let parsed: serde_json::Value =
+            serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v));
         match k.as_str() {
             "decisions" => {
                 if let Some(arr) = parsed.as_array() {
-                    decisions = arr.iter().filter_map(|x| x.as_str()).map(String::from).collect();
+                    decisions = arr
+                        .iter()
+                        .filter_map(|x| x.as_str())
+                        .map(String::from)
+                        .collect();
                 }
             }
             "active_tasks" => {
                 if let Some(arr) = parsed.as_array() {
-                    active_tasks = arr.iter().filter_map(|x| x.as_str()).map(String::from).collect();
+                    active_tasks = arr
+                        .iter()
+                        .filter_map(|x| x.as_str())
+                        .map(String::from)
+                        .collect();
                 }
             }
             "context_files" => {
                 if let Some(arr) = parsed.as_array() {
-                    context_files = arr.iter().filter_map(|x| x.as_str()).map(String::from).collect();
+                    context_files = arr
+                        .iter()
+                        .filter_map(|x| x.as_str())
+                        .map(String::from)
+                        .collect();
                 }
             }
             "warnings" => {
                 if let Some(arr) = parsed.as_array() {
-                    warnings = arr.iter().filter_map(|x| x.as_str()).map(String::from).collect();
+                    warnings = arr
+                        .iter()
+                        .filter_map(|x| x.as_str())
+                        .map(String::from)
+                        .collect();
                 }
             }
             _ => {}
@@ -148,7 +164,7 @@ pub fn session_export() -> Result<String> {
     let mut output = String::new();
     output.push_str("# 📋 RTK Agent Session Handoff State\n\n");
     output.push_str(&format!("*Project Path:* `{}`\n\n", pwd));
-    
+
     output.push_str("## 🎯 Active Tasks\n");
     if active_tasks.is_empty() {
         output.push_str("- None\n");
@@ -157,7 +173,7 @@ pub fn session_export() -> Result<String> {
             output.push_str(&format!("- [ ] {}\n", t));
         }
     }
-    output.push_str("\n");
+    output.push('\n');
 
     output.push_str("## 💡 Decisions & Consensus\n");
     if decisions.is_empty() {
@@ -167,7 +183,7 @@ pub fn session_export() -> Result<String> {
             output.push_str(&format!("- {}\n", d));
         }
     }
-    output.push_str("\n");
+    output.push('\n');
 
     output.push_str("## 📂 Context Files\n");
     if context_files.is_empty() {
@@ -177,7 +193,7 @@ pub fn session_export() -> Result<String> {
             output.push_str(&format!("- `{}`\n", f));
         }
     }
-    output.push_str("\n");
+    output.push('\n');
 
     output.push_str("## ⚠️ Warnings & Guardrails\n");
     if warnings.is_empty() {
@@ -187,7 +203,7 @@ pub fn session_export() -> Result<String> {
             output.push_str(&format!("- {}\n", w));
         }
     }
-    output.push_str("\n");
+    output.push('\n');
 
     Ok(output)
 }
@@ -206,7 +222,7 @@ mod tests {
         crate::tracking::open_db().unwrap();
 
         session_init().unwrap();
-        
+
         let state_json = session_get().unwrap();
         assert!(state_json.contains("decisions"));
         assert!(state_json.contains("active_tasks"));

@@ -7,12 +7,18 @@ pub fn symbols_find(query: &str) -> Result<()> {
         println!("No symbols found matching: '{}'", query);
         return Ok(());
     }
-    
-    println!("{:<12} | {:<40} | {:<10} | {}", "Kind", "File Path", "Lines", "Name");
+
+    println!(
+        "{:<12} | {:<40} | {:<10} | Name",
+        "Kind", "File Path", "Lines"
+    );
     println!("{}", "-".repeat(90));
     for sym in list {
         let lines = format!("{}-{}", sym.line_start, sym.line_end);
-        println!("{:<12} | {:<40} | {:<10} | {}", sym.kind, sym.file_path, lines, sym.name);
+        println!(
+            "{:<12} | {:<40} | {:<10} | {}",
+            sym.kind, sym.file_path, lines, sym.name
+        );
     }
     Ok(())
 }
@@ -23,7 +29,7 @@ pub fn deps_show(file: &str) -> Result<()> {
         println!("No symbol dependencies tracked for file: '{}'", file);
         return Ok(());
     }
-    
+
     println!("Dependencies for file: {}", file);
     println!("{}", "=".repeat(60));
     for (sym, callees) in list {
@@ -42,11 +48,14 @@ pub fn refs_find(symbol: &str) -> Result<()> {
         println!("No references found calling symbol name: '{}'", symbol);
         return Ok(());
     }
-    
+
     println!("References calling: {}", symbol);
     println!("{}", "-".repeat(60));
     for sym in list {
-        println!("- {} ({}) in {}:{}", sym.name, sym.kind, sym.file_path, sym.line_start);
+        println!(
+            "- {} ({}) in {}:{}",
+            sym.name, sym.kind, sym.file_path, sym.line_start
+        );
     }
     Ok(())
 }
@@ -54,10 +63,13 @@ pub fn refs_find(symbol: &str) -> Result<()> {
 pub fn impact_analyze(symbol: &str) -> Result<()> {
     let list = rtk_index::analyze_impact(symbol)?;
     if list.is_empty() {
-        println!("No upstream blast radius found for: '{}' (or symbol not found)", symbol);
+        println!(
+            "No upstream blast radius found for: '{}' (or symbol not found)",
+            symbol
+        );
         return Ok(());
     }
-    
+
     let risk = if list.len() > 10 {
         "HIGH"
     } else if list.len() > 3 {
@@ -65,13 +77,16 @@ pub fn impact_analyze(symbol: &str) -> Result<()> {
     } else {
         "LOW"
     };
-    
+
     println!("Blast Radius Impact Analysis for: {}", symbol);
     println!("Risk Level: {}", risk);
     println!("Affected transitively upstream ({} symbols):", list.len());
     println!("{}", "-".repeat(60));
     for sym in list {
-        println!("- {} ({}) in {}:{}", sym.name, sym.kind, sym.file_path, sym.line_start);
+        println!(
+            "- {} ({}) in {}:{}",
+            sym.name, sym.kind, sym.file_path, sym.line_start
+        );
     }
     Ok(())
 }
@@ -85,12 +100,21 @@ pub fn index_run() -> Result<()> {
 
 pub fn graph_export(format: &str, output: &str) -> Result<()> {
     if format.to_lowercase() != "obsidian" {
-        return Err(anyhow::anyhow!("Unsupported format: '{}'. Currently supported formats: obsidian", format));
+        return Err(anyhow::anyhow!(
+            "Unsupported format: '{}'. Currently supported formats: obsidian",
+            format
+        ));
     }
-    
-    println!("Graph export starting... format: {}, output: {}", format, output);
+
+    println!(
+        "Graph export starting... format: {}, output: {}",
+        format, output
+    );
     let count = rtk_index::export_obsidian_graph(Path::new(output))?;
-    println!("✅ Obsidian graph exported successfully ({} symbol markdown files created in '{}')", count, output);
+    println!(
+        "✅ Obsidian graph exported successfully ({} symbol markdown files created in '{}')",
+        count, output
+    );
     Ok(())
 }
 
@@ -105,4 +129,3 @@ pub fn audit_graph() -> Result<()> {
     println!("==========================================");
     Ok(())
 }
-

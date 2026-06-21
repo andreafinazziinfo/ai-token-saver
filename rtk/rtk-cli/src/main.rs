@@ -2,21 +2,21 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
+use rtk_db::{config, dlp, session, status, think, tracking};
 use rtk_filters::{
     cargo_build, cargo_test, docker_filter, git_diff, git_log, git_status, go_test, gradle,
     ls_filter, pytest_filter,
 };
-use rtk_db::{config, dlp, status, think, tracking, session};
 use rtk_pack::pack;
 
 mod agents;
 mod artifact;
-mod index_cli;
 mod benchmark;
-mod doctor;
 mod dashboard;
 mod distiller;
+mod doctor;
 mod dotnet;
+mod index_cli;
 mod plugins;
 mod rewrite;
 mod setup;
@@ -1041,7 +1041,13 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         }
     };
 
-    match tracking::record(cmd_label.trim(), &raw_db, &filtered_db, &raw_db, Some(duration_ms)) {
+    match tracking::record(
+        cmd_label.trim(),
+        &raw_db,
+        &filtered_db,
+        &raw_db,
+        Some(duration_ms),
+    ) {
         Ok(log_id) => {
             if filtered_db.len() < raw_db.len() && !filtered_db.trim().is_empty() {
                 let msg = format!("\n[Full output cached. Access with: rtk show-log {log_id}]\n");

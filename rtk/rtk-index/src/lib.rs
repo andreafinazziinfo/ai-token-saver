@@ -1,11 +1,10 @@
 use anyhow::Result;
 use std::path::Path;
 
-pub mod parser;
 pub mod db;
-pub mod graph;
 pub mod embeddings;
-
+pub mod graph;
+pub mod parser;
 
 pub fn index_project(project_dir: &Path) -> Result<usize> {
     let files = parser::scan_directory(project_dir)?;
@@ -15,11 +14,11 @@ pub fn index_project(project_dir: &Path) -> Result<usize> {
             all_symbols.extend(syms);
         }
     }
-    
+
     let conn = db::open_db()?;
     db::clear_index(&conn)?;
     db::insert_symbols(&conn, &all_symbols)?;
-    
+
     Ok(all_symbols.len())
 }
 
@@ -32,7 +31,7 @@ pub fn query_dependencies(file_path: &str) -> Result<Vec<(db::DbSymbol, Vec<Stri
     let conn = db::open_db()?;
     let all_syms = db::get_all_symbols(&conn)?;
     let all_deps = db::get_all_dependencies(&conn)?;
-    
+
     let mut file_symbols = Vec::new();
     for sym in all_syms {
         if sym.file_path == file_path {
@@ -57,14 +56,18 @@ pub fn analyze_impact(symbol_name: &str) -> Result<Vec<db::DbSymbol>> {
     let conn = db::open_db()?;
     let all_syms = db::get_all_symbols(&conn)?;
     let all_deps = db::get_all_dependencies(&conn)?;
-    
-    let target_ids: Vec<String> = all_syms.iter().filter(|s| s.name == symbol_name).map(|s| s.id.clone()).collect();
+
+    let target_ids: Vec<String> = all_syms
+        .iter()
+        .filter(|s| s.name == symbol_name)
+        .map(|s| s.id.clone())
+        .collect();
     if target_ids.is_empty() {
         return Ok(Vec::new());
     }
-    
+
     let impact_graph = graph::ImpactGraph::build(all_syms, all_deps);
-    
+
     let mut affected_ids = std::collections::HashSet::new();
     for target_id in target_ids {
         let upstream = impact_graph.resolve_upstream(&target_id);
@@ -72,11 +75,14 @@ pub fn analyze_impact(symbol_name: &str) -> Result<Vec<db::DbSymbol>> {
             affected_ids.insert(u.id);
         }
     }
-    
+
     let conn2 = db::open_db()?;
     let reloaded = db::get_all_symbols(&conn2)?;
-    let result = reloaded.into_iter().filter(|s| affected_ids.contains(&s.id)).collect();
-    
+    let result = reloaded
+        .into_iter()
+        .filter(|s| affected_ids.contains(&s.id))
+        .collect();
+
     Ok(result)
 }
 
@@ -92,30 +98,38 @@ pub fn export_obsidian_graph(output_dir: &Path) -> Result<usize> {
     if !output_dir.exists() {
         std::fs::create_dir_all(output_dir)?;
     }
-    
+
     let conn = db::open_db()?;
     let symbols = db::get_all_symbols(&conn)?;
     let dependencies = db::get_all_dependencies(&conn)?;
-    
+
     let mut symbol_map = std::collections::HashMap::new();
     for sym in &symbols {
         symbol_map.insert(sym.id.clone(), sym.clone());
     }
-    
-    let mut outgoing: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+
+    let mut outgoing: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for dep in &dependencies {
-        outgoing.entry(dep.caller_id.clone()).or_default().push(dep.callee_name.clone());
+        outgoing
+            .entry(dep.caller_id.clone())
+            .or_default()
+            .push(dep.callee_name.clone());
     }
-    
-    let mut incoming: std::collections::HashMap<String, Vec<db::DbSymbol>> = std::collections::HashMap::new();
+
+    let mut incoming: std::collections::HashMap<String, Vec<db::DbSymbol>> =
+        std::collections::HashMap::new();
     for dep in &dependencies {
         if let Some(caller_sym) = symbol_map.get(&dep.caller_id) {
-            incoming.entry(dep.callee_name.clone()).or_default().push(caller_sym.clone());
+            incoming
+                .entry(dep.callee_name.clone())
+                .or_default()
+                .push(caller_sym.clone());
         }
     }
-    
+
     let mut files_written = 0;
-    
+
     for sym in &symbols {
         let file_name = format!(
             "{} ({}).md",
@@ -126,12 +140,15 @@ pub fn export_obsidian_graph(output_dir: &Path) -> Result<usize> {
                 .unwrap_or_else(|| "unknown".to_string())
         );
         let file_path = output_dir.join(&file_name);
-        
+
         let mut md = String::new();
         md.push_str(&format!("# Symbol: {}\n\n", sym.name));
         md.push_str(&format!("- **Kind:** {}\n", sym.kind));
-        md.push_str(&format!("- **Location:** `{}:{}-{}`\n\n", sym.file_path, sym.line_start, sym.line_end));
-        
+        md.push_str(&format!(
+            "- **Location:** `{}:{}-{}`\n\n",
+            sym.file_path, sym.line_start, sym.line_end
+        ));
+
         md.push_str("## Calls (Outgoing)\n");
         if let Some(callees) = outgoing.get(&sym.id) {
             let mut unique_callees = callees.clone();
@@ -159,8 +176,8 @@ pub fn export_obsidian_graph(output_dir: &Path) -> Result<usize> {
         } else {
             md.push_str("- None\n");
         }
-        md.push_str("\n");
-        
+        md.push('\n');
+
         md.push_str("## Referenced By (Incoming)\n");
         if let Some(callers) = incoming.get(&sym.name) {
             let mut unique_callers = callers.clone();
@@ -176,11 +193,11 @@ pub fn export_obsidian_graph(output_dir: &Path) -> Result<usize> {
         } else {
             md.push_str("- None\n");
         }
-        
+
         std::fs::write(file_path, md)?;
         files_written += 1;
     }
-    
+
     Ok(files_written)
 }
 
@@ -188,10 +205,10 @@ pub fn get_graph_metrics() -> Result<GraphMetrics> {
     let conn = db::open_db()?;
     let symbols = db::get_all_symbols(&conn)?;
     let dependencies = db::get_all_dependencies(&conn)?;
-    
+
     let symbols_count = symbols.len();
     let edges_count = dependencies.len();
-    
+
     let mut connected_ids = std::collections::HashSet::new();
     for dep in &dependencies {
         connected_ids.insert(dep.caller_id.clone());
@@ -201,17 +218,17 @@ pub fn get_graph_metrics() -> Result<GraphMetrics> {
             }
         }
     }
-    
+
     let graph_coverage = if symbols_count > 0 {
         (connected_ids.len() as f64 / symbols_count as f64) * 100.0
     } else {
         0.0
     };
-    
+
     let start = std::time::Instant::now();
     let _ = db::find_symbols(&conn, "dummy_nonexistent_symbol")?;
     let query_latency_ms = start.elapsed().as_secs_f64() * 1000.0;
-    
+
     Ok(GraphMetrics {
         symbols_count,
         edges_count,
@@ -251,12 +268,14 @@ pub fn query_hybrid(
                             0.0
                         };
 
-                        let combined_score = alpha as f64 * lex_score + (1.0 - alpha as f64) * sem_score;
+                        let combined_score =
+                            alpha as f64 * lex_score + (1.0 - alpha as f64) * sem_score;
                         scored_symbols.push((sym, combined_score));
                     }
                 }
 
-                scored_symbols.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                scored_symbols
+                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
                 scored_symbols.truncate(limit);
                 return Ok(scored_symbols);
             }
@@ -270,7 +289,6 @@ pub fn query_hybrid(
     results.truncate(limit);
     Ok(results)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -337,4 +355,3 @@ mod tests {
         fs::remove_dir_all(&temp_project).ok();
     }
 }
-

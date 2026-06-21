@@ -139,7 +139,82 @@ RTK injects system prompts that force the AI to use ultra-compressed communicati
 | **Gemini 1.5 Pro** | $1.25 | $3.75 | **$86/mo** |
 | **Gemini 1.5 Flash** | $0.075 | $0.30 | **$5/mo** |
 
-> ⏱️ **Time saved**: ~22.8 seconds per command → **9.5 hours/month** of reduced AI waiting time.
+
+---
+
+## 🛠️ Advanced Context Architecture & MCP (v2.0)
+
+Version 2.0 shifts RTK from a basic CLI output filter to a comprehensive local **Context Engine**. It coordinates code indexing, semantic search, memory persistence, and tool access via a unified SQLite database and MCP.
+
+### 📐 Local Context Engine Dataflow
+
+The following diagram illustrates how your development editor or agent (e.g., Claude Code, Cursor) communicates with RTK's unified storage and indices:
+
+```mermaid
+graph TD
+    %% Styling
+    classDef client fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef core fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#f8fafc;
+    classDef storage fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+    classDef model fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
+
+    %% Nodes
+    Agent[🤖 AI Agent / IDE Client<br/>Cursor, Claude Code, Windsurf]:::client
+    MCP[🔌 RTK MCP Server<br/>rtk mcp serve]:::core
+    CLI[💻 RTK CLI<br/>rtk symbols, rtk memory]:::core
+    
+    subgraph DB["🗄️ Unified Local Database (.rtk/rtk.db)"]
+        FTS[SQLite FTS5<br/>project_memory]:::storage
+        Graph[petgraph Index<br/>symbols & dependencies]:::storage
+        Sess[Session State<br/>task tracking]:::storage
+        Arts[Artifact Cache<br/>cli log archives]:::storage
+    end
+
+    subgraph RAG["🧠 Local Semantic Pipeline"]
+        ONNX[Tract ONNX Engine<br/>Local Vector Embeddings]:::model
+        Tokenizer[HF Tokenizers<br/>cl100k_base]:::model
+    end
+
+    %% Links
+    Agent -- "1. MCP Tool Request" --> MCP
+    Agent -- "1. CLI Wrappers / Commands" --> CLI
+    
+    MCP -- "Query / Write" --> DB
+    CLI -- "Query / Write" --> DB
+
+    FTS -- "Hybrid Search" --> ONNX
+    ONNX --> Tokenizer
+    
+    CLI -- "Context Compaction" --> Sess
+    CLI -- "Clean / GC" --> Arts
+```
+
+### 1. AST Code Indexing & Graph (`rtk-index`)
+Instead of parsing files as raw text, RTK indexes your project's syntax tree using **Tree-sitter** and constructs a code dependency graph using **petgraph**:
+*   **Symbol Extraction**: Automatically extracts structs, classes, functions, and imports for Rust, Python, JavaScript, TypeScript, and Go.
+*   **Blast Radius Impact Analysis**: Running `rtk symbols find` and `rtk deps` traverses the dependency graph to find all upstream callers and downstream dependencies, identifying exactly what code might break before editing a symbol.
+*   **Minimal Token Representation**: Generates skeletal files (`rtk pack --skeleton`) showing only signatures and docstrings, stripping implementation bodies to save up to 90% of tokens.
+
+### 2. Model Context Protocol (`rtk-mcp`)
+RTK implements a lightweight, high-performance MCP server built directly into the Rust binary. It exposes a minimal, highly optimized tool surface to AI clients:
+*   `search_code`: Perform hybrid semantic search across the codebase.
+*   `find_symbols`: Locate definitions of specific structs, traits, functions, or classes.
+*   `find_refs`: Identify references and call sites of a symbol.
+*   `project_memory`: Fetch or save project ports, configurations, and setup decisions.
+*   `context_pack`: Compact specific file trees into a tokens-stripped XML payload.
+*   `session_state`: Check or update active tasks and decisions to manage handoffs.
+
+*To install the MCP server into Claude Desktop or Cursor:*
+```bash
+rtk mcp install --client claude
+rtk mcp install --client cursor
+```
+
+### 3. Hybrid Semantic Search & Memory
+RTK combines standard full-text lexical search (SQLite FTS5) with local vector search:
+*   **No Cloud Latency**: Uses `tract-onnx` and HuggingFace tokenizers to generate embeddings locally on your machine.
+*   **Episodic Memory**: Active reasoning steps (stored via `rtk think`) and setup notes are cross-referenced semantically, allowing the agent to retrieve project state without RAG decay or context bloat.
+*   **Context Compaction**: `rtk context compact` runs an automatic compaction on old session states and consolidates task lists inside `session_state`, keeping the active token window slim.
 
 ---
 

@@ -38,7 +38,7 @@ pub(crate) fn open_db() -> Result<Connection> {
             filtered_tokens  INTEGER NOT NULL,
             timestamp        TEXT    NOT NULL DEFAULT (datetime('now')),
             raw_output       TEXT
-        );"
+        );",
     )
     .context("create DB tables")?;
 
@@ -56,7 +56,9 @@ pub(crate) fn project_db_path() -> PathBuf {
     if let Ok(p) = std::env::var("RTK_PROJECT_DB_PATH") {
         return PathBuf::from(p);
     }
-    let rtk_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join(".rtk");
+    let rtk_dir = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".rtk");
     if !rtk_dir.exists() {
         let _ = std::fs::create_dir_all(&rtk_dir);
     }
@@ -65,7 +67,8 @@ pub(crate) fn project_db_path() -> PathBuf {
 
 pub(crate) fn open_project_db() -> Result<Connection> {
     let path = project_db_path();
-    let conn = Connection::open(&path).with_context(|| format!("open project db {}", path.display()))?;
+    let conn =
+        Connection::open(&path).with_context(|| format!("open project db {}", path.display()))?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS project_memory (
             key              TEXT    NOT NULL,
@@ -107,8 +110,8 @@ fn get_git_branch() -> String {
             let head_path = git_dir.join("HEAD");
             if let Ok(content) = std::fs::read_to_string(head_path) {
                 let trimmed = content.trim();
-                if trimmed.starts_with("ref: refs/heads/") {
-                    return trimmed["ref: refs/heads/".len()..].to_string();
+                if let Some(stripped) = trimmed.strip_prefix("ref: refs/heads/") {
+                    return stripped.to_string();
                 } else if !trimmed.is_empty() {
                     // Detached HEAD, return first 7 chars of hash
                     return trimmed.chars().take(7).collect();
@@ -238,7 +241,8 @@ pub fn print_stats() -> Result<()> {
     };
 
     // Calculate actual cost saved by summing savings for each command
-    let mut stmt_saved = conn.prepare("SELECT original_tokens - filtered_tokens, COALESCE(model, '') FROM tracking")?;
+    let mut stmt_saved = conn
+        .prepare("SELECT original_tokens - filtered_tokens, COALESCE(model, '') FROM tracking")?;
     let rows = stmt_saved.query_map([], |r| {
         let saved_tokens: i64 = r.get(0)?;
         let model: String = r.get(1)?;
@@ -275,9 +279,10 @@ pub fn get_savings_data() -> Result<(i64, i64, i64, i64, f64)> {
     let original = original.unwrap_or(0);
     let filtered = filtered.unwrap_or(0);
     let saved = original - filtered;
-    
+
     // Calculate actual cost saved by summing savings for each command
-    let mut stmt_saved = conn.prepare("SELECT original_tokens - filtered_tokens, COALESCE(model, '') FROM tracking")?;
+    let mut stmt_saved = conn
+        .prepare("SELECT original_tokens - filtered_tokens, COALESCE(model, '') FROM tracking")?;
     let rows = stmt_saved.query_map([], |r| {
         let saved_tokens: i64 = r.get(0)?;
         let model: String = r.get(1)?;
@@ -368,12 +373,12 @@ pub fn memory_get(key: &str) -> Result<String> {
     let mut stmt =
         conn.prepare("SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2")?;
     let val: String = stmt.query_row(params![key, pwd], |r| r.get(0))?;
-    
+
     let _ = conn.execute(
         "UPDATE project_memory SET last_accessed_at = datetime('now') WHERE key = ?1 AND project_path = ?2",
         params![key, pwd],
     );
-    
+
     Ok(val)
 }
 
@@ -442,12 +447,24 @@ pub fn run_audit(output_path: &str) -> Result<()> {
 
     let hours_saved = (count as f64 * 22.8) / 3600.0;
 
-    let opus_price = crate::pricing::get_model_price("claude-3-opus").map(|m| m.input_price_per_mtok).unwrap_or(15.0);
-    let sonnet_price = crate::pricing::get_model_price("claude-3.5-sonnet").map(|m| m.input_price_per_mtok).unwrap_or(3.0);
-    let gpt4o_price = crate::pricing::get_model_price("gpt-4o").map(|m| m.input_price_per_mtok).unwrap_or(2.50);
-    let gemini_pro_price = crate::pricing::get_model_price("gemini-2.5-pro").map(|m| m.input_price_per_mtok).unwrap_or(1.25);
-    let gpt4o_mini_price = crate::pricing::get_model_price("gpt-4o-mini").map(|m| m.input_price_per_mtok).unwrap_or(0.15);
-    let gemini_flash_price = crate::pricing::get_model_price("gemini-2.5-flash").map(|m| m.input_price_per_mtok).unwrap_or(0.15);
+    let opus_price = crate::pricing::get_model_price("claude-3-opus")
+        .map(|m| m.input_price_per_mtok)
+        .unwrap_or(15.0);
+    let sonnet_price = crate::pricing::get_model_price("claude-3.5-sonnet")
+        .map(|m| m.input_price_per_mtok)
+        .unwrap_or(3.0);
+    let gpt4o_price = crate::pricing::get_model_price("gpt-4o")
+        .map(|m| m.input_price_per_mtok)
+        .unwrap_or(2.50);
+    let gemini_pro_price = crate::pricing::get_model_price("gemini-2.5-pro")
+        .map(|m| m.input_price_per_mtok)
+        .unwrap_or(1.25);
+    let gpt4o_mini_price = crate::pricing::get_model_price("gpt-4o-mini")
+        .map(|m| m.input_price_per_mtok)
+        .unwrap_or(0.15);
+    let gemini_flash_price = crate::pricing::get_model_price("gemini-2.5-flash")
+        .map(|m| m.input_price_per_mtok)
+        .unwrap_or(0.15);
 
     let opus_savings = crate::pricing::calculate_savings(saved, "claude-3-opus");
     let sonnet_savings = crate::pricing::calculate_savings(saved, "claude-3.5-sonnet");
@@ -675,19 +692,24 @@ pub fn memory_overwrite(key: &str, new_val: &str) -> Result<()> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-        
-    let old_val: Option<String> = conn.query_row(
-        "SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2",
-        params![key, pwd],
-        |r| r.get(0)
-    ).ok();
-    
+
+    let old_val: Option<String> = conn
+        .query_row(
+            "SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2",
+            params![key, pwd],
+            |r| r.get(0),
+        )
+        .ok();
+
     if let Some(ref old) = old_val {
         if old != new_val {
-            println!("⚠️  [RTK MEMORY OVERWRITE] Key '{}' changed.\nOld: {}\nNew: {}", key, old, new_val);
+            println!(
+                "⚠️  [RTK MEMORY OVERWRITE] Key '{}' changed.\nOld: {}\nNew: {}",
+                key, old, new_val
+            );
         }
     }
-    
+
     conn.execute(
         "INSERT OR REPLACE INTO project_memory (key, val, project_path, last_accessed_at) VALUES (?1, ?2, ?3, datetime('now'))",
         params![key, new_val, pwd],
@@ -700,39 +722,49 @@ pub fn memory_doctor() -> Result<MemoryDoctorReport> {
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
-        
-    let mut stmt = conn.prepare("SELECT key, val, last_accessed_at FROM project_memory WHERE project_path = ?1")?;
+
+    let mut stmt = conn
+        .prepare("SELECT key, val, last_accessed_at FROM project_memory WHERE project_path = ?1")?;
     let rows = stmt.query_map(params![pwd], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+        ))
     })?;
-    
+
     let mut all_entries = Vec::new();
     for row in rows {
         all_entries.push(row?);
     }
-    
+
     let mut duplicates = Vec::new();
     let mut stale = Vec::new();
     let mut contradictory = Vec::new();
-    
-    let mut seen: std::collections::HashMap<String, (String, String)> = std::collections::HashMap::new();
+
+    let mut seen: std::collections::HashMap<String, (String, String)> =
+        std::collections::HashMap::new();
     for (key, val, _accessed) in &all_entries {
         let lower_key = key.to_lowercase();
         if let Some((orig_key, orig_val)) = seen.get(&lower_key) {
             if orig_key != key {
                 duplicates.push(format!("'{}' and '{}'", orig_key, key));
                 if orig_val != val {
-                    contradictory.push((orig_key.clone(), key.clone(), format!("val1: '{}', val2: '{}'", orig_val, val)));
+                    contradictory.push((
+                        orig_key.clone(),
+                        key.clone(),
+                        format!("val1: '{}', val2: '{}'", orig_val, val),
+                    ));
                 }
             }
         } else {
             seen.insert(lower_key, (key.clone(), val.clone()));
         }
     }
-    
+
     let mut stmt_stale = conn.prepare(
         "SELECT key, last_accessed_at FROM project_memory \
-         WHERE project_path = ?1 AND last_accessed_at < datetime('now', '-30 days')"
+         WHERE project_path = ?1 AND last_accessed_at < datetime('now', '-30 days')",
     )?;
     let rows_stale = stmt_stale.query_map(params![pwd], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
@@ -740,7 +772,7 @@ pub fn memory_doctor() -> Result<MemoryDoctorReport> {
     for r in rows_stale {
         stale.push(r?);
     }
-    
+
     Ok(MemoryDoctorReport {
         duplicates,
         stale,
@@ -815,7 +847,8 @@ mod tests {
 
         let original = "a b c d e f g h i j"; // 19 chars -> 5 tokens
         let filtered = "a b c"; // 5 chars -> 2 tokens
-        let log_id = record("git diff", original, filtered, original, Some(150)).expect("record failed");
+        let log_id =
+            record("git diff", original, filtered, original, Some(150)).expect("record failed");
 
         let conn = Connection::open(&tmp).unwrap();
         let (orig, filt): (i64, i64) = conn
@@ -829,8 +862,13 @@ mod tests {
         assert_eq!(orig, 5);
         assert_eq!(filt, 2);
 
-        let id_in_db: i64 = conn.query_row("SELECT id FROM tracking", [], |r| r.get(0)).unwrap();
-        println!("DIAGNOSTIC: log_id returned = {}, id in DB = {}", log_id, id_in_db);
+        let id_in_db: i64 = conn
+            .query_row("SELECT id FROM tracking", [], |r| r.get(0))
+            .unwrap();
+        println!(
+            "DIAGNOSTIC: log_id returned = {}, id in DB = {}",
+            log_id, id_in_db
+        );
 
         let raw = get_raw_log(log_id).expect("get_raw_log failed");
         assert_eq!(raw, original);
@@ -921,8 +959,22 @@ mod tests {
         env::set_var("RTK_DB_PATH", &tmp);
         env::set_var("RTK_PROJECT_DB_PATH", &tmp);
 
-        record("git status", "untracked files...", "untracked", "raw log status", Some(42)).unwrap();
-        record("cargo build", "compiling...", "ok", "raw log build", Some(120)).unwrap();
+        record(
+            "git status",
+            "untracked files...",
+            "untracked",
+            "raw log status",
+            Some(42),
+        )
+        .unwrap();
+        record(
+            "cargo build",
+            "compiling...",
+            "ok",
+            "raw log build",
+            Some(120),
+        )
+        .unwrap();
 
         let logs = get_recent_logs(10).unwrap();
         assert_eq!(logs.len(), 2);
@@ -957,7 +1009,14 @@ mod tests {
         assert!(!budget.exceeded);
 
         env::set_var("CLAUDE_MODEL", "claude-3.5-sonnet");
-        record("git status", &"a".repeat(4000), &"a".repeat(400), "output", None).unwrap();
+        record(
+            "git status",
+            &"a".repeat(4000),
+            &"a".repeat(400),
+            "output",
+            None,
+        )
+        .unwrap();
         env::remove_var("CLAUDE_MODEL");
 
         let spent = get_total_cost_spent().unwrap();
@@ -967,22 +1026,32 @@ mod tests {
         assert!(budget_exceeded.exceeded);
         assert!((budget_exceeded.percentage - 300.0).abs() < 1e-6);
 
-        assert_eq!(crate::pricing::suggest_model("single-file-edit"), "gpt-4o-mini");
-        assert_eq!(crate::pricing::suggest_model("complex-refactoring"), "claude-3.5-sonnet");
+        assert_eq!(
+            crate::pricing::suggest_model("single-file-edit"),
+            "gpt-4o-mini"
+        );
+        assert_eq!(
+            crate::pricing::suggest_model("complex-refactoring"),
+            "claude-3.5-sonnet"
+        );
 
         memory_overwrite("test_key", "val1").unwrap();
         memory_overwrite("test_key", "val2").unwrap();
-        
+
         let report = memory_doctor().unwrap();
         assert_eq!(report.duplicates.len(), 0);
         assert_eq!(report.contradictory.len(), 0);
 
         let conn = open_project_db().unwrap();
-        let pwd = std::env::current_dir().unwrap().to_string_lossy().replace('\\', "/");
+        let pwd = std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
         conn.execute(
             "INSERT INTO project_memory (key, val, project_path) VALUES ('Test_key', 'val3', ?1)",
             params![pwd],
-        ).unwrap();
+        )
+        .unwrap();
 
         let report2 = memory_doctor().unwrap();
         assert_eq!(report2.duplicates.len(), 1);
@@ -993,4 +1062,3 @@ mod tests {
         env::remove_var("RTK_PROJECT_DB_PATH");
     }
 }
-

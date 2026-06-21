@@ -96,14 +96,12 @@ fn handle_request(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
             // Notification: no response needed
             None
         }
-        "ping" => {
-            Some(JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id,
-                result: Some(json!({})),
-                error: None,
-            })
-        }
+        "ping" => Some(JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: Some(json!({})),
+            error: None,
+        }),
         "tools/list" => {
             let tools = get_tools_list();
             Some(JsonRpcResponse {
@@ -286,7 +284,10 @@ fn get_tools_list() -> serde_json::Value {
 pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::Value> {
     match name {
         "search_code" => {
-            let query = args.get("query").and_then(|q| q.as_str()).ok_or_else(|| anyhow!("Missing query"))?;
+            let query = args
+                .get("query")
+                .and_then(|q| q.as_str())
+                .ok_or_else(|| anyhow!("Missing query"))?;
             let result_str = search_code_helper(query)?;
             Ok(json!({
                 "content": [{
@@ -296,11 +297,17 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             }))
         }
         "find_symbols" => {
-            let query = args.get("query").and_then(|q| q.as_str()).ok_or_else(|| anyhow!("Missing query"))?;
+            let query = args
+                .get("query")
+                .and_then(|q| q.as_str())
+                .ok_or_else(|| anyhow!("Missing query"))?;
             let syms = rtk_index::query_symbols(query)?;
             let mut text = String::new();
             for s in syms {
-                text.push_str(&format!("- {} ({}) in {}:{}-{}\n", s.name, s.kind, s.file_path, s.line_start, s.line_end));
+                text.push_str(&format!(
+                    "- {} ({}) in {}:{}-{}\n",
+                    s.name, s.kind, s.file_path, s.line_start, s.line_end
+                ));
             }
             if text.is_empty() {
                 text = "No symbols found.".to_string();
@@ -313,11 +320,17 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             }))
         }
         "find_refs" => {
-            let symbol = args.get("symbol").and_then(|s| s.as_str()).ok_or_else(|| anyhow!("Missing symbol"))?;
+            let symbol = args
+                .get("symbol")
+                .and_then(|s| s.as_str())
+                .ok_or_else(|| anyhow!("Missing symbol"))?;
             let refs = rtk_index::query_references(symbol)?;
             let mut text = String::new();
             for r in refs {
-                text.push_str(&format!("- {} ({}) in {}:{}-{}\n", r.name, r.kind, r.file_path, r.line_start, r.line_end));
+                text.push_str(&format!(
+                    "- {} ({}) in {}:{}-{}\n",
+                    r.name, r.kind, r.file_path, r.line_start, r.line_end
+                ));
             }
             if text.is_empty() {
                 text = "No references found.".to_string();
@@ -330,7 +343,10 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             }))
         }
         "project_memory" => {
-            let action = args.get("action").and_then(|a| a.as_str()).ok_or_else(|| anyhow!("Missing action"))?;
+            let action = args
+                .get("action")
+                .and_then(|a| a.as_str())
+                .ok_or_else(|| anyhow!("Missing action"))?;
             let key = args.get("key").and_then(|k| k.as_str()).unwrap_or("");
             let value = args.get("value").and_then(|v| v.as_str()).unwrap_or("");
             let query = args.get("query").and_then(|q| q.as_str()).unwrap_or("");
@@ -394,7 +410,10 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             }))
         }
         "artifact_get" => {
-            let id = args.get("id").and_then(|i| i.as_str()).ok_or_else(|| anyhow!("Missing id"))?;
+            let id = args
+                .get("id")
+                .and_then(|i| i.as_str())
+                .ok_or_else(|| anyhow!("Missing id"))?;
             let art = rtk_db::artifact::artifact_get(id)?;
             let text = format!(
                 "ID: {}\nType: {}\nCreated At: {}\nMetadata: {}\nContent:\n\n{}",
@@ -414,7 +433,10 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
         "context_pack" => {
             let paths_val = args.get("paths").ok_or_else(|| anyhow!("Missing paths"))?;
             let paths: Vec<String> = serde_json::from_value(paths_val.clone())?;
-            let skeleton = args.get("skeleton").and_then(|s| s.as_bool()).unwrap_or(false);
+            let skeleton = args
+                .get("skeleton")
+                .and_then(|s| s.as_bool())
+                .unwrap_or(false);
 
             let mut text = String::new();
             text.push_str("<repository>\n");
@@ -438,7 +460,10 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
                     } else {
                         std::fs::File::open(path)?.read_to_string(&mut content)?;
                     }
-                    text.push_str(&format!("<file path=\"{}\">\n{}\n</file>\n", p_str, content));
+                    text.push_str(&format!(
+                        "<file path=\"{}\">\n{}\n</file>\n",
+                        p_str, content
+                    ));
                 }
             }
             text.push_str("</repository>\n");
@@ -451,7 +476,10 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             }))
         }
         "session_state" => {
-            let action = args.get("action").and_then(|a| a.as_str()).ok_or_else(|| anyhow!("Missing action"))?;
+            let action = args
+                .get("action")
+                .and_then(|a| a.as_str())
+                .ok_or_else(|| anyhow!("Missing action"))?;
             let key = args.get("key").and_then(|k| k.as_str()).unwrap_or("");
             let value = args.get("value").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -512,20 +540,18 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
 
     match client.to_lowercase().as_str() {
         "claude" => {
-            let app_data = std::env::var("APPDATA")
-                .map(PathBuf::from)
-                .or_else(|_| {
-                    dirs::home_dir()
-                        .map(|h| h.join("AppData").join("Roaming"))
-                        .ok_or_else(|| anyhow!("Could not resolve AppData directory"))
-                })?;
-            
+            let app_data = std::env::var("APPDATA").map(PathBuf::from).or_else(|_| {
+                dirs::home_dir()
+                    .map(|h| h.join("AppData").join("Roaming"))
+                    .ok_or_else(|| anyhow!("Could not resolve AppData directory"))
+            })?;
+
             let claude_dir = app_data.join("Claude");
             if !claude_dir.exists() {
                 std::fs::create_dir_all(&claude_dir)?;
             }
             let config_path = claude_dir.join("claude_desktop_config.json");
-            
+
             let mut config_json: serde_json::Value = if config_path.exists() {
                 let content = std::fs::read_to_string(&config_path)?;
                 serde_json::from_str(&content).unwrap_or(json!({}))
@@ -541,18 +567,24 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
                 .context("config is not an object")?
                 .entry("mcpServers".to_string())
                 .or_insert(json!({}));
-            
-            mcp_servers.as_object_mut().context("mcpServers is not an object")?.insert(
-                "rtk".to_string(),
-                json!({
-                    "command": exe_path,
-                    "args": ["mcp", "start"]
-                })
-            );
+
+            mcp_servers
+                .as_object_mut()
+                .context("mcpServers is not an object")?
+                .insert(
+                    "rtk".to_string(),
+                    json!({
+                        "command": exe_path,
+                        "args": ["mcp", "start"]
+                    }),
+                );
 
             let pretty = serde_json::to_string_pretty(&config_json)?;
             std::fs::write(&config_path, pretty)?;
-            println!("✅ Successfully installed RTK MCP server config for Claude Desktop at: {}", config_path.display());
+            println!(
+                "✅ Successfully installed RTK MCP server config for Claude Desktop at: {}",
+                config_path.display()
+            );
             Ok(())
         }
         "cursor" => {
@@ -572,6 +604,9 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
             println!("  \"{}\" mcp start", exe_path);
             Ok(())
         }
-        _ => Err(anyhow!("Unknown client: {}. Supported: claude, cursor, gemini", client)),
+        _ => Err(anyhow!(
+            "Unknown client: {}. Supported: claude, cursor, gemini",
+            client
+        )),
     }
 }

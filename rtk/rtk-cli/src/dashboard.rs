@@ -85,11 +85,17 @@ fn handle_connection(mut stream: std::net::TcpStream) -> Result<()> {
         "/api/stats" => {
             let (count, original, filtered, saved, usd_saved) = tracking::get_savings_data()?;
             let hours_saved = (count as f64 * 22.8) / 3600.0;
-            
+
             // Query for most saved and most frequent commands
             let breakdown = tracking::get_command_breakdown()?;
-            let top_saver = breakdown.first().map(|(cmd, _, _)| cmd.clone()).unwrap_or_else(|| "N/A".to_string());
-            let most_frequent = breakdown.first().map(|(cmd, _, _)| cmd.clone()).unwrap_or_else(|| "N/A".to_string());
+            let top_saver = breakdown
+                .first()
+                .map(|(cmd, _, _)| cmd.clone())
+                .unwrap_or_else(|| "N/A".to_string());
+            let most_frequent = breakdown
+                .first()
+                .map(|(cmd, _, _)| cmd.clone())
+                .unwrap_or_else(|| "N/A".to_string());
 
             let json = serde_json::json!({
                 "count": count,
