@@ -4,16 +4,26 @@ use anyhow::{anyhow, Result};
 use std::path::Path;
 #[cfg(feature = "embeddings")]
 use tokenizers::Tokenizer;
-#[cfg(feature = "embeddings")]
+
+#[cfg(all(feature = "embeddings", not(feature = "ort")))]
 use tract_onnx::prelude::*;
 
-#[cfg(feature = "embeddings")]
+#[cfg(all(feature = "embeddings", feature = "ort"))]
+use ort::{session::Session, ep};
+
+#[cfg(all(feature = "embeddings", not(feature = "ort")))]
 pub struct OnnxEmbedder {
     model: SimplePlan<TypedFact, Box<dyn TypedOp>, Graph<TypedFact, Box<dyn TypedOp>>>,
     tokenizer: Tokenizer,
 }
 
-#[cfg(feature = "embeddings")]
+#[cfg(all(feature = "embeddings", feature = "ort"))]
+pub struct OnnxEmbedder {
+    session: Session,
+    tokenizer: Tokenizer,
+}
+
+#[cfg(all(feature = "embeddings", not(feature = "ort")))]
 impl OnnxEmbedder {
     pub fn load_model(model_path: &Path, tokenizer_path: &Path) -> Result<Self> {
         let model = tract_onnx::onnx()
@@ -54,6 +64,104 @@ impl OnnxEmbedder {
 
         // Extract last_hidden_state (usually index 0)
         let output_tensor = outputs[0].to_array_view::<f32>()?;
+        let shape = output_tensor.shape();
+
+        if shape.len() < 3 {
+            return Err(anyhow!("Unexpected output tensor shape: {:?}", shape));
+        }
+
+        let hidden_size = shape[2];
+        let mut mean_embedding = vec![0.0f32; hidden_size];
+        let mut count = 0.0f32;
+
+        for i in 0..seq_len {
+            if attention_mask[i] > 0 {
+                for j in 0..hidden_size {
+                    mean_embedding[j] += output_tensor[[0, i, j]];
+                }
+                count += 1.0;
+            }
+        }
+
+        if count > 0.0 {
+            for j in 0..hidden_size {
+                mean_embedding[j] /= count;
+            }
+        }
+
+        // L2 Normalization
+        let mut norm = 0.0f32;
+        for &val in &mean_embedding {
+            norm += val * val;
+        }
+        norm = norm.sqrt();
+        if norm > 0.0 {
+            for val in &mut mean_embedding {
+                *val /= norm;
+            }
+        }
+
+        Ok(mean_embedding)
+    }
+}
+
+#[cfg(all(feature = "embeddings", feature = "ort"))]
+impl OnnxEmbedder {
+    pub fn load_model(model_path: &Path, tokenizer_path: &Path) -> Result<Self> {
+        let mut builder = Session::builder()?;
+        
+        let mut providers = vec![];
+        
+        #[cfg(feature = "onnx-cuda")]
+        {
+            providers.push(ep::CUDA::default().build());
+        }
+        #[cfg(feature = "onnx-coreml")]
+        {
+            providers.push(ep::CoreML::default().build());
+        }
+        #[cfg(feature = "onnx-directml")]
+        {
+            providers.push(ep::DirectML::default().build());
+        }
+        
+        if !providers.is_empty() {
+            builder = builder.with_execution_providers(providers)?;
+        }
+        
+        let session = builder.commit_from_file(model_path)?;
+        let tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| anyhow!(e))?;
+        Ok(Self { session, tokenizer })
+    }
+
+    pub fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
+        let encoding = self.tokenizer.encode(text, true).map_err(|e| anyhow!(e))?;
+        let ids = encoding
+            .get_ids()
+            .iter()
+            .map(|&x| x as i64)
+            .collect::<Vec<i64>>();
+        let attention_mask = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&x| x as i64)
+            .collect::<Vec<i64>>();
+        let seq_len = ids.len();
+
+        if seq_len == 0 {
+            return Err(anyhow!("Empty text tokenization"));
+        }
+
+        // Convert to 2D arrays with shape [1, seq_len] using ndarray
+        let input_ids_tensor = ndarray::Array2::from_shape_vec((1, seq_len), ids.clone())?;
+        let attention_mask_tensor =
+            ndarray::Array2::from_shape_vec((1, seq_len), attention_mask.clone())?;
+
+        // Run model
+        let outputs = self.session.run(ort::inputs![input_ids_tensor, attention_mask_tensor]?)?;
+
+        // Extract last_hidden_state (usually index 0)
+        let output_tensor = outputs[0].extract_tensor::<f32>()?;
         let shape = output_tensor.shape();
 
         if shape.len() < 3 {

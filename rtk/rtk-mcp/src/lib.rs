@@ -277,6 +277,14 @@ fn get_tools_list() -> serde_json::Value {
                 },
                 "required": ["action"]
             }
+        },
+        {
+            "name": "ping",
+            "description": "Ping the RTK MCP server to check connectivity and diagnostic status.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
         }
     ])
 }
@@ -503,6 +511,14 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
                 }]
             }))
         }
+        "ping" => {
+            Ok(json!({
+                "content": [{
+                    "type": "text",
+                    "text": "pong"
+                }]
+            }))
+        }
         _ => Err(anyhow!("Unknown tool: {}", name)),
     }
 }
@@ -588,14 +604,96 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
             Ok(())
         }
         "cursor" => {
-            println!("💡 To install on Cursor:");
-            println!("  1. Open Cursor Settings -> Models -> MCP");
-            println!("  2. Click '+ Add New MCP Server'");
-            println!("  3. Fill in the fields:");
-            println!("     - Name: rtk");
-            println!("     - Type: stdio");
-            println!("     - Command: \"{}\"", exe_path);
-            println!("     - Args: mcp start");
+            let mut updated_any = false;
+
+            // 1. Update ~/.cursor/mcp.json
+            if let Some(cursor_dir) = dirs::home_dir().map(|h| h.join(".cursor")) {
+                if !cursor_dir.exists() {
+                    let _ = std::fs::create_dir_all(&cursor_dir);
+                }
+                let mcp_path = cursor_dir.join("mcp.json");
+                let mut config_json = if mcp_path.exists() {
+                    let content = std::fs::read_to_string(&mcp_path)?;
+                    serde_json::from_str(&content).unwrap_or(json!({}))
+                } else {
+                    json!({})
+                };
+
+                if !config_json.is_object() {
+                    config_json = json!({});
+                }
+
+                let mcp_servers = config_json
+                    .as_object_mut()
+                    .context("config is not an object")?
+                    .entry("mcpServers".to_string())
+                    .or_insert(json!({}));
+
+                mcp_servers
+                    .as_object_mut()
+                    .context("mcpServers is not an object")?
+                    .insert(
+                        "rtk".to_string(),
+                        json!({
+                            "command": exe_path.clone(),
+                            "args": ["mcp", "start"]
+                        }),
+                    );
+
+                let pretty = serde_json::to_string_pretty(&config_json)?;
+                std::fs::write(&mcp_path, pretty)?;
+                println!(
+                    "✅ Successfully installed RTK MCP server config for Cursor at: {}",
+                    mcp_path.display()
+                );
+                updated_any = true;
+            }
+
+            // 2. Update storage.json
+            let cursor_user_dir = if cfg!(windows) {
+                std::env::var("APPDATA").ok().map(|p| PathBuf::from(p).join("Cursor").join("User"))
+            } else if cfg!(target_os = "macos") {
+                dirs::home_dir().map(|h| h.join("Library").join("Application Support").join("Cursor").join("User"))
+            } else {
+                dirs::home_dir().map(|h| h.join(".config").join("Cursor").join("User"))
+            };
+
+            if let Some(user_dir) = cursor_user_dir {
+                let storage_path = user_dir.join("globalStorage").join("storage.json");
+                if storage_path.exists() {
+                    let content = std::fs::read_to_string(&storage_path)?;
+                    let mut storage_json: serde_json::Value = serde_json::from_str(&content).unwrap_or(json!({}));
+                    if storage_json.is_object() {
+                        let mcp_servers = storage_json
+                            .as_object_mut()
+                            .context("storage is not an object")?
+                            .entry("mcpServers".to_string())
+                            .or_insert(json!({}));
+                        mcp_servers
+                            .as_object_mut()
+                            .context("mcpServers is not an object")?
+                            .insert(
+                                "rtk".to_string(),
+                                json!({
+                                    "command": exe_path.clone(),
+                                    "args": ["mcp", "start"]
+                                }),
+                            );
+                        let pretty = serde_json::to_string_pretty(&storage_json)?;
+                        std::fs::write(&storage_path, pretty)?;
+                        println!(
+                            "✅ Successfully installed RTK MCP server config for Cursor in storage.json at: {}",
+                            storage_path.display()
+                        );
+                        updated_any = true;
+                    }
+                }
+            }
+
+            if !updated_any {
+                return Err(anyhow!("Could not find any Cursor configuration directory to update"));
+            }
+
             Ok(())
         }
         "gemini" => {

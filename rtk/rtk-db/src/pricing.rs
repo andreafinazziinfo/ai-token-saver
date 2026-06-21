@@ -42,10 +42,107 @@ pub fn get_model_price(model_id: &str) -> Option<&'static ModelPrice> {
     })
 }
 
+fn find_local_pricing_file() -> Option<std::path::PathBuf> {
+    let mut current = std::env::current_dir().ok()?;
+    loop {
+        let candidate = current.join(".rtk_pricing.json");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if !current.pop() {
+            break;
+        }
+    }
+    None
+}
+
+fn get_global_pricing_file() -> Option<std::path::PathBuf> {
+    let home = if cfg!(windows) {
+        std::env::var("USERPROFILE").ok()
+    } else {
+        std::env::var("HOME").ok()
+    };
+    home.map(|h| std::path::PathBuf::from(h).join(".config").join("rtk").join("pricing.json"))
+}
+
+/// Retrieves the pricing for a model, merging any local/global overrides.
+pub fn get_merged_price(model_id: &str) -> Option<ModelPrice> {
+    let target = model_id.to_lowercase();
+    
+    // 1. Try local project override (.rtk_pricing.json)
+    if let Some(local_path) = find_local_pricing_file() {
+        if let Ok(content) = std::fs::read_to_string(&local_path) {
+            if let Ok(override_data) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(models) = override_data.get("models").and_then(|m| m.as_array()) {
+                    for m_val in models {
+                        if let Some(mid) = m_val.get("model_id").and_then(|id| id.as_str()) {
+                            let mid_lower = mid.to_lowercase();
+                            if mid_lower == target || target.contains(&mid_lower) || mid_lower.contains(&target) {
+                                let base = get_model_price(&mid_lower);
+                                return Some(ModelPrice {
+                                    model_id: mid.to_string(),
+                                    provider: m_val.get("provider").and_then(|p| p.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_else(|| base.map(|b| b.provider.clone()).unwrap_or_default()),
+                                    display_name: m_val.get("display_name").and_then(|n| n.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_else(|| base.map(|b| b.display_name.clone()).unwrap_or_default()),
+                                    input_price_per_mtok: m_val.get("input_price_per_mtok").and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| base.map(|b| b.input_price_per_mtok).unwrap_or(3.0)),
+                                    output_price_per_mtok: m_val.get("output_price_per_mtok").and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| base.map(|b| b.output_price_per_mtok).unwrap_or(15.0)),
+                                    last_verified: m_val.get("last_verified").and_then(|v| v.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_default(),
+                                    source_url: m_val.get("source_url").and_then(|u| u.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_default(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Try global override (~/.config/rtk/pricing.json)
+    if let Some(global_path) = get_global_pricing_file() {
+        if let Ok(content) = std::fs::read_to_string(&global_path) {
+            if let Ok(override_data) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(models) = override_data.get("models").and_then(|m| m.as_array()) {
+                    for m_val in models {
+                        if let Some(mid) = m_val.get("model_id").and_then(|id| id.as_str()) {
+                            let mid_lower = mid.to_lowercase();
+                            if mid_lower == target || target.contains(&mid_lower) || mid_lower.contains(&target) {
+                                let base = get_model_price(&mid_lower);
+                                return Some(ModelPrice {
+                                    model_id: mid.to_string(),
+                                    provider: m_val.get("provider").and_then(|p| p.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_else(|| base.map(|b| b.provider.clone()).unwrap_or_default()),
+                                    display_name: m_val.get("display_name").and_then(|n| n.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_else(|| base.map(|b| b.display_name.clone()).unwrap_or_default()),
+                                    input_price_per_mtok: m_val.get("input_price_per_mtok").and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| base.map(|b| b.input_price_per_mtok).unwrap_or(3.0)),
+                                    output_price_per_mtok: m_val.get("output_price_per_mtok").and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| base.map(|b| b.output_price_per_mtok).unwrap_or(15.0)),
+                                    last_verified: m_val.get("last_verified").and_then(|v| v.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_default(),
+                                    source_url: m_val.get("source_url").and_then(|u| u.as_str()).map(|s| s.to_string())
+                                        .unwrap_or_default(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Fallback to standard registry
+    get_model_price(model_id).cloned()
+}
+
 /// Calculate cost for a given number of tokens and model.
 /// If model is not found, defaults to $3.00 per MTok (input) / $15.00 per MTok (output) (Claude 3.5 Sonnet base).
 pub fn calculate_cost(tokens: i64, model_id: &str, is_output: bool) -> f64 {
-    let price_per_mtok = match get_model_price(model_id) {
+    let price_per_mtok = match get_merged_price(model_id) {
         Some(m) => {
             if is_output {
                 m.output_price_per_mtok
@@ -131,5 +228,38 @@ mod tests {
         // 10,000 output tokens for claude-4.6-sonnet -> $15.00 * 0.01 = $0.15
         let cost_out = calculate_cost(10_000, "claude-4.6-sonnet", true);
         assert!((cost_out - 0.15).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_pricing_overrides() {
+        let override_file = std::path::Path::new(".rtk_pricing.json");
+        let backup_exists = override_file.exists();
+        let mut backup_content = Vec::new();
+        if backup_exists {
+            backup_content = std::fs::read(override_file).unwrap_or_default();
+        }
+
+        let override_json = serde_json::json!({
+            "models": [
+                {
+                    "model_id": "claude-4.6-sonnet",
+                    "input_price_per_mtok": 1.23,
+                    "output_price_per_mtok": 4.56
+                }
+            ]
+        });
+        std::fs::write(override_file, override_json.to_string()).unwrap();
+
+        // Run assertions
+        let price = get_merged_price("claude-4.6-sonnet").unwrap();
+        assert_eq!(price.input_price_per_mtok, 1.23);
+        assert_eq!(price.output_price_per_mtok, 4.56);
+
+        // Cleanup
+        if backup_exists {
+            std::fs::write(override_file, backup_content).unwrap();
+        } else {
+            let _ = std::fs::remove_file(override_file);
+        }
     }
 }

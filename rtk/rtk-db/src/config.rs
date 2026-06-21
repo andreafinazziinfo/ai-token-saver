@@ -24,6 +24,12 @@ impl Default for ProfileSettings {
     }
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct RegexFilterRule {
+    pub pattern: String,
+    pub action: String, // "strip" or "collapse"
+}
+
 /// The configuration structure loaded from global/local JSON files.
 /// Includes a list of denied shell commands, custom Data Loss Prevention patterns, and savings profiles.
 #[derive(Debug, Clone)]
@@ -37,6 +43,8 @@ pub struct UserConfig {
     pub output_profiles: std::collections::HashMap<String, ProfileSettings>,
     pub default_profile: String,
     pub overrides: std::collections::HashMap<String, String>,
+    /// Custom config-driven regex filtering rules.
+    pub regex_filters: Vec<RegexFilterRule>,
 }
 
 impl Default for UserConfig {
@@ -97,6 +105,7 @@ impl Default for UserConfig {
             output_profiles,
             default_profile: "strict".to_string(),
             overrides: std::collections::HashMap::new(),
+            regex_filters: Vec::new(),
         }
     }
 }
@@ -166,6 +175,17 @@ impl UserConfig {
                 for (k, v_str) in overrides_val {
                     if let Some(profile_name) = v_str.as_str() {
                         self.overrides.insert(k.clone(), profile_name.to_string());
+                    }
+                }
+            }
+
+            if let Some(arr) = val.get("regex_filters").and_then(|v| v.as_array()) {
+                self.regex_filters.clear();
+                for item in arr {
+                    if let Ok(rule) = serde_json::from_value::<RegexFilterRule>(item.clone()) {
+                        if regex::Regex::new(&rule.pattern).is_ok() {
+                            self.regex_filters.push(rule);
+                        }
                     }
                 }
             }
@@ -267,7 +287,8 @@ pub fn config_show() -> anyhow::Result<()> {
         },
         "output_profiles": config.output_profiles,
         "default_profile": config.default_profile,
-        "overrides": config.overrides
+        "overrides": config.overrides,
+        "regex_filters": config.regex_filters
     });
     println!("{}", serde_json::to_string_pretty(&merged_json)?);
     Ok(())
@@ -326,6 +347,67 @@ pub fn config_profile_set(name: &str) -> anyhow::Result<()> {
             serde_json::Value::String(name.to_string()),
         );
     })
+}
+
+/// Append a custom regex filter pattern and action to the global config.
+pub fn config_filter_add(pattern: &str, action: &str) -> anyhow::Result<()> {
+    regex::Regex::new(pattern).map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
+    if action != "strip" && action != "collapse" {
+        return Err(anyhow::anyhow!("invalid filter action: {action}. Must be 'strip' or 'collapse'"));
+    }
+    modify_config(|obj| {
+        let filters = obj
+            .entry("regex_filters")
+            .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+        if let Some(arr) = filters.as_array_mut() {
+            let item = serde_json::json!({
+                "pattern": pattern.to_string(),
+                "action": action.to_string()
+            });
+            let mut exists = false;
+            for val in arr.iter() {
+                if let Some(p) = val.get("pattern").and_then(|p| p.as_str()) {
+                    if p == pattern {
+                        exists = true;
+                        break;
+                    }
+                }
+            }
+            if !exists {
+                arr.push(item);
+            } else {
+                for val in arr.iter_mut() {
+                    if let Some(p) = val.get("pattern").and_then(|p| p.as_str()) {
+                        if p == pattern {
+                            if let Some(o) = val.as_object_mut() {
+                                o.insert("action".to_string(), serde_json::Value::String(action.to_string()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// Applies all configured regex filters to the given output.
+pub fn apply_regex_filters(input: &str) -> String {
+    let config = get_config();
+    let mut current = input.to_string();
+    for rule in &config.regex_filters {
+        if let Ok(re) = regex::Regex::new(&rule.pattern) {
+            match rule.action.as_str() {
+                "strip" => {
+                    current = re.replace_all(&current, "").to_string();
+                }
+                "collapse" => {
+                    current = re.replace_all(&current, "[collapsed]").to_string();
+                }
+                _ => {}
+            }
+        }
+    }
+    current
 }
 
 #[cfg(test)]
@@ -451,5 +533,35 @@ mod tests {
 
         let p_fallback = config.get_profile_for_cmd("npm run dev");
         assert_eq!(p_fallback.max_line_length, Some(120)); // fallbacks to default_profile which is developer
+    }
+
+    #[test]
+    fn test_regex_filtering_rules() {
+        let mut config = UserConfig::default();
+        let json = r#"{
+            "regex_filters": [
+                {
+                    "pattern": "secret_token=[a-zA-Z0-9]+",
+                    "action": "strip"
+                },
+                {
+                    "pattern": "db_password=.+",
+                    "action": "collapse"
+                }
+            ]
+        }"#;
+        config.merge_from_str(json).unwrap();
+        assert_eq!(config.regex_filters.len(), 2);
+        assert_eq!(config.regex_filters[0].pattern, "secret_token=[a-zA-Z0-9]+");
+        assert_eq!(config.regex_filters[0].action, "strip");
+        assert_eq!(config.regex_filters[1].pattern, "db_password=.+");
+        assert_eq!(config.regex_filters[1].action, "collapse");
+
+        let re1 = regex::Regex::new(&config.regex_filters[0].pattern).unwrap();
+        let re2 = regex::Regex::new(&config.regex_filters[1].pattern).unwrap();
+        let input = "url: http://api.com?secret_token=abc123xyz\ndb_password=mysecretpassword123";
+        let step1 = re1.replace_all(input, "").to_string();
+        let step2 = re2.replace_all(&step1, "[collapsed]").to_string();
+        assert_eq!(step2, "url: http://api.com?\n[collapsed]");
     }
 }

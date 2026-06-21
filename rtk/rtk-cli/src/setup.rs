@@ -180,6 +180,65 @@ pub fn run_init(profile: &str) -> Result<()> {
         println!("==========================================================");
     }
 
+    // Create ~/.rtk/bin wrappers
+    let _ = create_path_wrappers();
+
+    Ok(())
+}
+
+fn create_path_wrappers() -> Result<()> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| anyhow::anyhow!("Could not find home directory"))?;
+    
+    let rtk_bin_dir = Path::new(&home).join(".rtk").join("bin");
+    if !rtk_bin_dir.exists() {
+        std::fs::create_dir_all(&rtk_bin_dir)?;
+    }
+
+    let commands = vec![
+        "git", "cargo", "docker", "npm", "yarn", "pnpm", "pytest", "ls", "gradle", "go",
+        "composer", "terraform", "dotnet"
+    ];
+
+    let script_template = r#"#!/bin/bash
+# RTK transparent interceptor wrapper for COMMAND_NAME
+
+IN_AGENT=0
+if [ -n "$CLAUDE_CODE" ] || [ -n "$CURSOR" ] || [ -n "$AIDER" ] || [ -n "$ANTIGRAVITY" ] || [ -n "$GEMINI_AGENT" ] || [ -n "$AGENT_CONTEXT" ]; then
+    IN_AGENT=1
+fi
+
+if [ "$IN_AGENT" -eq 1 ]; then
+    exec rtk COMMAND_NAME "$@"
+else
+    CLEAN_PATH=$(echo "$PATH" | sed -E 's|[^:]*/.rtk/bin:?||g')
+    REAL_BIN=$(PATH="$CLEAN_PATH" which COMMAND_NAME 2>/dev/null)
+    if [ -n "$REAL_BIN" ]; then
+        exec "$REAL_BIN" "$@"
+    else
+        exec COMMAND_NAME "$@"
+    fi
+fi
+"#;
+
+    for cmd in commands {
+        let file_path = rtk_bin_dir.join(cmd);
+        let content = script_template.replace("COMMAND_NAME", cmd);
+        std::fs::write(&file_path, content)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = std::fs::metadata(&file_path) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                let _ = std::fs::set_permissions(&file_path, perms);
+            }
+        }
+    }
+
+    println!("✅ Created PATH interceptor wrappers inside: {}", rtk_bin_dir.display());
     Ok(())
 }
 

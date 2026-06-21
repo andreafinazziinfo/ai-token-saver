@@ -30,6 +30,11 @@ pub(crate) fn open_db() -> Result<Connection> {
         std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
     let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
+    let _ = conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA busy_timeout = 5000;"
+    );
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS tracking (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +74,11 @@ pub(crate) fn open_project_db() -> Result<Connection> {
     let path = project_db_path();
     let conn =
         Connection::open(&path).with_context(|| format!("open project db {}", path.display()))?;
+    let _ = conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA busy_timeout = 5000;"
+    );
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS project_memory (
             key              TEXT    NOT NULL,
@@ -1060,5 +1070,65 @@ mod tests {
         std::fs::remove_file(&tmp).ok();
         env::remove_var("RTK_DB_PATH");
         env::remove_var("RTK_PROJECT_DB_PATH");
+    }
+
+    #[test]
+    fn test_concurrent_writes() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let tmp = std::env::temp_dir().join(format!("rtk_test_concurrent_{}.db", std::process::id()));
+        // Setup initial schema
+        let conn = Connection::open(&tmp).unwrap();
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA busy_timeout = 5000;"
+        ).unwrap();
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS test_concurrent (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                val TEXT NOT NULL
+            );",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let tmp_arc = Arc::new(tmp.clone());
+        let mut handles = Vec::new();
+
+        for i in 0..5 {
+            let db_path = Arc::clone(&tmp_arc);
+            let handle = thread::spawn(move || {
+                let conn = Connection::open(&*db_path).unwrap();
+                conn.execute_batch(
+                    "PRAGMA journal_mode = WAL;
+                     PRAGMA synchronous = NORMAL;
+                     PRAGMA busy_timeout = 5000;"
+                ).unwrap();
+                for j in 0..10 {
+                    conn.execute(
+                        "INSERT INTO test_concurrent (val) VALUES (?1)",
+                        [format!("thread-{}-{}", i, j)],
+                    )
+                    .unwrap();
+                }
+            });
+            handles.push(handle);
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        // Verify count
+        let conn = Connection::open(&tmp).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT count(*) FROM test_concurrent", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 50);
+
+        std::fs::remove_file(&tmp).ok();
     }
 }

@@ -8,17 +8,62 @@ pub mod parser;
 
 pub fn index_project(project_dir: &Path) -> Result<usize> {
     let files = parser::scan_directory(project_dir)?;
-    let mut all_symbols = Vec::new();
-    for file in files {
-        if let Ok(syms) = parser::parse_file(&file, project_dir) {
-            all_symbols.extend(syms);
+    let conn = db::open_db()?;
+
+    // Load cached file hashes
+    let cached_hashes = db::get_file_hashes(&conn)?;
+
+    let mut scanned_rel_paths = std::collections::HashSet::new();
+
+    for file in &files {
+        let rel_path = file
+            .strip_prefix(project_dir)
+            .unwrap_or(file)
+            .to_string_lossy()
+            .to_string()
+            .replace('\\', "/");
+
+        scanned_rel_paths.insert(rel_path.clone());
+
+        // Read file and compute hash
+        if let Ok(code) = std::fs::read_to_string(file) {
+            use std::hash::{Hash, Hasher};
+            let mut s = std::collections::hash_map::DefaultHasher::new();
+            code.hash(&mut s);
+            let current_hash = format!("{:x}", s.finish());
+
+            let mut needs_indexing = true;
+            if let Some(cached_hash) = cached_hashes.get(&rel_path) {
+                if cached_hash == &current_hash {
+                    needs_indexing = false;
+                }
+            }
+
+            if needs_indexing {
+                // Clear old symbols for this file
+                db::clear_file_index(&conn, &rel_path)?;
+
+                // Parse and insert new symbols
+                if let Ok(syms) = parser::parse_file(file, project_dir) {
+                    db::insert_symbols(&conn, &syms)?;
+                }
+
+                // Update hash in database
+                db::insert_file_hash(&conn, &rel_path, &current_hash)?;
+            }
         }
     }
 
-    let conn = db::open_db()?;
-    db::clear_index(&conn)?;
-    db::insert_symbols(&conn, &all_symbols)?;
+    // Clean up deleted files from database
+    for (cached_path, _) in cached_hashes {
+        if !scanned_rel_paths.contains(&cached_path) {
+            let _ = db::clear_file_index(&conn, &cached_path);
+            let _ = db::delete_file_hash(&conn, &cached_path);
+        }
+    }
 
+    // Return total number of symbols in database
+    let all_symbols = db::get_all_symbols(&conn)?;
     Ok(all_symbols.len())
 }
 
@@ -295,9 +340,13 @@ mod tests {
     use super::*;
     use std::env;
     use std::fs;
+    use std::sync::Mutex;
+
+    static INDEX_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_index_and_query_lifecycle() {
+        let _lock = INDEX_TEST_LOCK.lock().unwrap();
         let tmp_db = env::temp_dir().join(format!("rtk_index_test_{}.db", std::process::id()));
         env::set_var("RTK_INDEX_DB_PATH", &tmp_db);
 
@@ -349,6 +398,47 @@ mod tests {
         assert_eq!(metrics.symbols_count, 3);
         assert_eq!(metrics.edges_count, 1);
         assert!(metrics.graph_coverage > 0.0);
+
+        env::remove_var("RTK_INDEX_DB_PATH");
+        fs::remove_file(&tmp_db).ok();
+        fs::remove_dir_all(&temp_project).ok();
+    }
+
+    #[test]
+    fn test_incremental_indexing_cache() {
+        let _lock = INDEX_TEST_LOCK.lock().unwrap();
+        let tmp_db = env::temp_dir().join(format!("rtk_inc_test_{}.db", std::process::id()));
+        env::set_var("RTK_INDEX_DB_PATH", &tmp_db);
+
+        let temp_project = env::temp_dir().join(format!("rtk_inc_proj_{}", std::process::id()));
+        fs::create_dir_all(&temp_project).unwrap();
+
+        let file_path = temp_project.join("main.rs");
+
+        // 1. Initial run with one function
+        fs::write(&file_path, "fn hello() {}").unwrap();
+        let count1 = index_project(&temp_project).unwrap();
+        assert_eq!(count1, 1);
+
+        let syms1 = query_symbols("hello").unwrap();
+        assert_eq!(syms1.len(), 1);
+
+        // 2. Run again without changing file - should use cache
+        let count2 = index_project(&temp_project).unwrap();
+        assert_eq!(count2, 1);
+
+        // 3. Modify file - add another function
+        fs::write(&file_path, "fn hello() {} \n fn world() {}").unwrap();
+        let count3 = index_project(&temp_project).unwrap();
+        assert_eq!(count3, 2);
+
+        let syms2 = query_symbols("world").unwrap();
+        assert_eq!(syms2.len(), 1);
+
+        // 4. Delete file - index should clean up
+        fs::remove_file(&file_path).unwrap();
+        let count4 = index_project(&temp_project).unwrap();
+        assert_eq!(count4, 0);
 
         env::remove_var("RTK_INDEX_DB_PATH");
         fs::remove_file(&tmp_db).ok();

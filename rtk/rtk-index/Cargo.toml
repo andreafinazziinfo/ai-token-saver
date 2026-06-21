@@ -29,7 +29,16 @@ optional = true
 version = "0.15.6"
 optional = true
 
+[dependencies.ort]
+version = "2.0.0-rc.9"
+optional = true
+default-features = false
+
 [features]
 default = []
 embeddings = ["dep:tract-onnx", "dep:tokenizers", "dep:ndarray"]
+ort = ["dep:ort"]
+onnx-cuda = ["embeddings", "ort", "ort/cuda"]
+onnx-coreml = ["embeddings", "ort", "ort/coreml"]
+onnx-directml = ["embeddings", "ort", "ort/directml"]
 

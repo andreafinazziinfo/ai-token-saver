@@ -14,6 +14,11 @@ fn open_db() -> Result<Connection> {
     };
 
     let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
+    let _ = conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA busy_timeout = 5000;"
+    );
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS session_state (

@@ -263,6 +263,24 @@ enum Commands {
         #[command(subcommand)]
         subcmd: TelemetryCommands,
     },
+    /// Manage custom regex filtering rules
+    Filter {
+        #[command(subcommand)]
+        subcmd: FilterCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum FilterCommands {
+    /// Add a custom regex filtering rule to global config
+    Add {
+        /// The regex pattern to match
+        #[arg(long)]
+        pattern: String,
+        /// The action to perform: strip or collapse
+        #[arg(long)]
+        action: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -369,6 +387,8 @@ enum McpCommands {
         #[arg(long)]
         client: String,
     },
+    /// Ping the MCP server to check connectivity and diagnostic status
+    Ping,
     /// Directly call a specific tool for testing/validation
     Call {
         /// Name of the tool to execute
@@ -659,6 +679,20 @@ fn main() {
         Commands::Mcp { subcmd } => match subcmd {
             McpCommands::Start => rtk_mcp::run_mcp_server(),
             McpCommands::Install { client } => rtk_mcp::install_mcp_client(&client),
+            McpCommands::Ping => {
+                let diagnostic = serde_json::json!({
+                    "status": "ok",
+                    "mcp_version": "2024-11-05",
+                    "server_name": "rtk-mcp",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "tools_available": 8
+                });
+                match serde_json::to_string_pretty(&diagnostic) {
+                    Ok(json_str) => println!("{}", json_str),
+                    Err(e) => eprintln!("Failed to format JSON response: {e}"),
+                }
+                Ok(())
+            }
             McpCommands::Call { tool, args } => {
                 let parsed_args = if let Some(ref a_str) = args {
                     serde_json::from_str(a_str).unwrap_or(serde_json::Value::Null)
@@ -755,6 +789,13 @@ fn main() {
         Commands::ShowLog { id } => tracking::get_raw_log(id).map(|raw_log| {
             print!("{raw_log}");
         }),
+        Commands::Filter { subcmd } => match subcmd {
+            FilterCommands::Add { pattern, action } => {
+                config::config_filter_add(&pattern, &action).map(|_| {
+                    println!("✅ Added custom regex filter: pattern '{}', action '{}'", pattern, action);
+                })
+            }
+        },
         Commands::Init { profile } => setup::run_init(&profile),
         Commands::Status => status::run_status(),
         Commands::Gc => tracking::gc().map(|purged| {
@@ -935,6 +976,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
     let (mut out_print, mut err_print, raw_db, filtered_db) = match mode {
         FilterMode::Stdout(filter) => {
             let filtered = filter(&stdout);
+            let filtered = rtk_db::config::apply_regex_filters(&filtered);
             let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
             let r_stdout = dlp::redact_with_source(&stdout, &cmd_label);
             (
@@ -946,6 +988,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         }
         FilterMode::Stderr(filter) => {
             let filtered = filter(&stderr);
+            let filtered = rtk_db::config::apply_regex_filters(&filtered);
             let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
             let r_stderr = dlp::redact_with_source(&stderr, &cmd_label);
             (
@@ -958,6 +1001,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         FilterMode::Combined(filter) => {
             let combined = format!("{stderr}\n{stdout}");
             let filtered = filter(&combined);
+            let filtered = rtk_db::config::apply_regex_filters(&filtered);
             let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
             let r_combined = dlp::redact_with_source(&combined, &cmd_label);
             (
@@ -988,6 +1032,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
             match capture_mode {
                 "stderr" => {
                     let filtered = plugins::filter_plugin(&stderr, plugin);
+                    let filtered = rtk_db::config::apply_regex_filters(&filtered);
                     let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
                     let r_stderr = dlp::redact_with_source(&stderr, &cmd_label);
                     (
@@ -1000,6 +1045,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
                 "combined" => {
                     let combined = format!("{stderr}\n{stdout}");
                     let filtered = plugins::filter_plugin(&combined, plugin);
+                    let filtered = rtk_db::config::apply_regex_filters(&filtered);
                     let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
                     let r_combined = dlp::redact_with_source(&combined, &cmd_label);
                     (
@@ -1028,6 +1074,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
                 _ => {
                     // stdout default
                     let filtered = plugins::filter_plugin(&stdout, plugin);
+                    let filtered = rtk_db::config::apply_regex_filters(&filtered);
                     let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
                     let r_stdout = dlp::redact_with_source(&stdout, &cmd_label);
                     (

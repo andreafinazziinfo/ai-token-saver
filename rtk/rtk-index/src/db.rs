@@ -33,6 +33,11 @@ pub fn open_db() -> Result<Connection> {
     };
 
     let conn = Connection::open(&path).with_context(|| format!("open db {}", path.display()))?;
+    let _ = conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA busy_timeout = 5000;"
+    );
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS symbols (
@@ -58,6 +63,16 @@ pub fn open_db() -> Result<Connection> {
         [],
     )
     .context("create dependencies table")?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS file_hashes (
+            file_path    TEXT PRIMARY KEY,
+            hash         TEXT NOT NULL,
+            last_indexed INTEGER NOT NULL
+        )",
+        [],
+    )
+    .context("create file_hashes table")?;
 
     Ok(conn)
 }
@@ -187,4 +202,39 @@ pub fn get_symbol_references(conn: &Connection, symbol_name: &str) -> Result<Vec
         list.push(row?);
     }
     Ok(list)
+}
+
+pub fn clear_file_index(conn: &Connection, file_path: &str) -> Result<()> {
+    conn.execute(
+        "DELETE FROM dependencies WHERE caller_id IN (SELECT id FROM symbols WHERE file_path = ?1)",
+        [file_path],
+    )?;
+    conn.execute("DELETE FROM symbols WHERE file_path = ?1", [file_path])?;
+    Ok(())
+}
+
+pub fn get_file_hashes(conn: &Connection) -> Result<std::collections::HashMap<String, String>> {
+    let mut stmt = conn.prepare("SELECT file_path, hash FROM file_hashes")?;
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    let mut map = std::collections::HashMap::new();
+    for row in rows {
+        let (path, hash) = row?;
+        map.insert(path, hash);
+    }
+    Ok(map)
+}
+
+pub fn insert_file_hash(conn: &Connection, file_path: &str, hash: &str) -> Result<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO file_hashes (file_path, hash, last_indexed) VALUES (?1, ?2, strftime('%s','now'))",
+        params![file_path, hash],
+    )?;
+    Ok(())
+}
+
+pub fn delete_file_hash(conn: &Connection, file_path: &str) -> Result<()> {
+    conn.execute("DELETE FROM file_hashes WHERE file_path = ?1", [file_path])?;
+    Ok(())
 }

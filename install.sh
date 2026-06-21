@@ -45,3 +45,32 @@ echo ""
 echo "To synchronize Cursor rules across subfolders, run:"
 echo "  rtk sync-rules"
 echo "=========================================================="
+
+# 4. Prompt for PATH configuration
+echo ""
+echo "❓ Do you want to prepend ~/.rtk/bin to your PATH in ~/.bashrc / ~/.zshrc?"
+echo "   This enables transparent CLI interception (interceptor wrappers for git, cargo, docker, etc.)."
+read -p "   Enable wrappers? (y/N): " -n 1 -r REPLY
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    SHELL_PROFILE=""
+    if [ -f "$HOME/.zshrc" ]; then
+        SHELL_PROFILE="$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+        SHELL_PROFILE="$HOME/.bashrc"
+    fi
+    
+    if [ -n "$SHELL_PROFILE" ]; then
+        if ! grep -q '\.rtk/bin' "$SHELL_PROFILE"; then
+            echo 'export PATH="$HOME/.rtk/bin:$PATH"' >> "$SHELL_PROFILE"
+            echo "✅ Added ~/.rtk/bin to PATH in $SHELL_PROFILE"
+            echo "👉 Please run: source $SHELL_PROFILE to apply changes."
+        else
+            echo "ℹ️  ~/.rtk/bin is already in your PATH inside $SHELL_PROFILE"
+        fi
+    else
+        echo "⚠️  Could not find ~/.bashrc or ~/.zshrc. Please manually prepend ~/.rtk/bin to your PATH."
+    fi
+fi
+echo "=========================================================="
+
