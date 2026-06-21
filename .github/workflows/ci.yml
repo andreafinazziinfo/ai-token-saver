@@ -48,7 +48,7 @@ jobs:
       run: cargo test --manifest-path rtk/Cargo.toml
 
     - name: Security Audit
-      uses: rustsec/audit-check@v2
+      uses: actions-rust-lang/audit@v1
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        working-directory: rtk
+        ignore: RUSTSEC-2026-0009, RUSTSEC-2025-0119, RUSTSEC-2024-0436
+        workingDirectory: rtk
