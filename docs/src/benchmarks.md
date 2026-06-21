@@ -16,12 +16,12 @@ The table below summarizes average token reductions for common development tasks
 
 ## Real-World Case Study: Workspace Test Suite
 
-Using the `rtk benchmark` tool on a Rust project containing 108 tests:
+Using the `rtk benchmark` tool on the RTK Rust project containing 118 tests:
 
-- **Raw Output Size**: ~32,000 tokens (due to verbose compiler outputs and passing test details).
-- **RTK Filtered Output**: ~1,800 tokens.
-- **Total Savings**: **94.3%**
-- **Financial Savings**: Saved **$0.09** on input context for a single run using Claude 3.5 Sonnet pricing. Over 100 runs per day, this saves **$9.00/developer/day**.
+- **Raw Output Size**: 2,459 tokens (incremental test suite execution).
+- **RTK Filtered Output**: 548 tokens.
+- **Total Savings**: **77.7%**
+- **Financial Savings**: Saved **$0.0057** on input context for a single run using Claude Sonnet 4.6 pricing. Over 100 runs per day, this saves **$0.57/developer/day**.
 
 ## Reproducibility
 

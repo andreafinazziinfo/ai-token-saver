@@ -34,12 +34,12 @@ ENCODING = tiktoken.get_encoding("cl100k_base")
 
 # Latest official pricing (June 2026) per Million Tokens
 PRICING = {
-    "Claude 3.5 Sonnet":  {"input": 3.00,  "output": 15.00},
-    "Claude 3 Opus":      {"input": 15.00, "output": 75.00},
-    "GPT-4o":             {"input": 2.50,  "output": 10.00},
-    "GPT-4o mini":        {"input": 0.15,  "output": 0.60},
-    "Gemini 1.5 Pro":     {"input": 1.25,  "output": 3.75},
-    "Gemini 1.5 Flash":   {"input": 0.075, "output": 0.30},
+    "Claude Opus 4.8":         {"input": 5.00,  "output": 25.00},
+    "Claude Sonnet 4.6":       {"input": 3.00,  "output": 15.00},
+    "GPT-5.5":                 {"input": 5.00,  "output": 30.00},
+    "GPT-5.4":                 {"input": 2.50,  "output": 15.00},
+    "Gemini 3.1 Pro Preview":  {"input": 2.00,  "output": 12.00},
+    "Gemini 3.5 Flash":        {"input": 1.50,  "output": 9.00},
 }
 
 # Time estimates (seconds per 1000 tokens)
@@ -920,8 +920,8 @@ def run_all_benchmarks() -> list:
 
     # 15. Context Pack (REAL, RTK source)
     print("  [15/15] rtk pack (REAL, RTK source)...")
-    std_out = run_cmd("find rtk/src -type f -name '*.rs' -exec cat {} +", cwd=str(PROJECT_ROOT))
-    rtk_out = rtk_cmd("pack rtk/src --strip --skeleton")
+    std_out = run_cmd("find rtk/rtk-cli/src -type f -name '*.rs' -exec cat {} +", cwd=str(PROJECT_ROOT))
+    rtk_out = rtk_cmd("pack rtk/rtk-cli/src --strip --skeleton")
     r = BenchmarkResult("rtk pack (REAL, --strip --skeleton)", "Input", "Context",
                         count_tokens(std_out), count_tokens(rtk_out))
     results.append(r)

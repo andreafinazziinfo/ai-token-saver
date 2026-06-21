@@ -26,10 +26,12 @@ It supports input/output rates per million tokens for all major LLMs:
 
 | Model | Input Price ($/M) | Output Price ($/M) |
 |-------|-------------------|--------------------|
-| Claude 3.5 Sonnet | $3.00 | $15.00 |
-| Claude 3 Opus | $15.00 | $75.00 |
-| GPT-4o | $5.00 | $15.00 |
-| Gemini 1.5 Pro | $3.50 | $10.50 |
+| Claude Opus 4.8 | $5.00 | $25.00 |
+| Claude Sonnet 4.6 | $3.00 | $15.00 |
+| GPT-5.5 | $5.00 | $30.00 |
+| GPT-5.4 | $2.50 | $15.00 |
+| Gemini 3.1 Pro Preview | $2.00 | $12.00 |
+| Gemini 3.5 Flash | $1.50 | $9.00 |
 
 ## Cost Estimation
 
