@@ -1,12 +1,14 @@
-use rtk_memory::tracking::record;
+use rtk_db::tracking::record;
 use std::process::Command;
 
 /// Run a dotnet command, capture its output, apply distillation and DLP redaction, and record savings.
 pub fn execute_dotnet(args: &[String]) {
+    let start = std::time::Instant::now();
     let output = Command::new("dotnet")
         .args(args)
         .output()
         .unwrap_or_else(|_| panic!("Failed to execute dotnet command"));
+    let duration_ms = start.elapsed().as_millis() as i64;
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     let stderr_str = String::from_utf8_lossy(&output.stderr);
@@ -47,7 +49,7 @@ pub fn execute_dotnet(args: &[String]) {
 
     let filtered_output = filtered_lines.join("\n");
     let cmd_str = format!("dotnet {}", args.join(" "));
-    let log_id = record(&cmd_str, &full_output, &filtered_output, &full_output).unwrap_or(0);
+    let log_id = record(&cmd_str, &full_output, &filtered_output, &full_output, Some(duration_ms)).unwrap_or(0);
 
     let mut final_out = filtered_output.clone();
     if !filtered_output.trim().is_empty() && full_output.len() > filtered_output.len() {
@@ -57,7 +59,7 @@ pub fn execute_dotnet(args: &[String]) {
         ));
     }
 
-    if let Some(warning) = rtk_memory::tracking::check_autonomy(&filtered_output) {
+    if let Some(warning) = rtk_db::tracking::check_autonomy(&filtered_output) {
         final_out.push_str(warning);
         final_out.push('\n');
     }

@@ -2,7 +2,15 @@
 resolver = "2"
 members = [
     "rtk-filters",
-    "rtk-memory",
+    "rtk-db",
     "rtk-pack",
-    "rtk-cli",
+    "rtk-cli", "rtk-index", "rtk-mcp",
 ]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+

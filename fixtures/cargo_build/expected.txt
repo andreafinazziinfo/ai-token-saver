@@ -1,0 +1,10 @@
+warning: unused variable `x`
+  --> src/main.rs:10:9
+   |
+10 |     let x = 5;
+   |         ^ help: prefix with `_`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `rtk` (bin "rtk") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.50s

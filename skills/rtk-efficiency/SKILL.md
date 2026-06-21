@@ -71,7 +71,7 @@ If you or the user want to view the savings dashboard:
 ```bash
 rtk dashboard
 ```
-This compiles local statistics into an HTML dashboard showing invocations, saved tokens, and estimated financial savings in USD, opening automatically in the web browser. Or view raw statistics in-terminal with `rtk stats`.
+This compiles local statistics into an HTML dashboard showing invocations, saved tokens, and estimated financial savings in USD, opening automatically in the web browser. Or view raw statistics in-terminal with `rtk stats` (or alias `rtk gain`).
 
 ## 7. Cache Maintenance & DB Garbage Collection (`rtk gc`)
 To keep disk usage low and ensure fast dashboard queries, RTK implements a 30-day Time-To-Live (TTL) cache retention policy:
@@ -79,4 +79,23 @@ To keep disk usage low and ensure fast dashboard queries, RTK implements a 30-da
 - **Manual GC**: You can manually trigger a database cleanup and vacuum execution at any time:
   ```bash
   rtk gc
+  ```
+
+## 8. Unified Project Database Architecture
+RTK isolates all project-specific tables inside a single local SQLite database file at `.rtk/rtk.db` under the project root:
+- `project_memory` & `project_memory_fts`: Local semantic project memory.
+- `session_state`: Conversation and session history.
+- `artifacts`: Locally generated/managed artifacts.
+- `symbols` & `dependencies`: Local AST code indexing.
+
+The global telemetry database remains isolated at `~/.local/share/rtk/rtk.db` for multi-project cost and usage reporting.
+
+## 9. Context Compaction & Telemetry Export
+- **Compaction**: Run compaction on context or database entries to free space and keep the active window lean:
+  ```bash
+  rtk context compact
+  ```
+- **Telemetry Export**: Export local telemetry metrics for integration with monitoring systems (e.g. Prometheus):
+  ```bash
+  rtk telemetry export
   ```

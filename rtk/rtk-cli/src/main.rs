@@ -6,9 +6,14 @@ use rtk_filters::{
     cargo_build, cargo_test, docker_filter, git_diff, git_log, git_status, go_test, gradle,
     ls_filter, pytest_filter,
 };
-use rtk_memory::{config, dlp, status, think, tracking};
+use rtk_db::{config, dlp, status, think, tracking, session};
 use rtk_pack::pack;
 
+mod agents;
+mod artifact;
+mod index_cli;
+mod benchmark;
+mod doctor;
 mod dashboard;
 mod distiller;
 mod dotnet;
@@ -130,16 +135,94 @@ enum Commands {
         #[command(subcommand)]
         subcmd: MemoryCommands,
     },
+    /// Manage project artifacts
+    Artifact {
+        #[command(subcommand)]
+        subcmd: ArtifactCommands,
+    },
+    /// Check budget status and alerts
+    Budget {
+        #[command(subcommand)]
+        subcmd: BudgetCommands,
+    },
+    /// Model routing helpers and suggestions
+    Model {
+        #[command(subcommand)]
+        subcmd: ModelCommands,
+    },
+    /// Model Context Protocol (MCP) server utilities
+    Mcp {
+        #[command(subcommand)]
+        subcmd: McpCommands,
+    },
+    /// Query symbols in the codebase
+    Symbols {
+        #[command(subcommand)]
+        subcmd: SymbolsCommands,
+    },
+    /// Query file dependencies
+    Deps {
+        #[command(subcommand)]
+        subcmd: DepsCommands,
+    },
+    /// Find references to a symbol
+    Refs {
+        #[command(subcommand)]
+        subcmd: RefsCommands,
+    },
+    /// Analyze upstream blast radius of a symbol
+    Impact {
+        #[command(subcommand)]
+        subcmd: ImpactCommands,
+    },
+    /// Force full project indexing
+    Index {
+        #[command(subcommand)]
+        subcmd: IndexCommands,
+    },
+    /// Export code graph data
+    Graph {
+        #[command(subcommand)]
+        subcmd: GraphCommands,
+    },
     /// Print token savings statistics
     Stats,
-    /// Generate a detailed token savings audit report
+    /// Shorthand alias to print token savings stats (from upstream parity)
+    Gain,
+    /// Generate a detailed token savings audit report or audit codebase graph
     Audit {
+        #[command(subcommand)]
+        subcmd: Option<AuditCommands>,
         /// Output path for the Markdown report (defaults to rtk-audit.md)
         #[arg(short, long, default_value = "rtk-audit.md")]
         output: String,
     },
+    /// Manage agent configurations and rule files (AGENTS.md / CLAUDE.md)
+    Agents {
+        #[command(subcommand)]
+        subcmd: AgentsCommands,
+    },
+    /// Benchmark export and analysis utilities
+    Benchmark {
+        #[command(subcommand)]
+        subcmd: BenchmarkCommands,
+    },
+    /// Check the health of the RTK installation and configuration
+    Doctor,
+    /// Manage session-state variables for context handoff
+    SessionState {
+        #[command(subcommand)]
+        subcmd: SessionStateCommands,
+    },
     /// Launch the local savings dashboard in the default browser
-    Dashboard,
+    Dashboard {
+        /// Start a real-time web server for live telemetry updates
+        #[arg(short, long)]
+        live: bool,
+        /// Custom port for the live dashboard (defaults to 3000)
+        #[arg(short, long)]
+        port: Option<u16>,
+    },
     /// Run a dynamic plugin command with declarative filtering
     Plugin {
         /// Name of the plugin defined in plugins.toml
@@ -170,6 +253,16 @@ enum Commands {
         #[command(subcommand)]
         subcmd: ConfigCommands,
     },
+    /// Advanced context optimization and policy engine
+    Context {
+        #[command(subcommand)]
+        subcmd: ContextCommands,
+    },
+    /// Manage and export telemetry data
+    Telemetry {
+        #[command(subcommand)]
+        subcmd: TelemetryCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -185,6 +278,11 @@ enum ConfigCommands {
     Dlp {
         #[command(subcommand)]
         subcmd: ConfigDlpCommands,
+    },
+    /// Set the default active savings profile in global config
+    Profile {
+        /// The profile name to set (strict, balanced, developer, audit, json-only)
+        name: String,
     },
 }
 
@@ -216,6 +314,191 @@ enum MemoryCommands {
     Search { query: String },
     /// List all memory key-value pairs for the current project
     List,
+    /// Overwrite an existing project memory value with alert logs
+    Overwrite { key: String, value: String },
+    /// Run the memory health check (duplicates, stale, contradictions)
+    Doctor,
+}
+
+#[derive(Subcommand, Debug)]
+enum BudgetCommands {
+    /// Check budget status and total cost spent
+    Check {
+        /// Optional budget limit in USD
+        #[arg(long)]
+        limit: Option<f64>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ModelCommands {
+    /// Suggest model for a task type
+    Suggest {
+        /// The task type (e.g. simple, single-file-edit, complex, planning, audit)
+        #[arg(long)]
+        task: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum GraphCommands {
+    /// Export graph to a format (e.g. obsidian)
+    Export {
+        /// The export format (currently only 'obsidian' is supported)
+        #[arg(long, default_value = "obsidian")]
+        format: String,
+        /// The output directory
+        #[arg(short, long, default_value = "obsidian/")]
+        output: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AuditCommands {
+    /// Run graph audit (symbols count, edges count, query latency, graph coverage %)
+    Graph,
+}
+
+#[derive(Subcommand, Debug)]
+enum McpCommands {
+    /// Start the stdio JSON-RPC MCP server
+    Start,
+    /// Install RTK MCP server config to client (claude, cursor, gemini)
+    Install {
+        /// The client application name
+        #[arg(long)]
+        client: String,
+    },
+    /// Directly call a specific tool for testing/validation
+    Call {
+        /// Name of the tool to execute
+        tool: String,
+        /// JSON object of arguments passed to the tool
+        #[arg(long)]
+        args: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ArtifactCommands {
+    /// List all registered artifacts
+    List,
+    /// Get the content of a specific artifact
+    Get {
+        /// The artifact ID
+        id: String,
+    },
+    /// Clean up artifacts older than 30 days
+    Gc,
+}
+
+#[derive(Subcommand, Debug)]
+enum SymbolsCommands {
+    /// Find symbols by name
+    Find {
+        /// Name query to search
+        query: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum DepsCommands {
+    /// Show dependencies of a file
+    Show {
+        /// File path to analyze
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RefsCommands {
+    /// Find references to a symbol
+    Find {
+        /// Symbol name to search
+        symbol: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ImpactCommands {
+    /// Analyze upstream blast radius
+    Analyze {
+        /// Symbol name to analyze
+        symbol: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum IndexCommands {
+    /// Force complete project re-indexing
+    Run,
+}
+
+#[derive(Subcommand, Debug)]
+enum BenchmarkCommands {
+    /// Export historical benchmark data to JSON or CSV
+    Export {
+        /// Output format: json or csv
+        #[arg(short, long, default_value = "json")]
+        format: String,
+        /// Path to save the exported data
+        #[arg(short, long)]
+        output: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SessionStateCommands {
+    /// Initialize default session-state variables for the current project
+    Init,
+    /// Retrieve current session-state formatted as JSON
+    Get,
+    /// Update a specific session-state key-value pair
+    Update {
+        /// Key to update (e.g. decisions, active_tasks, context_files, warnings)
+        key: String,
+        /// Value to assign (can be raw text or JSON array string)
+        value: String,
+    },
+    /// Export the session-state to a markdown handoff document
+    Export,
+}
+
+#[derive(Subcommand, Debug)]
+enum AgentsCommands {
+    /// Initialize agent rule files (AGENTS.md / CLAUDE.md)
+    Init {
+        /// The template type: solo-dev, team, OSS, mono-repo
+        #[arg(long, default_value = "solo-dev")]
+        template: String,
+    },
+    /// Run validation on agent rule files (syntax, duplicate or conflicting keys)
+    Doctor,
+    /// Compact agent rule files to save input tokens (e.g. into a denser or caveman-like format)
+    Compact,
+}
+
+#[derive(Subcommand, Debug)]
+enum ContextCommands {
+    /// Compact standard input or context string under specified token limit using output profiles
+    Compact {
+        /// Maximum token budget (whitespace token count)
+        #[arg(short, long)]
+        max_tokens: usize,
+        /// The profile preset to use: strict, balanced, developer
+        #[arg(short, long, default_value = "balanced")]
+        profile: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum TelemetryCommands {
+    /// Export recorded telemetry to external dashboards/formats
+    Export {
+        /// Output format: json or prometheus
+        #[arg(short, long, default_value = "json")]
+        format: String,
+    },
 }
 
 fn main() {
@@ -313,10 +596,152 @@ fn main() {
                     println!("========================================");
                 }
             }),
+            MemoryCommands::Overwrite { key, value } => tracking::memory_overwrite(&key, &value).map(|_| {
+                println!("Memory overwritten successfully.");
+            }),
+            MemoryCommands::Doctor => tracking::memory_doctor().map(|report| {
+                println!("🩺 RTK Memory Health Report");
+                println!("========================================");
+                if report.duplicates.is_empty() && report.stale.is_empty() && report.contradictory.is_empty() {
+                    println!("✅ Memory is healthy! No duplicates, stale entries (>30 days), or contradictions found.");
+                } else {
+                    if !report.duplicates.is_empty() {
+                        println!("⚠️  Duplicate keys found:");
+                        for dup in report.duplicates {
+                            println!("  - {}", dup);
+                        }
+                    }
+                    if !report.stale.is_empty() {
+                        println!("⚠️  Stale keys (>30 days since last access) found:");
+                        for (key, last_access) in report.stale {
+                            println!("  - {} (last accessed: {})", key, last_access);
+                        }
+                    }
+                    if !report.contradictory.is_empty() {
+                        println!("❌ Contradictory keys (case-insensitive variants with different values) found:");
+                        for (k1, k2, diff) in report.contradictory {
+                            println!("  - '{}' vs '{}': {}", k1, k2, diff);
+                        }
+                    }
+                }
+                println!("========================================");
+            }),
+        },
+        Commands::Budget { subcmd } => match subcmd {
+            BudgetCommands::Check { limit } => {
+                let limit_usd = limit.unwrap_or(50.0);
+                match rtk_db::pricing::check_budget(limit_usd) {
+                    Ok(status) => {
+                        println!("💰 Budget Status:");
+                        println!("----------------------------------------");
+                        println!("Limit:        ${:.2}", status.limit_usd);
+                        println!("Spent:        ${:.6}", status.spent_usd);
+                        println!("Percentage:   {:.2}%", status.percentage);
+                        if status.exceeded {
+                            println!("🚨 ALERT: Budget limit exceeded!");
+                        } else {
+                            println!("✅ Within budget limits.");
+                        }
+                        println!("----------------------------------------");
+                        Ok(())
+                    }
+                    Err(e) => Err(anyhow::anyhow!("Failed to check budget: {e}")),
+                }
+            }
+        },
+        Commands::Model { subcmd } => match subcmd {
+            ModelCommands::Suggest { task } => {
+                let suggestion = rtk_db::pricing::suggest_model(&task);
+                println!("Routing Suggestion: task '{}' -> use model '{}'", task, suggestion);
+                Ok(())
+            }
+        },
+        Commands::Mcp { subcmd } => match subcmd {
+            McpCommands::Start => rtk_mcp::run_mcp_server(),
+            McpCommands::Install { client } => rtk_mcp::install_mcp_client(&client),
+            McpCommands::Call { tool, args } => {
+                let parsed_args = if let Some(ref a_str) = args {
+                    serde_json::from_str(a_str).unwrap_or(serde_json::Value::Null)
+                } else {
+                    serde_json::Value::Null
+                };
+                match rtk_mcp::execute_tool(&tool, parsed_args) {
+                    Ok(res) => {
+                        match serde_json::to_string_pretty(&res) {
+                            Ok(json_str) => println!("{}", json_str),
+                            Err(e) => eprintln!("Failed to format JSON response: {e}"),
+                        }
+                        Ok(())
+                    }
+                    Err(e) => Err(anyhow::anyhow!("Tool execution failed: {e}")),
+                }
+            }
+        },
+        Commands::Artifact { subcmd } => match subcmd {
+            ArtifactCommands::List => artifact::list(),
+            ArtifactCommands::Get { id } => artifact::get(&id),
+            ArtifactCommands::Gc => artifact::gc(),
+        },
+        Commands::Symbols { subcmd } => match subcmd {
+            SymbolsCommands::Find { query } => index_cli::symbols_find(&query),
+        },
+        Commands::Deps { subcmd } => match subcmd {
+            DepsCommands::Show { file } => index_cli::deps_show(&file),
+        },
+        Commands::Refs { subcmd } => match subcmd {
+            RefsCommands::Find { symbol } => index_cli::refs_find(&symbol),
+        },
+        Commands::Impact { subcmd } => match subcmd {
+            ImpactCommands::Analyze { symbol } => index_cli::impact_analyze(&symbol),
+        },
+        Commands::Index { subcmd } => match subcmd {
+            IndexCommands::Run => index_cli::index_run(),
+        },
+        Commands::Graph { subcmd } => match subcmd {
+            GraphCommands::Export { format, output } => index_cli::graph_export(&format, &output),
         },
         Commands::Stats => tracking::print_stats(),
-        Commands::Audit { output } => tracking::run_audit(&output),
-        Commands::Dashboard => dashboard::run_dashboard(),
+        Commands::Gain => tracking::print_stats(),
+        Commands::Audit { subcmd, output } => match subcmd {
+            Some(AuditCommands::Graph) => index_cli::audit_graph(),
+            None => tracking::run_audit(&output),
+        },
+        Commands::Doctor => doctor::run_doctor(),
+        Commands::SessionState { subcmd } => match subcmd {
+            SessionStateCommands::Init => session::session_init().map(|_| {
+                println!("✅ Session state initialized with default fields.");
+            }),
+            SessionStateCommands::Get => session::session_get().map(|json| {
+                println!("{json}");
+            }),
+            SessionStateCommands::Update { key, value } => session::session_update(&key, &value).map(|_| {
+                println!("✅ Updated session state key '{key}'.");
+            }),
+            SessionStateCommands::Export => session::session_export().map(|md| {
+                println!("{md}");
+            }),
+        },
+        Commands::Agents { subcmd } => match subcmd {
+            AgentsCommands::Init { template } => agents::agents_init(&template),
+            AgentsCommands::Doctor => agents::agents_doctor(),
+            AgentsCommands::Compact => agents::agents_compact(),
+        },
+        Commands::Benchmark { subcmd } => match subcmd {
+            BenchmarkCommands::Export { format, output } => {
+                let res = if format.to_lowercase() == "csv" {
+                    benchmark::export_csv(&output)
+                } else {
+                    benchmark::export_json(&output)
+                };
+                if let Err(e) = res {
+                    eprintln!("Error exporting benchmark: {e}");
+                    std::process::exit(1);
+                }
+                println!("Benchmark data exported to {} format successfully at: {}", format, output);
+                Ok(())
+            }
+        },
+        Commands::Dashboard { live, port } => dashboard::run_dashboard(live, port),
         Commands::Plugin { name, args } => {
             let plugins_cfg = plugins::load_plugins();
             if let Some(plugin) = plugins_cfg.plugins.into_iter().find(|p| p.name == name) {
@@ -347,6 +772,99 @@ fn main() {
                     println!("🛡️ Added custom DLP regex pattern: \"{}\"", pattern);
                 }),
             },
+            ConfigCommands::Profile { name } => config::config_profile_set(&name).map(|_| {
+                println!("⚙️  Default savings profile updated to: \"{}\"", name);
+            }),
+        },
+        Commands::Context { subcmd } => {
+            let res: Result<()> = (|| {
+                match subcmd {
+                    ContextCommands::Compact { max_tokens, profile } => {
+                        use std::io::{self, Read};
+                        let mut buffer = String::new();
+                        io::stdin().read_to_string(&mut buffer)?;
+
+                        let initial_tokens = buffer.split_whitespace().count();
+                        if initial_tokens <= max_tokens {
+                            print!("{buffer}");
+                            return Ok(());
+                        }
+
+                        let compacted = if profile == "strict" {
+                            buffer.lines()
+                                .filter(|l| {
+                                    let trimmed = l.trim();
+                                    !trimmed.is_empty() && !trimmed.starts_with("//") && !trimmed.starts_with("#") && !trimmed.starts_with("/*") && !trimmed.starts_with("*")
+                                })
+                                .collect::<Vec<&str>>()
+                                .join("\n")
+                        } else if profile == "developer" {
+                            buffer.lines()
+                                .filter(|l| {
+                                    let trimmed = l.trim().to_lowercase();
+                                    trimmed.contains("error") || trimmed.contains("fail") || trimmed.contains("warn") || trimmed.contains("summary") || trimmed.contains("failed")
+                                })
+                                .collect::<Vec<&str>>()
+                                .join("\n")
+                        } else {
+                            let mut lines = Vec::new();
+                            let mut last_was_empty = false;
+                            for line in buffer.lines() {
+                                let is_empty = line.trim().is_empty();
+                                if is_empty {
+                                    if !last_was_empty {
+                                        lines.push("");
+                                        last_was_empty = true;
+                                    }
+                                } else {
+                                    lines.push(line);
+                                    last_was_empty = false;
+                                }
+                            }
+                            lines.join("\n")
+                        };
+
+                        print!("{compacted}");
+                        Ok(())
+                    }
+                }
+            })();
+            res
+        },
+        Commands::Telemetry { subcmd } => {
+            let res: Result<()> = (|| {
+                match subcmd {
+                    TelemetryCommands::Export { format } => {
+                        let records = rtk_db::tracking::get_all_telemetry()?;
+                        if format.to_lowercase() == "prometheus" {
+                            println!("# HELP rtk_total_commands Total number of commands run via RTK");
+                            println!("# TYPE rtk_total_commands counter");
+                            println!("rtk_total_commands {}", records.len());
+
+                            let total_orig: i64 = records.iter().map(|r| r.original_tokens).sum();
+                            let total_filt: i64 = records.iter().map(|r| r.filtered_tokens).sum();
+                            let saved = total_orig.saturating_sub(total_filt);
+
+                            println!("# HELP rtk_original_tokens_total Total original tokens parsed");
+                            println!("# TYPE rtk_original_tokens_total counter");
+                            println!("rtk_original_tokens_total {}", total_orig);
+
+                            println!("# HELP rtk_filtered_tokens_total Total filtered tokens passed");
+                            println!("# TYPE rtk_filtered_tokens_total counter");
+                            println!("rtk_filtered_tokens_total {}", total_filt);
+
+                            println!("# HELP rtk_saved_tokens_total Total tokens saved by filtering");
+                            println!("# TYPE rtk_saved_tokens_total counter");
+                            println!("rtk_saved_tokens_total {}", saved);
+                        } else {
+                            let json = serde_json::to_string_pretty(&records)?;
+                            println!("{json}");
+                        }
+                        Ok(())
+                    }
+                }
+            })();
+            res
         },
     };
 
@@ -402,10 +920,12 @@ enum FilterMode {
 }
 
 fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<()> {
+    let start = std::time::Instant::now();
     let output = std::process::Command::new(bin)
         .args(args)
         .output()
         .with_context(|| format!("failed to execute {bin}"))?;
+    let duration_ms = start.elapsed().as_millis() as i64;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -521,7 +1041,7 @@ fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<(
         }
     };
 
-    match tracking::record(cmd_label.trim(), &raw_db, &filtered_db, &raw_db) {
+    match tracking::record(cmd_label.trim(), &raw_db, &filtered_db, &raw_db, Some(duration_ms)) {
         Ok(log_id) => {
             if filtered_db.len() < raw_db.len() && !filtered_db.trim().is_empty() {
                 let msg = format!("\n[Full output cached. Access with: rtk show-log {log_id}]\n");

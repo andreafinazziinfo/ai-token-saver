@@ -1,0 +1,4 @@
+On branch main
+staged: new file:   src/new.rs
+unstaged: modified:   Cargo.toml
+untracked: src/scratch.rs

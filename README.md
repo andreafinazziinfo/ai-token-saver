@@ -1,37 +1,38 @@
 <p align="center">
-  <img src="rtk/assets/logo.png" alt="AI Token Saver (RTK)" width="200"/>
+  <img src="rtk/assets/logo.png" alt="RTK Rust Context Engine" width="200"/>
 </p>
 
-<h1 align="center">AI Token Saver (RTK) 🚀</h1>
+<h1 align="center">RTK: Rust Context Engine 🚀</h1>
 
 <p align="center">
-  <b>The ultimate toolkit to stop AI Context Window exhaustion and slash your LLM API costs by up to 95%.</b>
+  <b>The ultimate local context engine to stop AI distraction, optimize prompt layering, and slash LLM API costs by up to 95%.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/ci.yml"><img src="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <a href="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/release.yml"><img src="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/release.yml/badge.svg" alt="Release Builds"/></a>
-  <a href="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml"><img src="https://github.com/andreafinazziinfo/ai-token-saver/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"/></a>
+  <a href="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/ci.yml"><img src="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/release.yml"><img src="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/release.yml/badge.svg" alt="Release Builds"/></a>
+  <a href="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/codeql.yml"><img src="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"/></a>
   <a href="https://crates.io/crates/rtk"><img src="https://img.shields.io/crates/v/rtk.svg" alt="Crates.io Version"/></a>
   <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/rust-1.75%2B-orange.svg" alt="Rust Version"/></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"/></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/andreafinazziinfo/ai-token-saver/stargazers"><img src="https://img.shields.io/github/stars/andreafinazziinfo/ai-token-saver.svg?style=social" alt="GitHub stars"/></a>
-  <a href="https://github.com/andreafinazziinfo/ai-token-saver/issues"><img src="https://img.shields.io/github/issues/andreafinazziinfo/ai-token-saver.svg" alt="GitHub issues"/></a>
-  <a href="https://github.com/andreafinazziinfo/ai-token-saver/network/members"><img src="https://img.shields.io/github/forks/andreafinazziinfo/ai-token-saver.svg" alt="GitHub forks"/></a>
+  <a href="https://github.com/andreafinazziinfo/rust-context-engine/stargazers"><img src="https://img.shields.io/github/stars/andreafinazziinfo/rust-context-engine.svg?style=social" alt="GitHub stars"/></a>
+  <a href="https://github.com/andreafinazziinfo/rust-context-engine/issues"><img src="https://img.shields.io/github/issues/andreafinazziinfo/rust-context-engine.svg" alt="GitHub issues"/></a>
+  <a href="https://github.com/andreafinazziinfo/rust-context-engine/network/members"><img src="https://img.shields.io/github/forks/andreafinazziinfo/rust-context-engine.svg" alt="GitHub forks"/></a>
 </p>
 
 ---
 
-**AI Token Saver (RTK)** is a high-performance, Rust-based CLI designed to aggressively optimize how Autonomous Agents (like Claude Code, Cursor, Windsurf, Antigravity) interact with your project.
+**RTK (Rust Context Engine)** is a high-performance, Rust-based local runtime and context engine designed to optimize how Autonomous Agents (like Claude Code, Cursor, Windsurf, Antigravity) interact with your project codebase.
 
 ### ⚠️ The Problem
-Modern LLMs are incredibly smart, but they suffer from **Context Window Exhaustion**: they fill their memory with useless terminal logs (like 1000 lines of `npm install` warnings), raw files, and long reasoning loops, causing them to slow down, hallucinate, and rack up massive API bills.
+Modern LLMs are incredibly smart, but they suffer from **Context Window Exhaustion & Distraction**: they fill their memory with useless terminal logs (like 1000 lines of `npm install` warnings), raw files, and long reasoning loops, causing them to slow down, hallucinate, and rack up massive API bills.
 
 ### 💡 The Solution
 RTK solves this by intercepting commands, stripping the noise, caching the raw data in a local FTS5 vector database, and returning only the pure semantic signal. By enforcing YAGNI developer behaviors and compressing outputs, the toolkit saves an **average of 82.4% of tokens** across 17 verified scenarios (ranging from 41% to 96%).
+
 
 ### ⚙️ Three-Phase Efficacy Pipeline
 ```mermaid
@@ -165,7 +166,7 @@ Add this to your `settings.json` (`~/.claude/settings.json` or `%USERPROFILE%\.g
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "bash /absolute/path/to/ai-token-saver/hooks/rtk-rewrite.sh", "timeout": 5000 }]
+        "hooks": [{ "type": "command", "command": "bash /absolute/path/to/rust-context-engine/hooks/rtk-rewrite.sh", "timeout": 5000 }]
       }
     ]
   }
@@ -192,14 +193,14 @@ alias terraform="rtk terraform"
 ## 💻 Command Reference
 
 *   **Input Wrappers (15 tools)**: `rtk git status/diff/log`, `rtk cargo test/build/check`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk yarn`, `rtk pnpm`, `rtk composer`, `rtk terraform`, `rtk dotnet`, `rtk gradle`, `rtk go_test`, `rtk ls`.
-*   **Context Virtualization**: `rtk show-log <id>` (reads full uncompressed log), `rtk gc` (cleans old DB logs and reclaims space).
+*   **Context Virtualization & Compaction**: `rtk show-log <id>` (reads full uncompressed log), `rtk context compact` (compresses/compacts active context state), `rtk gc` (cleans old DB logs and reclaims space).
 *   **Directory Packaging**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
-*   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>`.
+*   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>` (hybrid BM25 keyword + local ONNX vector search).
 *   **Hidden Chain-of-Thought**: `rtk think` (reads from stdin to store reasoning in the FTS5 DB out of the chat context).
 *   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
 *   **Command Rewriting**: `rtk rewrite "<command>"` (PreToolUse hook engine: auto-allows, denies, or asks for dangerous commands).
 *   **Configuration**: `rtk config show`, `rtk config deny add "<pattern>"`, `rtk config dlp add "<regex>"`.
-*   **Telemetry, Stats & Audit**: `rtk status`, `rtk stats`, `rtk dashboard`, `rtk audit` (aggregates savings metrics, prints summary and writes `rtk-audit.md`).
+*   **Telemetry, Stats & Audit**: `rtk status`, `rtk stats` / `rtk gain` (shorthand savings metrics print), `rtk dashboard` (live Web UI), `rtk audit` (aggregates savings metrics, prints summary and writes `rtk-audit.md`), `rtk telemetry export` (exports Prometheus-compatible scraping metrics).
 *   **Dynamic Plugins**: `rtk plugin -- <command>` (runs a command using custom rules from `plugins.toml`).
 
 <details>
@@ -316,6 +317,11 @@ graph TD
     ValidateLimit -- No --> Print([Print XML to stdout])
     CheckLimit -- No --> Print
 ```
+**Unified Project Database Architecture**
+To ensure complete project portability and clean namespace isolation, RTK consolidates all project-level context, logs, and artifacts in a single SQLite database:
+*   **Path**: `.rtk/rtk.db` under the project workspace root.
+*   **Tables Included**: `project_memory` & `project_memory_fts` (semantic notes), `session_state` (episodic histories), `artifacts` (cached uncompressed CLI outputs), `symbols` & `dependencies` (Tree-sitter AST code graph indices).
+*   **Global Telemetry**: Isolated at `~/.local/share/rtk/rtk.db` for multi-project savings aggregates and cost projections.
 </details>
 
 ---

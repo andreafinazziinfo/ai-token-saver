@@ -38,6 +38,12 @@ pub fn run_status() -> Result<()> {
     };
 
     println!("🤖 Output Profile:   {} ({})", profile_name, profile_desc);
+    
+    let cfg = crate::config::get_config();
+    let local_exists = Path::new(".rtk.json").exists();
+    let local_indicator = if local_exists { " (loaded from local .rtk.json)" } else { " (loaded from global config)" };
+    println!("⚙️  Savings Profile:   {}{}", cfg.default_profile, local_indicator);
+    
     println!("==========================================================");
 
     if profile_name == "NONE" {

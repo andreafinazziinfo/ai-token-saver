@@ -190,7 +190,7 @@ fn pack_recursive(
             }
 
             // Always run DLP sensitive data scrubbing for safety
-            let redacted = rtk_memory::dlp::redact_with_source(&processed, &relative_path);
+            let redacted = rtk_db::dlp::redact_with_source(&processed, &relative_path);
             let safe_cdata = redacted.replace("]]>", "]]]]><![CDATA[>");
 
             out.push_str(&format!("  <file path=\"{relative_path}\">\n"));

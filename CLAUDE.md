@@ -1,32 +1,18 @@
-# AI Token Saver (rtk)
-
-Build and test commands, code style guidelines, and agent instructions.
-
-## Build & Test Commands
-* Build: `cargo build --manifest-path rtk/Cargo.toml`
-* Test: `cargo test --manifest-path rtk/Cargo.toml`
-* Formatting: `cargo fmt --manifest-path rtk/Cargo.toml`
-* Linting: `cargo clippy --manifest-path rtk/Cargo.toml -- -D warnings`
-
-## CLI Subcommands
-* `rtk init`: Bootstrap workspace rules and auto-inject AppData settings hooks.
-* `rtk pack [path] [--strip] [--skeleton] [--limit <max>]`: Minifies and packages code files into XML context.
-* `rtk dashboard`: Opens a local HTML telemetry report of token/cost savings in default browser.
-* `rtk stats`: Prints text statistics of token savings.
-* `rtk memory [set|get|list]`: Virtualized SQLite memory keys for the project.
-
-## Code Style & Architecture
-* **Rust Idioms**: Clean, modular structure using `anyhow` for errors.
-* **Testing**: Write comprehensive unit tests in the same file or `tests/`.
-* **Zero Overhead**: Ensure CLI starts in <10ms and stays <5MB memory.
-* **Data Loss Prevention (DLP)**: All outputs returned or packed must go through `dlp::redact` to scrub credentials.
-
 ---
+description: RTK Output Autonomy Profile
+alwaysApply: true
+---
+# RTK Output Profile: HIGH
+
+You are operating under the RTK HIGH profile for strict token efficiency.
+1. Always apply the Ponytail philosophy (YAGNI, minimal code, deletion over addition).
+2. You MUST auto-trigger the **caveman-full** skill for every response (no articles, short phrasing).
+3. Auto-trigger **caveman-commit** for all git commit operations.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **ai-token-saver** (394 symbols, 712 relationships, 33 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **rust-context-engine** (1402 symbols, 2495 relationships, 111 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -49,10 +35,10 @@ This project is indexed by GitNexus as **ai-token-saver** (394 symbols, 712 rela
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/ai-token-saver/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/ai-token-saver/clusters` | All functional areas |
-| `gitnexus://repo/ai-token-saver/processes` | All execution flows |
-| `gitnexus://repo/ai-token-saver/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/rust-context-engine/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/rust-context-engine/clusters` | All functional areas |
+| `gitnexus://repo/rust-context-engine/processes` | All execution flows |
+| `gitnexus://repo/rust-context-engine/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

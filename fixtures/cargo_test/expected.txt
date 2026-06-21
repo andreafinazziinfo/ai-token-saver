@@ -1,0 +1,12 @@
+running 2 tests
+test foo::fail ... FAILED
+
+failures:
+
+---- foo::fail stdout ----
+thread 'foo::fail' panicked at 'assertion failed'
+
+failures:
+    foo::fail
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored

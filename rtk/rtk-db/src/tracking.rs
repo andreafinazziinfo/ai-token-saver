@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use std::path::PathBuf;
 
-fn db_path() -> PathBuf {
+pub(crate) fn db_path() -> PathBuf {
     if let Ok(p) = std::env::var("RTK_DB_PATH") {
         return PathBuf::from(p);
     }
@@ -24,7 +24,7 @@ fn db_path() -> PathBuf {
     base.join("rtk/rtk.db")
 }
 
-fn open_db() -> Result<Connection> {
+pub(crate) fn open_db() -> Result<Connection> {
     let path = db_path();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
@@ -38,11 +38,41 @@ fn open_db() -> Result<Connection> {
             filtered_tokens  INTEGER NOT NULL,
             timestamp        TEXT    NOT NULL DEFAULT (datetime('now')),
             raw_output       TEXT
-        );
-        CREATE TABLE IF NOT EXISTS project_memory (
+        );"
+    )
+    .context("create DB tables")?;
+
+    // Migration: ensure raw_output column exists if table was created previously without it
+    let _ = conn.execute("ALTER TABLE tracking ADD COLUMN raw_output TEXT", []);
+    let _ = conn.execute("ALTER TABLE tracking ADD COLUMN model TEXT", []);
+    let _ = conn.execute("ALTER TABLE tracking ADD COLUMN project TEXT", []);
+    let _ = conn.execute("ALTER TABLE tracking ADD COLUMN branch TEXT", []);
+    let _ = conn.execute("ALTER TABLE tracking ADD COLUMN duration_ms INTEGER", []);
+
+    Ok(conn)
+}
+
+pub(crate) fn project_db_path() -> PathBuf {
+    if let Ok(p) = std::env::var("RTK_PROJECT_DB_PATH") {
+        return PathBuf::from(p);
+    }
+    let rtk_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join(".rtk");
+    if !rtk_dir.exists() {
+        let _ = std::fs::create_dir_all(&rtk_dir);
+    }
+    rtk_dir.join("rtk.db")
+}
+
+pub(crate) fn open_project_db() -> Result<Connection> {
+    let path = project_db_path();
+    let conn = Connection::open(&path).with_context(|| format!("open project db {}", path.display()))?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS project_memory (
             key              TEXT    NOT NULL,
             val              TEXT    NOT NULL,
             project_path     TEXT    NOT NULL,
+            created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+            last_accessed_at TEXT    NOT NULL DEFAULT (datetime('now')),
             PRIMARY KEY (key, project_path)
         );
         CREATE VIRTUAL TABLE IF NOT EXISTS project_memory_fts USING fts5(
@@ -63,14 +93,31 @@ fn open_db() -> Result<Connection> {
         CREATE TRIGGER IF NOT EXISTS project_memory_au AFTER UPDATE ON project_memory BEGIN
           INSERT INTO project_memory_fts(project_memory_fts, rowid, key, val, project_path) VALUES('delete', old.rowid, old.key, old.val, old.project_path);
           INSERT INTO project_memory_fts(rowid, key, val, project_path) VALUES (new.rowid, new.key, new.val, new.project_path);
-        END;",
+        END;"
     )
-    .context("create DB tables")?;
-
-    // Migration: ensure raw_output column exists if table was created previously without it
-    let _ = conn.execute("ALTER TABLE tracking ADD COLUMN raw_output TEXT", []);
-
+    .context("create project DB tables")?;
     Ok(conn)
+}
+
+fn get_git_branch() -> String {
+    let mut dir = std::env::current_dir().ok();
+    while let Some(path) = dir {
+        let git_dir = path.join(".git");
+        if git_dir.is_dir() {
+            let head_path = git_dir.join("HEAD");
+            if let Ok(content) = std::fs::read_to_string(head_path) {
+                let trimmed = content.trim();
+                if trimmed.starts_with("ref: refs/heads/") {
+                    return trimmed["ref: refs/heads/".len()..].to_string();
+                } else if !trimmed.is_empty() {
+                    // Detached HEAD, return first 7 chars of hash
+                    return trimmed.chars().take(7).collect();
+                }
+            }
+        }
+        dir = path.parent().map(|p| p.to_path_buf());
+    }
+    "detached".to_string()
 }
 
 /// Estimate the token count of a string slice.
@@ -89,7 +136,13 @@ pub fn check_autonomy(text: &str) -> Option<&'static str> {
 }
 
 /// Record one filtered execution. Returns the ID of the inserted row.
-pub fn record(cmd: &str, original: &str, filtered: &str, raw_output: &str) -> Result<i64> {
+pub fn record(
+    cmd: &str,
+    original: &str,
+    filtered: &str,
+    raw_output: &str,
+    duration_ms: Option<i64>,
+) -> Result<i64> {
     let orig = count_tokens(original);
     let filt = count_tokens(filtered);
     let conn = open_db()?;
@@ -100,10 +153,41 @@ pub fn record(cmd: &str, original: &str, filtered: &str, raw_output: &str) -> Re
         [],
     );
 
+    let mut model_name = String::from("Unknown Model");
+    for var in &[
+        "CLAUDE_MODEL",
+        "LLM_MODEL",
+        "OPENAI_MODEL",
+        "GEMINI_MODEL",
+        "ANTHROPIC_MODEL",
+        "GITHUB_MODEL",
+    ] {
+        if let Ok(m) = std::env::var(var) {
+            model_name = m;
+            break;
+        }
+    }
+
+    let project_name = std::env::current_dir()
+        .ok()
+        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
+        .unwrap_or_else(|| String::from("Unknown Project"));
+
+    let branch_name = get_git_branch();
+
     conn.execute(
-        "INSERT INTO tracking (cmd, original_tokens, filtered_tokens, raw_output) \
-         VALUES (?1, ?2, ?3, ?4)",
-        params![cmd, orig, filt, raw_output],
+        "INSERT INTO tracking (cmd, original_tokens, filtered_tokens, raw_output, model, project, branch, duration_ms) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            cmd,
+            orig,
+            filt,
+            raw_output,
+            model_name,
+            project_name,
+            branch_name,
+            duration_ms
+        ],
     )
     .context("insert tracking row")?;
     let log_id = conn.last_insert_rowid();
@@ -153,8 +237,19 @@ pub fn print_stats() -> Result<()> {
         0.0
     };
 
-    // Claude 3.5 Sonnet pricing: $3.00 / million input tokens
-    let cost_saved = (saved as f64 / 1_000_000.0) * 3.00;
+    // Calculate actual cost saved by summing savings for each command
+    let mut stmt_saved = conn.prepare("SELECT original_tokens - filtered_tokens, COALESCE(model, '') FROM tracking")?;
+    let rows = stmt_saved.query_map([], |r| {
+        let saved_tokens: i64 = r.get(0)?;
+        let model: String = r.get(1)?;
+        Ok((saved_tokens, model))
+    })?;
+
+    let mut cost_saved = 0.0;
+    for row in rows {
+        let (tokens, model) = row?;
+        cost_saved += crate::pricing::calculate_savings(tokens, &model);
+    }
 
     println!("========================================");
     println!("          RTK TOKEN SAVINGS STATS       ");
@@ -180,8 +275,20 @@ pub fn get_savings_data() -> Result<(i64, i64, i64, i64, f64)> {
     let original = original.unwrap_or(0);
     let filtered = filtered.unwrap_or(0);
     let saved = original - filtered;
-    // Pricing: $3.00 per million tokens saved
-    let cost_saved = (saved as f64 / 1_000_000.0) * 3.00;
+    
+    // Calculate actual cost saved by summing savings for each command
+    let mut stmt_saved = conn.prepare("SELECT original_tokens - filtered_tokens, COALESCE(model, '') FROM tracking")?;
+    let rows = stmt_saved.query_map([], |r| {
+        let saved_tokens: i64 = r.get(0)?;
+        let model: String = r.get(1)?;
+        Ok((saved_tokens, model))
+    })?;
+
+    let mut cost_saved = 0.0;
+    for row in rows {
+        let (tokens, model) = row?;
+        cost_saved += crate::pricing::calculate_savings(tokens, &model);
+    }
 
     Ok((count, original, filtered, saved, cost_saved))
 }
@@ -240,7 +347,7 @@ pub fn get_audit_breakdown() -> Result<Vec<(String, i64, i64, i64, i64)>> {
 
 /// Save a project memory key-value pair.
 pub fn memory_set(key: &str, val: &str) -> Result<()> {
-    let conn = open_db()?;
+    let conn = open_project_db()?;
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
@@ -254,19 +361,25 @@ pub fn memory_set(key: &str, val: &str) -> Result<()> {
 
 /// Retrieve a project memory value by key.
 pub fn memory_get(key: &str) -> Result<String> {
-    let conn = open_db()?;
+    let conn = open_project_db()?;
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
     let mut stmt =
         conn.prepare("SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2")?;
     let val: String = stmt.query_row(params![key, pwd], |r| r.get(0))?;
+    
+    let _ = conn.execute(
+        "UPDATE project_memory SET last_accessed_at = datetime('now') WHERE key = ?1 AND project_path = ?2",
+        params![key, pwd],
+    );
+    
     Ok(val)
 }
 
 /// List all memory key-value pairs for the current project.
 pub fn memory_list() -> Result<Vec<(String, String)>> {
-    let conn = open_db()?;
+    let conn = open_project_db()?;
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
@@ -283,7 +396,7 @@ pub fn memory_list() -> Result<Vec<(String, String)>> {
 
 /// Search project memory using FTS5 semantic full-text search.
 pub fn memory_search(query: &str) -> Result<Vec<(String, String)>> {
-    let conn = open_db()?;
+    let conn = open_project_db()?;
     let pwd = std::env::current_dir()?
         .to_string_lossy()
         .replace('\\', "/");
@@ -329,12 +442,19 @@ pub fn run_audit(output_path: &str) -> Result<()> {
 
     let hours_saved = (count as f64 * 22.8) / 3600.0;
 
-    let opus_savings = (saved as f64 / 1_000_000.0) * 15.00;
-    let sonnet_savings = (saved as f64 / 1_000_000.0) * 3.00;
-    let gpt4o_savings = (saved as f64 / 1_000_000.0) * 2.50;
-    let gemini_pro_savings = (saved as f64 / 1_000_000.0) * 1.25;
-    let gpt4o_mini_savings = (saved as f64 / 1_000_000.0) * 0.15;
-    let gemini_flash_savings = (saved as f64 / 1_000_000.0) * 0.075;
+    let opus_price = crate::pricing::get_model_price("claude-3-opus").map(|m| m.input_price_per_mtok).unwrap_or(15.0);
+    let sonnet_price = crate::pricing::get_model_price("claude-3.5-sonnet").map(|m| m.input_price_per_mtok).unwrap_or(3.0);
+    let gpt4o_price = crate::pricing::get_model_price("gpt-4o").map(|m| m.input_price_per_mtok).unwrap_or(2.50);
+    let gemini_pro_price = crate::pricing::get_model_price("gemini-2.5-pro").map(|m| m.input_price_per_mtok).unwrap_or(1.25);
+    let gpt4o_mini_price = crate::pricing::get_model_price("gpt-4o-mini").map(|m| m.input_price_per_mtok).unwrap_or(0.15);
+    let gemini_flash_price = crate::pricing::get_model_price("gemini-2.5-flash").map(|m| m.input_price_per_mtok).unwrap_or(0.15);
+
+    let opus_savings = crate::pricing::calculate_savings(saved, "claude-3-opus");
+    let sonnet_savings = crate::pricing::calculate_savings(saved, "claude-3.5-sonnet");
+    let gpt4o_savings = crate::pricing::calculate_savings(saved, "gpt-4o");
+    let gemini_pro_savings = crate::pricing::calculate_savings(saved, "gemini-2.5-pro");
+    let gpt4o_mini_savings = crate::pricing::calculate_savings(saved, "gpt-4o-mini");
+    let gemini_flash_savings = crate::pricing::calculate_savings(saved, "gemini-2.5-flash");
 
     // Build command breakdown rows
     let mut rows_md = String::new();
@@ -363,18 +483,18 @@ pub fn run_audit(output_path: &str) -> Result<()> {
          | **Original Tokens** | {} |\n\
          | **Filtered Tokens** | {} |\n\
          | **Tokens Saved** | {} ({:.1}%) |\n\
-         | **Estimated API Cost Saved (Sonnet)** | ${:.4} USD |\n\
+         | **Estimated API Cost Saved (Dynamic)** | ${:.4} USD |\n\
          | **Estimated Developer Hours Saved** | {:.2} hrs |\n\n\
          ## 💰 Cost Savings Projection by Model\n\n\
          This table projects what would have been saved under different LLM pricing models for the same volume of saved tokens ({} tokens):\n\n\
          | Model | Input Price / MTok | Estimated Savings |\n\
          | :--- | ---: | ---: |\n\
-         | **Claude 3 Opus** | $15.00 | ${:.4} |\n\
-         | **Claude 3.5 Sonnet** | $3.00 | ${:.4} |\n\
-         | **GPT-4o** | $2.50 | ${:.4} |\n\
-         | **Gemini 1.5 Pro** | $1.25 | ${:.4} |\n\
-         | **GPT-4o mini** | $0.15 | ${:.4} |\n\
-         | **Gemini 1.5 Flash** | $0.075 | ${:.4} |\n\n\
+         | **Claude 3 Opus** | ${:.2} | ${:.4} |\n\
+         | **Claude 3.5 Sonnet** | ${:.2} | ${:.4} |\n\
+         | **GPT-4o** | ${:.2} | ${:.4} |\n\
+         | **Gemini 2.5 Pro** | ${:.2} | ${:.4} |\n\
+         | **GPT-4o mini** | ${:.2} | ${:.4} |\n\
+         | **Gemini 2.5 Flash** | ${:.2} | ${:.4} |\n\n\
          > [!NOTE]\n\
          > Savings calculations are based on input token reductions. Wait-time savings are calculated at a conservative rate of 22.8 seconds of developer waiting time saved per command.\n\n\
          ## 🗃️ Command Breakdown\n\n\
@@ -382,7 +502,12 @@ pub fn run_audit(output_path: &str) -> Result<()> {
          | :--- | ---: | ---: | ---: | ---: | ---: |\n\
          {}",
         now, count, original, filtered, saved, savings_pct, cost_saved, hours_saved, saved,
-        opus_savings, sonnet_savings, gpt4o_savings, gemini_pro_savings, gpt4o_mini_savings, gemini_flash_savings,
+        opus_price, opus_savings,
+        sonnet_price, sonnet_savings,
+        gpt4o_price, gpt4o_savings,
+        gemini_pro_price, gemini_pro_savings,
+        gpt4o_mini_price, gpt4o_mini_savings,
+        gemini_flash_price, gemini_flash_savings,
         rows_md
     );
 
@@ -411,6 +536,261 @@ pub fn run_audit(output_path: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct CommandLog {
+    pub id: i64,
+    pub cmd: String,
+    pub original_tokens: i64,
+    pub filtered_tokens: i64,
+    pub timestamp: String,
+    pub raw_output: Option<String>,
+    pub model: Option<String>,
+    pub project: Option<String>,
+    pub branch: Option<String>,
+    pub duration_ms: Option<i64>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct DailySavings {
+    pub day: String,
+    pub original: i64,
+    pub filtered: i64,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ModelSavings {
+    pub model: String,
+    pub invocations: i64,
+    pub saved: i64,
+}
+
+/// Retrieve the most recent command logs from the database.
+pub fn get_recent_logs(limit: usize) -> Result<Vec<CommandLog>> {
+    let conn = open_db()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, cmd, original_tokens, filtered_tokens, timestamp, raw_output, model, project, branch, duration_ms \
+         FROM tracking ORDER BY id DESC LIMIT ?1"
+    )?;
+
+    let rows = stmt.query_map(params![limit], |r| {
+        Ok(CommandLog {
+            id: r.get(0)?,
+            cmd: r.get(1)?,
+            original_tokens: r.get(2)?,
+            filtered_tokens: r.get(3)?,
+            timestamp: r.get(4)?,
+            raw_output: r.get(5)?,
+            model: r.get(6)?,
+            project: r.get(7)?,
+            branch: r.get(8)?,
+            duration_ms: r.get(9)?,
+        })
+    })?;
+
+    let mut logs = Vec::new();
+    for row in rows {
+        logs.push(row?);
+    }
+    Ok(logs)
+}
+
+/// Retrieve time-series token usage and savings grouped by day.
+pub fn get_daily_savings() -> Result<Vec<DailySavings>> {
+    let conn = open_db()?;
+    let mut stmt = conn.prepare(
+        "SELECT strftime('%Y-%m-%d', timestamp) AS day, SUM(original_tokens), SUM(filtered_tokens) \
+         FROM tracking GROUP BY day ORDER BY day ASC"
+    )?;
+
+    let rows = stmt.query_map([], |r| {
+        let day: String = r.get(0)?;
+        let original: Option<i64> = r.get(1)?;
+        let filtered: Option<i64> = r.get(2)?;
+        Ok(DailySavings {
+            day,
+            original: original.unwrap_or(0),
+            filtered: filtered.unwrap_or(0),
+        })
+    })?;
+
+    let mut savings = Vec::new();
+    for row in rows {
+        savings.push(row?);
+    }
+    Ok(savings)
+}
+
+/// Retrieve model savings distribution.
+pub fn get_model_savings() -> Result<Vec<ModelSavings>> {
+    let conn = open_db()?;
+    let mut stmt = conn.prepare(
+        "SELECT COALESCE(model, 'Unknown Model') AS md, COUNT(*), SUM(original_tokens - filtered_tokens) \
+         FROM tracking GROUP BY md ORDER BY COUNT(*) DESC"
+    )?;
+
+    let rows = stmt.query_map([], |r| {
+        let model: String = r.get(0)?;
+        let invocations: i64 = r.get(1)?;
+        let saved: Option<i64> = r.get(2)?;
+        Ok(ModelSavings {
+            model,
+            invocations,
+            saved: saved.unwrap_or(0),
+        })
+    })?;
+
+    let mut model_stats = Vec::new();
+    for row in rows {
+        model_stats.push(row?);
+    }
+    Ok(model_stats)
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MemoryDoctorReport {
+    pub duplicates: Vec<String>,
+    pub stale: Vec<(String, String)>,
+    pub contradictory: Vec<(String, String, String)>,
+}
+
+pub fn get_total_cost_spent() -> Result<f64> {
+    let conn = open_db()?;
+    let mut stmt = conn.prepare("SELECT filtered_tokens, model FROM tracking")?;
+    let mut total_spent = 0.0;
+    let rows = stmt.query_map([], |r| {
+        let tokens: i64 = r.get(0)?;
+        let model: Option<String> = r.get(1)?;
+        let model = model.unwrap_or_else(|| "claude-3.5-sonnet".to_string());
+        Ok((tokens, model))
+    })?;
+    for row in rows {
+        let (tokens, model) = row?;
+        total_spent += crate::pricing::calculate_cost(tokens, &model, false);
+    }
+    Ok(total_spent)
+}
+
+pub fn memory_overwrite(key: &str, new_val: &str) -> Result<()> {
+    let conn = open_project_db()?;
+    let pwd = std::env::current_dir()?
+        .to_string_lossy()
+        .replace('\\', "/");
+        
+    let old_val: Option<String> = conn.query_row(
+        "SELECT val FROM project_memory WHERE key = ?1 AND project_path = ?2",
+        params![key, pwd],
+        |r| r.get(0)
+    ).ok();
+    
+    if let Some(ref old) = old_val {
+        if old != new_val {
+            println!("⚠️  [RTK MEMORY OVERWRITE] Key '{}' changed.\nOld: {}\nNew: {}", key, old, new_val);
+        }
+    }
+    
+    conn.execute(
+        "INSERT OR REPLACE INTO project_memory (key, val, project_path, last_accessed_at) VALUES (?1, ?2, ?3, datetime('now'))",
+        params![key, new_val, pwd],
+    )?;
+    Ok(())
+}
+
+pub fn memory_doctor() -> Result<MemoryDoctorReport> {
+    let conn = open_project_db()?;
+    let pwd = std::env::current_dir()?
+        .to_string_lossy()
+        .replace('\\', "/");
+        
+    let mut stmt = conn.prepare("SELECT key, val, last_accessed_at FROM project_memory WHERE project_path = ?1")?;
+    let rows = stmt.query_map(params![pwd], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
+    })?;
+    
+    let mut all_entries = Vec::new();
+    for row in rows {
+        all_entries.push(row?);
+    }
+    
+    let mut duplicates = Vec::new();
+    let mut stale = Vec::new();
+    let mut contradictory = Vec::new();
+    
+    let mut seen: std::collections::HashMap<String, (String, String)> = std::collections::HashMap::new();
+    for (key, val, _accessed) in &all_entries {
+        let lower_key = key.to_lowercase();
+        if let Some((orig_key, orig_val)) = seen.get(&lower_key) {
+            if orig_key != key {
+                duplicates.push(format!("'{}' and '{}'", orig_key, key));
+                if orig_val != val {
+                    contradictory.push((orig_key.clone(), key.clone(), format!("val1: '{}', val2: '{}'", orig_val, val)));
+                }
+            }
+        } else {
+            seen.insert(lower_key, (key.clone(), val.clone()));
+        }
+    }
+    
+    let mut stmt_stale = conn.prepare(
+        "SELECT key, last_accessed_at FROM project_memory \
+         WHERE project_path = ?1 AND last_accessed_at < datetime('now', '-30 days')"
+    )?;
+    let rows_stale = stmt_stale.query_map(params![pwd], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    for r in rows_stale {
+        stale.push(r?);
+    }
+    
+    Ok(MemoryDoctorReport {
+        duplicates,
+        stale,
+        contradictory,
+    })
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct TelemetryRecord {
+    pub id: i64,
+    pub cmd: String,
+    pub original_tokens: i64,
+    pub filtered_tokens: i64,
+    pub timestamp: String,
+    pub model: Option<String>,
+    pub project: Option<String>,
+    pub branch: Option<String>,
+    pub duration_ms: Option<i64>,
+}
+
+pub fn get_all_telemetry() -> Result<Vec<TelemetryRecord>> {
+    let conn = open_db()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, cmd, original_tokens, filtered_tokens, timestamp, model, project, branch, duration_ms \
+         FROM tracking ORDER BY timestamp DESC"
+    )?;
+
+    let rows = stmt.query_map([], |r| {
+        Ok(TelemetryRecord {
+            id: r.get(0)?,
+            cmd: r.get(1)?,
+            original_tokens: r.get(2)?,
+            filtered_tokens: r.get(3)?,
+            timestamp: r.get(4)?,
+            model: r.get(5)?,
+            project: r.get(6)?,
+            branch: r.get(7)?,
+            duration_ms: r.get(8)?,
+        })
+    })?;
+
+    let mut records = Vec::new();
+    for r in rows {
+        records.push(r?);
+    }
+    Ok(records)
+}
+
+pub static DB_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,12 +805,17 @@ mod tests {
 
     #[test]
     fn record_writes_row() {
+        let _lock = DB_TEST_LOCK.lock().unwrap();
         let tmp = env::temp_dir().join(format!("rtk_test_{}.db", std::process::id()));
         env::set_var("RTK_DB_PATH", &tmp);
+        env::set_var("RTK_PROJECT_DB_PATH", &tmp);
+
+        open_db().unwrap();
+        open_project_db().unwrap();
 
         let original = "a b c d e f g h i j"; // 19 chars -> 5 tokens
         let filtered = "a b c"; // 5 chars -> 2 tokens
-        let log_id = record("git diff", original, filtered, original).expect("record failed");
+        let log_id = record("git diff", original, filtered, original, Some(150)).expect("record failed");
 
         let conn = Connection::open(&tmp).unwrap();
         let (orig, filt): (i64, i64) = conn
@@ -443,6 +828,9 @@ mod tests {
 
         assert_eq!(orig, 5);
         assert_eq!(filt, 2);
+
+        let id_in_db: i64 = conn.query_row("SELECT id FROM tracking", [], |r| r.get(0)).unwrap();
+        println!("DIAGNOSTIC: log_id returned = {}, id in DB = {}", log_id, id_in_db);
 
         let raw = get_raw_log(log_id).expect("get_raw_log failed");
         assert_eq!(raw, original);
@@ -496,7 +884,7 @@ mod tests {
         .unwrap();
 
         // 2. Call record() and verify it triggers automatic purge
-        record("new_cmd", "foo bar", "foo", "foo bar").unwrap();
+        record("new_cmd", "foo bar", "foo", "foo bar", None).unwrap();
 
         // 3. Verify total rows is still 2 (the first recorded cmd, plus the new_cmd. The old_cmd_2 should be auto-purged)
         let total_count: i64 = conn
@@ -523,5 +911,86 @@ mod tests {
 
         std::fs::remove_file(&tmp).ok();
         env::remove_var("RTK_DB_PATH");
+        env::remove_var("RTK_PROJECT_DB_PATH");
+    }
+
+    #[test]
+    fn test_new_dashboard_queries() {
+        let _lock = DB_TEST_LOCK.lock().unwrap();
+        let tmp = env::temp_dir().join(format!("rtk_test_queries_{}.db", std::process::id()));
+        env::set_var("RTK_DB_PATH", &tmp);
+        env::set_var("RTK_PROJECT_DB_PATH", &tmp);
+
+        record("git status", "untracked files...", "untracked", "raw log status", Some(42)).unwrap();
+        record("cargo build", "compiling...", "ok", "raw log build", Some(120)).unwrap();
+
+        let logs = get_recent_logs(10).unwrap();
+        assert_eq!(logs.len(), 2);
+        assert_eq!(logs[0].cmd, "cargo build");
+        assert_eq!(logs[0].duration_ms, Some(120));
+        assert_eq!(logs[1].cmd, "git status");
+        assert_eq!(logs[1].duration_ms, Some(42));
+
+        let daily = get_daily_savings().unwrap();
+        assert!(!daily.is_empty());
+
+        let models = get_model_savings().unwrap();
+        assert!(!models.is_empty());
+
+        std::fs::remove_file(&tmp).ok();
+        env::remove_var("RTK_DB_PATH");
+        env::remove_var("RTK_PROJECT_DB_PATH");
+    }
+
+    #[test]
+    fn test_budget_and_memory_discipline() {
+        let _lock = DB_TEST_LOCK.lock().unwrap();
+        let tmp = env::temp_dir().join(format!("rtk_test_budget_{}.db", std::process::id()));
+        env::set_var("RTK_DB_PATH", &tmp);
+        env::set_var("RTK_PROJECT_DB_PATH", &tmp);
+
+        open_db().unwrap();
+        open_project_db().unwrap();
+
+        let budget = crate::pricing::check_budget(10.0).unwrap();
+        assert_eq!(budget.spent_usd, 0.0);
+        assert!(!budget.exceeded);
+
+        env::set_var("CLAUDE_MODEL", "claude-3.5-sonnet");
+        record("git status", &"a".repeat(4000), &"a".repeat(400), "output", None).unwrap();
+        env::remove_var("CLAUDE_MODEL");
+
+        let spent = get_total_cost_spent().unwrap();
+        assert!((spent - 0.0003).abs() < 1e-6);
+
+        let budget_exceeded = crate::pricing::check_budget(0.0001).unwrap();
+        assert!(budget_exceeded.exceeded);
+        assert!((budget_exceeded.percentage - 300.0).abs() < 1e-6);
+
+        assert_eq!(crate::pricing::suggest_model("single-file-edit"), "gpt-4o-mini");
+        assert_eq!(crate::pricing::suggest_model("complex-refactoring"), "claude-3.5-sonnet");
+
+        memory_overwrite("test_key", "val1").unwrap();
+        memory_overwrite("test_key", "val2").unwrap();
+        
+        let report = memory_doctor().unwrap();
+        assert_eq!(report.duplicates.len(), 0);
+        assert_eq!(report.contradictory.len(), 0);
+
+        let conn = open_project_db().unwrap();
+        let pwd = std::env::current_dir().unwrap().to_string_lossy().replace('\\', "/");
+        conn.execute(
+            "INSERT INTO project_memory (key, val, project_path) VALUES ('Test_key', 'val3', ?1)",
+            params![pwd],
+        ).unwrap();
+
+        let report2 = memory_doctor().unwrap();
+        assert_eq!(report2.duplicates.len(), 1);
+        assert_eq!(report2.contradictory.len(), 1);
+
+        std::fs::remove_file(&tmp).ok();
+        env::remove_var("RTK_DB_PATH");
+        env::remove_var("RTK_PROJECT_DB_PATH");
     }
 }
+

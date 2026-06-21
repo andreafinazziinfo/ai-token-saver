@@ -52,6 +52,6 @@ proptest! {
 
     #[test]
     fn test_dlp_redact_no_panic(s in any::<String>()) {
-        let _ = rtk_memory::dlp::redact(&s);
+        let _ = rtk_db::dlp::redact(&s);
     }
 }

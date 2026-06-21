@@ -16,8 +16,8 @@ Setting up RTK takes just a few steps. Follow this guide to build the binaries, 
 Clone the repository and run the installation script:
 
 ```bash
-git clone https://github.com/andreafinazziinfo/ai-token-saver.git
-cd ai-token-saver
+git clone https://github.com/andreafinazziinfo/rust-context-engine.git
+cd rust-context-engine
 bash install.sh
 ```
 
@@ -79,7 +79,7 @@ Claude Code supports intercepting tool executions before they run. Add the PreTo
         "hooks": [
           {
             "type": "command",
-            "command": "bash /absolute/path/to/ai-token-saver/hooks/rtk-rewrite.sh",
+            "command": "bash /absolute/path/to/rust-context-engine/hooks/rtk-rewrite.sh",
             "timeout": 5000
           }
         ]

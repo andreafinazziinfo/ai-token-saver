@@ -41,7 +41,7 @@ pub fn run(raw: &str) -> Result<()> {
 }
 
 fn is_denied(cmd: &str) -> bool {
-    let config = rtk_memory::config::get_config();
+    let config = rtk_db::config::get_config();
     is_denied_internal(cmd, &config.denied_commands)
 }
 

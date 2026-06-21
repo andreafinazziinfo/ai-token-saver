@@ -131,7 +131,7 @@ pub fn run_init(profile: &str) -> Result<()> {
     let aliases_installed = auto_install_aliases().unwrap_or(false);
 
     // Create user default config.json
-    if rtk_memory::config::create_default_config().is_ok() {
+    if rtk_db::config::create_default_config().is_ok() {
         if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
             let config_path = Path::new(&home).join(".config/rtk/config.json");
             println!(
@@ -159,7 +159,7 @@ pub fn run_init(profile: &str) -> Result<()> {
         println!("           {{");
         println!("             \"type\": \"command\",");
         println!(
-            "             \"command\": \"bash /path/to/ai-token-saver/hooks/rtk-rewrite.sh\","
+            "             \"command\": \"bash /path/to/rust-context-engine/hooks/rtk-rewrite.sh\","
         );
         println!("             \"timeout\": 5000");
         println!("           }}");
@@ -548,7 +548,7 @@ mod tests {
         std::env::set_var("USERPROFILE", &temp_dir);
 
         // Call our creation helper
-        let res = rtk_memory::config::create_default_config();
+        let res = rtk_db::config::create_default_config();
         assert!(res.is_ok());
 
         // Verify that the file was created in <temp_dir>/.config/rtk/config.json

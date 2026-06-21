@@ -1,0 +1,9 @@
+diff --git a/foo.rs b/foo.rs
+index abc..def
+--- a/foo.rs
++++ b/foo.rs
+@@ -1,4 +1,4 @@
+ fn main() {
+-    old();
++    new();
+ }
