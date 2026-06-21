@@ -33,7 +33,7 @@ pub(crate) fn open_db() -> Result<Connection> {
     let _ = conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 5000;"
+         PRAGMA busy_timeout = 5000;",
     );
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS tracking (
@@ -77,7 +77,7 @@ pub(crate) fn open_project_db() -> Result<Connection> {
     let _ = conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 5000;"
+         PRAGMA busy_timeout = 5000;",
     );
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS project_memory (
@@ -1077,14 +1077,16 @@ mod tests {
         use std::sync::Arc;
         use std::thread;
 
-        let tmp = std::env::temp_dir().join(format!("rtk_test_concurrent_{}.db", std::process::id()));
+        let tmp =
+            std::env::temp_dir().join(format!("rtk_test_concurrent_{}.db", std::process::id()));
         // Setup initial schema
         let conn = Connection::open(&tmp).unwrap();
         conn.execute_batch(
             "PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;
-             PRAGMA busy_timeout = 5000;"
-        ).unwrap();
+             PRAGMA busy_timeout = 5000;",
+        )
+        .unwrap();
         conn.execute(
             "CREATE TABLE IF NOT EXISTS test_concurrent (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1105,8 +1107,9 @@ mod tests {
                 conn.execute_batch(
                     "PRAGMA journal_mode = WAL;
                      PRAGMA synchronous = NORMAL;
-                     PRAGMA busy_timeout = 5000;"
-                ).unwrap();
+                     PRAGMA busy_timeout = 5000;",
+                )
+                .unwrap();
                 for j in 0..10 {
                     conn.execute(
                         "INSERT INTO test_concurrent (val) VALUES (?1)",

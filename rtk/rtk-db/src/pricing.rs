@@ -62,13 +62,18 @@ fn get_global_pricing_file() -> Option<std::path::PathBuf> {
     } else {
         std::env::var("HOME").ok()
     };
-    home.map(|h| std::path::PathBuf::from(h).join(".config").join("rtk").join("pricing.json"))
+    home.map(|h| {
+        std::path::PathBuf::from(h)
+            .join(".config")
+            .join("rtk")
+            .join("pricing.json")
+    })
 }
 
 /// Retrieves the pricing for a model, merging any local/global overrides.
 pub fn get_merged_price(model_id: &str) -> Option<ModelPrice> {
     let target = model_id.to_lowercase();
-    
+
     // 1. Try local project override (.rtk_pricing.json)
     if let Some(local_path) = find_local_pricing_file() {
         if let Ok(content) = std::fs::read_to_string(&local_path) {
@@ -77,21 +82,48 @@ pub fn get_merged_price(model_id: &str) -> Option<ModelPrice> {
                     for m_val in models {
                         if let Some(mid) = m_val.get("model_id").and_then(|id| id.as_str()) {
                             let mid_lower = mid.to_lowercase();
-                            if mid_lower == target || target.contains(&mid_lower) || mid_lower.contains(&target) {
+                            if mid_lower == target
+                                || target.contains(&mid_lower)
+                                || mid_lower.contains(&target)
+                            {
                                 let base = get_model_price(&mid_lower);
                                 return Some(ModelPrice {
                                     model_id: mid.to_string(),
-                                    provider: m_val.get("provider").and_then(|p| p.as_str()).map(|s| s.to_string())
-                                        .unwrap_or_else(|| base.map(|b| b.provider.clone()).unwrap_or_default()),
-                                    display_name: m_val.get("display_name").and_then(|n| n.as_str()).map(|s| s.to_string())
-                                        .unwrap_or_else(|| base.map(|b| b.display_name.clone()).unwrap_or_default()),
-                                    input_price_per_mtok: m_val.get("input_price_per_mtok").and_then(|p| p.as_f64())
-                                        .unwrap_or_else(|| base.map(|b| b.input_price_per_mtok).unwrap_or(3.0)),
-                                    output_price_per_mtok: m_val.get("output_price_per_mtok").and_then(|p| p.as_f64())
-                                        .unwrap_or_else(|| base.map(|b| b.output_price_per_mtok).unwrap_or(15.0)),
-                                    last_verified: m_val.get("last_verified").and_then(|v| v.as_str()).map(|s| s.to_string())
+                                    provider: m_val
+                                        .get("provider")
+                                        .and_then(|p| p.as_str())
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.provider.clone()).unwrap_or_default()
+                                        }),
+                                    display_name: m_val
+                                        .get("display_name")
+                                        .and_then(|n| n.as_str())
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.display_name.clone()).unwrap_or_default()
+                                        }),
+                                    input_price_per_mtok: m_val
+                                        .get("input_price_per_mtok")
+                                        .and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.input_price_per_mtok).unwrap_or(3.0)
+                                        }),
+                                    output_price_per_mtok: m_val
+                                        .get("output_price_per_mtok")
+                                        .and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.output_price_per_mtok).unwrap_or(15.0)
+                                        }),
+                                    last_verified: m_val
+                                        .get("last_verified")
+                                        .and_then(|v| v.as_str())
+                                        .map(|s| s.to_string())
                                         .unwrap_or_default(),
-                                    source_url: m_val.get("source_url").and_then(|u| u.as_str()).map(|s| s.to_string())
+                                    source_url: m_val
+                                        .get("source_url")
+                                        .and_then(|u| u.as_str())
+                                        .map(|s| s.to_string())
                                         .unwrap_or_default(),
                                 });
                             }
@@ -110,21 +142,48 @@ pub fn get_merged_price(model_id: &str) -> Option<ModelPrice> {
                     for m_val in models {
                         if let Some(mid) = m_val.get("model_id").and_then(|id| id.as_str()) {
                             let mid_lower = mid.to_lowercase();
-                            if mid_lower == target || target.contains(&mid_lower) || mid_lower.contains(&target) {
+                            if mid_lower == target
+                                || target.contains(&mid_lower)
+                                || mid_lower.contains(&target)
+                            {
                                 let base = get_model_price(&mid_lower);
                                 return Some(ModelPrice {
                                     model_id: mid.to_string(),
-                                    provider: m_val.get("provider").and_then(|p| p.as_str()).map(|s| s.to_string())
-                                        .unwrap_or_else(|| base.map(|b| b.provider.clone()).unwrap_or_default()),
-                                    display_name: m_val.get("display_name").and_then(|n| n.as_str()).map(|s| s.to_string())
-                                        .unwrap_or_else(|| base.map(|b| b.display_name.clone()).unwrap_or_default()),
-                                    input_price_per_mtok: m_val.get("input_price_per_mtok").and_then(|p| p.as_f64())
-                                        .unwrap_or_else(|| base.map(|b| b.input_price_per_mtok).unwrap_or(3.0)),
-                                    output_price_per_mtok: m_val.get("output_price_per_mtok").and_then(|p| p.as_f64())
-                                        .unwrap_or_else(|| base.map(|b| b.output_price_per_mtok).unwrap_or(15.0)),
-                                    last_verified: m_val.get("last_verified").and_then(|v| v.as_str()).map(|s| s.to_string())
+                                    provider: m_val
+                                        .get("provider")
+                                        .and_then(|p| p.as_str())
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.provider.clone()).unwrap_or_default()
+                                        }),
+                                    display_name: m_val
+                                        .get("display_name")
+                                        .and_then(|n| n.as_str())
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.display_name.clone()).unwrap_or_default()
+                                        }),
+                                    input_price_per_mtok: m_val
+                                        .get("input_price_per_mtok")
+                                        .and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.input_price_per_mtok).unwrap_or(3.0)
+                                        }),
+                                    output_price_per_mtok: m_val
+                                        .get("output_price_per_mtok")
+                                        .and_then(|p| p.as_f64())
+                                        .unwrap_or_else(|| {
+                                            base.map(|b| b.output_price_per_mtok).unwrap_or(15.0)
+                                        }),
+                                    last_verified: m_val
+                                        .get("last_verified")
+                                        .and_then(|v| v.as_str())
+                                        .map(|s| s.to_string())
                                         .unwrap_or_default(),
-                                    source_url: m_val.get("source_url").and_then(|u| u.as_str()).map(|s| s.to_string())
+                                    source_url: m_val
+                                        .get("source_url")
+                                        .and_then(|u| u.as_str())
+                                        .map(|s| s.to_string())
                                         .unwrap_or_default(),
                                 });
                             }

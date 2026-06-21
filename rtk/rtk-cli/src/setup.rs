@@ -190,15 +190,26 @@ fn create_path_wrappers() -> Result<()> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| anyhow::anyhow!("Could not find home directory"))?;
-    
+
     let rtk_bin_dir = Path::new(&home).join(".rtk").join("bin");
     if !rtk_bin_dir.exists() {
         std::fs::create_dir_all(&rtk_bin_dir)?;
     }
 
     let commands = vec![
-        "git", "cargo", "docker", "npm", "yarn", "pnpm", "pytest", "ls", "gradle", "go",
-        "composer", "terraform", "dotnet"
+        "git",
+        "cargo",
+        "docker",
+        "npm",
+        "yarn",
+        "pnpm",
+        "pytest",
+        "ls",
+        "gradle",
+        "go",
+        "composer",
+        "terraform",
+        "dotnet",
     ];
 
     let script_template = r#"#!/bin/bash
@@ -238,7 +249,10 @@ fi
         }
     }
 
-    println!("✅ Created PATH interceptor wrappers inside: {}", rtk_bin_dir.display());
+    println!(
+        "✅ Created PATH interceptor wrappers inside: {}",
+        rtk_bin_dir.display()
+    );
     Ok(())
 }
 

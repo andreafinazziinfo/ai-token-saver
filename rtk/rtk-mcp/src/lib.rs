@@ -511,14 +511,12 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
                 }]
             }))
         }
-        "ping" => {
-            Ok(json!({
-                "content": [{
-                    "type": "text",
-                    "text": "pong"
-                }]
-            }))
-        }
+        "ping" => Ok(json!({
+            "content": [{
+                "type": "text",
+                "text": "pong"
+            }]
+        })),
         _ => Err(anyhow!("Unknown tool: {}", name)),
     }
 }
@@ -651,9 +649,16 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
 
             // 2. Update storage.json
             let cursor_user_dir = if cfg!(windows) {
-                std::env::var("APPDATA").ok().map(|p| PathBuf::from(p).join("Cursor").join("User"))
+                std::env::var("APPDATA")
+                    .ok()
+                    .map(|p| PathBuf::from(p).join("Cursor").join("User"))
             } else if cfg!(target_os = "macos") {
-                dirs::home_dir().map(|h| h.join("Library").join("Application Support").join("Cursor").join("User"))
+                dirs::home_dir().map(|h| {
+                    h.join("Library")
+                        .join("Application Support")
+                        .join("Cursor")
+                        .join("User")
+                })
             } else {
                 dirs::home_dir().map(|h| h.join(".config").join("Cursor").join("User"))
             };
@@ -662,7 +667,8 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
                 let storage_path = user_dir.join("globalStorage").join("storage.json");
                 if storage_path.exists() {
                     let content = std::fs::read_to_string(&storage_path)?;
-                    let mut storage_json: serde_json::Value = serde_json::from_str(&content).unwrap_or(json!({}));
+                    let mut storage_json: serde_json::Value =
+                        serde_json::from_str(&content).unwrap_or(json!({}));
                     if storage_json.is_object() {
                         let mcp_servers = storage_json
                             .as_object_mut()
@@ -691,7 +697,9 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
             }
 
             if !updated_any {
-                return Err(anyhow!("Could not find any Cursor configuration directory to update"));
+                return Err(anyhow!(
+                    "Could not find any Cursor configuration directory to update"
+                ));
             }
 
             Ok(())

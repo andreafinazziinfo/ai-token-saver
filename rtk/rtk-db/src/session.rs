@@ -17,7 +17,7 @@ fn open_db() -> Result<Connection> {
     let _ = conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 5000;"
+         PRAGMA busy_timeout = 5000;",
     );
 
     conn.execute(

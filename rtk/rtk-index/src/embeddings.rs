@@ -9,7 +9,7 @@ use tokenizers::Tokenizer;
 use tract_onnx::prelude::*;
 
 #[cfg(all(feature = "embeddings", feature = "ort"))]
-use ort::{session::Session, ep};
+use ort::{ep, session::Session};
 
 #[cfg(all(feature = "embeddings", not(feature = "ort")))]
 pub struct OnnxEmbedder {
@@ -109,9 +109,9 @@ impl OnnxEmbedder {
 impl OnnxEmbedder {
     pub fn load_model(model_path: &Path, tokenizer_path: &Path) -> Result<Self> {
         let mut builder = Session::builder()?;
-        
+
         let mut providers = vec![];
-        
+
         #[cfg(feature = "onnx-cuda")]
         {
             providers.push(ep::CUDA::default().build());
@@ -124,11 +124,11 @@ impl OnnxEmbedder {
         {
             providers.push(ep::DirectML::default().build());
         }
-        
+
         if !providers.is_empty() {
             builder = builder.with_execution_providers(providers)?;
         }
-        
+
         let session = builder.commit_from_file(model_path)?;
         let tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| anyhow!(e))?;
         Ok(Self { session, tokenizer })
@@ -158,7 +158,9 @@ impl OnnxEmbedder {
             ndarray::Array2::from_shape_vec((1, seq_len), attention_mask.clone())?;
 
         // Run model
-        let outputs = self.session.run(ort::inputs![input_ids_tensor, attention_mask_tensor]?)?;
+        let outputs = self
+            .session
+            .run(ort::inputs![input_ids_tensor, attention_mask_tensor]?)?;
 
         // Extract last_hidden_state (usually index 0)
         let output_tensor = outputs[0].extract_tensor::<f32>()?;

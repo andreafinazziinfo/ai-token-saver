@@ -36,7 +36,7 @@ pub fn open_db() -> Result<Connection> {
     let _ = conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 5000;"
+         PRAGMA busy_timeout = 5000;",
     );
 
     conn.execute(
@@ -215,9 +215,7 @@ pub fn clear_file_index(conn: &Connection, file_path: &str) -> Result<()> {
 
 pub fn get_file_hashes(conn: &Connection) -> Result<std::collections::HashMap<String, String>> {
     let mut stmt = conn.prepare("SELECT file_path, hash FROM file_hashes")?;
-    let rows = stmt.query_map([], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-    })?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
     let mut map = std::collections::HashMap::new();
     for row in rows {
         let (path, hash) = row?;

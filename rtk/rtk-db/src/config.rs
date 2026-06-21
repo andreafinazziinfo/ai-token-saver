@@ -353,7 +353,9 @@ pub fn config_profile_set(name: &str) -> anyhow::Result<()> {
 pub fn config_filter_add(pattern: &str, action: &str) -> anyhow::Result<()> {
     regex::Regex::new(pattern).map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
     if action != "strip" && action != "collapse" {
-        return Err(anyhow::anyhow!("invalid filter action: {action}. Must be 'strip' or 'collapse'"));
+        return Err(anyhow::anyhow!(
+            "invalid filter action: {action}. Must be 'strip' or 'collapse'"
+        ));
     }
     modify_config(|obj| {
         let filters = obj
@@ -380,7 +382,10 @@ pub fn config_filter_add(pattern: &str, action: &str) -> anyhow::Result<()> {
                     if let Some(p) = val.get("pattern").and_then(|p| p.as_str()) {
                         if p == pattern {
                             if let Some(o) = val.as_object_mut() {
-                                o.insert("action".to_string(), serde_json::Value::String(action.to_string()));
+                                o.insert(
+                                    "action".to_string(),
+                                    serde_json::Value::String(action.to_string()),
+                                );
                             }
                         }
                     }
