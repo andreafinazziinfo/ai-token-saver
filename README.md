@@ -54,7 +54,7 @@ graph TD
 
     subgraph P2["🧠 PHASE 2: REASONING & MEMORY (-96.5% Tokens)"]
         RTKThink["🤫 rtk think<br/>(Reasoning Stdin)"]:::phase2
-        FTS5["🗄️ SQLite FTS5 Database<br/>(Persistent Context Vault)"]:::database
+        FTS5["🗄️ Unified Local Database (.rtk/rtk.db)<br/>(Persistent Context Vault)"]:::database
         RTKMemory["🧠 rtk memory set/get<br/>(Project State)"]:::phase2
     end
 
@@ -310,7 +310,7 @@ sequenceDiagram
     participant RTK as RTK CLI
     participant Filter as Filters (15 Modules)
     participant DLP as DLP Redaction
-    participant DB as SQLite FTS5 DB
+    participant DB as Unified DB (.rtk/rtk.db)
     participant Cmd as Target Command
 
     rect rgb(30, 60, 100)
@@ -326,7 +326,7 @@ sequenceDiagram
         Filter-->>RTK: Filtered Output (94 tokens, -92.7%)
         RTK->>DLP: Redact Secrets (API keys, JWT, PEM)
         DLP-->>RTK: Clean Output
-        RTK->>DB: Cache Raw Log (id=42)
+        RTK->>DB: Cache raw log in artifacts table (id=42)
         RTK-->>LLM: Filtered Output + [rtk show-log 42]
     else Denied (Exit 2)
         RTK-->>Hook: BLOCKED (e.g. git push --force)
@@ -338,12 +338,12 @@ sequenceDiagram
     rect rgb(60, 30, 80)
     Note over LLM,DB: 🧠 PHASE 2 — REASONING & MEMORY
     LLM->>RTK: cat <<EOF | rtk think (462 tokens)
-    RTK->>DB: Store in FTS5 Memory
+    RTK->>DB: Store in project_memory table
     RTK-->>LLM: [Thought offloaded] (16 tokens, -96.5%)
     LLM->>RTK: rtk memory set db_port 5432
-    RTK->>DB: Store Key-Value Pair
+    RTK->>DB: Store KV in project_memory
     LLM->>RTK: rtk memory search "database"
-    RTK->>DB: FTS5 Semantic Search
+    RTK->>DB: Hybrid (FTS5 + ONNX) Search
     DB-->>RTK: Matching Entries
     RTK-->>LLM: Relevant Context
     end
