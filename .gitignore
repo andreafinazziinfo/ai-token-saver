@@ -25,4 +25,8 @@ venv/
 scripts/venv/
 .venv/
 
+# Local audits and config backups
+rtk-audit.md
+.obsidian/
+
 
