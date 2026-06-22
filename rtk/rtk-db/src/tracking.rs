@@ -307,7 +307,7 @@ pub fn print_stats_with_chart(chart: bool) -> Result<()> {
             println!("No tracking data available to draw chart.");
         } else {
             let total_days = daily_costs.len();
-            let skip_count = if total_days > 10 { total_days - 10 } else { 0 };
+            let skip_count = total_days.saturating_sub(10);
             let last_10_days: Vec<(&String, &f64)> = daily_costs.iter().skip(skip_count).collect();
 
             let mut max_cost = 0.0;
