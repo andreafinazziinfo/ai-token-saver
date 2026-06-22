@@ -1,6 +1,6 @@
 [package]
 name = "rtk-cli"
-version = "2.0.0"
+version = "2.3.0"
 edition = "2021"
 description = "RTK — main entrypoint binary and command router CLI"
 
@@ -15,11 +15,11 @@ serde_json = "1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
-rtk-filters = { path = "../rtk-filters" }
-rtk-db = { path = "../rtk-db" }
-rtk-pack = { path = "../rtk-pack" }
-rtk-index = { path = "../rtk-index" }
-rtk-mcp = { path = "../rtk-mcp" }
+rtk-filters = { version = "2.3.0", path = "../rtk-filters" }
+rtk-db = { version = "2.3.0", path = "../rtk-db" }
+rtk-pack = { version = "2.3.0", path = "../rtk-pack" }
+rtk-index = { version = "2.3.0", path = "../rtk-index" }
+rtk-mcp = { version = "2.3.0", path = "../rtk-mcp" }
 
 
 

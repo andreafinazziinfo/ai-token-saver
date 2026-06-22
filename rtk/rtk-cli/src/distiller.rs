@@ -83,6 +83,115 @@ pub fn distill(input: &str, max_lines: Option<usize>) -> String {
     out
 }
 
+/// Analyze git diff, estimate token counts and API costs across top models,
+/// and print a structured token savings table.
+pub fn run_estimate() -> anyhow::Result<()> {
+    let output = std::process::Command::new("git")
+        .args(["diff", "--no-color"])
+        .output()
+        .map_err(|e| anyhow::anyhow!("failed to execute git diff: {e}"))?;
+
+    if !output.status.success() {
+        let err_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow::anyhow!("git diff failed: {err_msg}"));
+    }
+
+    let diff_content = String::from_utf8_lossy(&output.stdout);
+    if diff_content.trim().is_empty() {
+        println!("==================================================");
+        println!("           RTK PR TOKEN & COST ESTIMATOR          ");
+        println!("==================================================");
+        println!("No changes detected. Git diff is empty.");
+        println!("==================================================");
+        return Ok(());
+    }
+
+    let mut files_count = 0;
+    for line in diff_content.lines() {
+        if line.starts_with("diff --git ") {
+            files_count += 1;
+        }
+    }
+
+    let raw_chars = diff_content.len();
+    let original_tokens = rtk_db::tracking::count_tokens(&diff_content);
+    let filtered_content = rtk_filters::git_diff::filter(&diff_content);
+    let filtered_tokens = rtk_db::tracking::count_tokens(&filtered_content);
+
+    let saved_tokens = original_tokens - filtered_tokens;
+    let savings_pct = if original_tokens > 0 {
+        (saved_tokens as f64 / original_tokens as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    println!("==================================================");
+    println!("           RTK PR TOKEN & COST ESTIMATOR          ");
+    println!("==================================================");
+    println!("Active Git Diff:");
+    println!("  Files Changed:        {}", files_count);
+    println!("  Raw Characters:       {}", raw_chars);
+    println!("  Estimated Raw Tokens: {}", original_tokens);
+    println!(
+        "  Filtered Tokens:      {} ({:.1}% saved)",
+        filtered_tokens, savings_pct
+    );
+    println!();
+    println!("Cost & Savings Projection (Input Tokens):");
+    println!("------------------------------------------------------------------------------------------------");
+    println!(
+        "{:<24} | {:>11} | {:>11} | {:>18} | {:>9} | {:>9} | {:>10}",
+        "Model Name",
+        "Orig Tokens",
+        "Filt Tokens",
+        "Saved Tokens",
+        "Orig Cost",
+        "Filt Cost",
+        "Saved Cost"
+    );
+    println!("------------------------------------------------------------------------------------------------");
+
+    let models = vec![
+        "claude-4.8-opus",
+        "claude-4.6-sonnet",
+        "gpt-5.5",
+        "gpt-5.4",
+        "gemini-3.5-flash",
+    ];
+
+    for model_id in models {
+        let price = rtk_db::pricing::get_merged_price(model_id);
+        let display_name = price
+            .as_ref()
+            .map(|p| p.display_name.as_str())
+            .unwrap_or(model_id);
+
+        let orig_cost = rtk_db::pricing::calculate_cost(original_tokens, model_id, false);
+        let filt_cost = rtk_db::pricing::calculate_cost(filtered_tokens, model_id, false);
+        let saved_cost = orig_cost - filt_cost;
+
+        println!(
+            "{:<24} | {:>11} | {:>11} | {:>11} ({:>.1}%) | ${:>8.4} | ${:>8.4} | ${:>9.4}",
+            display_name,
+            original_tokens,
+            filtered_tokens,
+            saved_tokens,
+            savings_pct,
+            orig_cost,
+            filt_cost,
+            saved_cost
+        );
+    }
+    println!("------------------------------------------------------------------------------------------------");
+    println!(
+        "✅ Running this git diff through RTK filters saves you {:.1}% in tokens & API costs!",
+        savings_pct
+    );
+    println!("==================================================");
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

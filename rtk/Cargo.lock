@@ -1571,7 +1571,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rtk-cli"
-version = "2.0.0"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1590,7 +1590,7 @@ dependencies = [
 
 [[package]]
 name = "rtk-db"
-version = "2.0.0"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1602,7 +1602,7 @@ dependencies = [
 
 [[package]]
 name = "rtk-filters"
-version = "2.0.0"
+version = "2.3.0"
 dependencies = [
  "insta",
  "regex",
@@ -1610,7 +1610,7 @@ dependencies = [
 
 [[package]]
 name = "rtk-index"
-version = "2.0.0"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "ndarray 0.15.6",
@@ -1631,7 +1631,7 @@ dependencies = [
 
 [[package]]
 name = "rtk-mcp"
-version = "2.0.0"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1644,7 +1644,7 @@ dependencies = [
 
 [[package]]
 name = "rtk-pack"
-version = "2.0.0"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "rtk-db",

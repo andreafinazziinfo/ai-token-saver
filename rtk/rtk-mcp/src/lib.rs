@@ -531,10 +531,7 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             }]
         })),
         "get_budget_status" => {
-            let limit = args
-                .get("limit")
-                .and_then(|l| l.as_f64())
-                .unwrap_or(50.0);
+            let limit = args.get("limit").and_then(|l| l.as_f64()).unwrap_or(50.0);
             let status = rtk_db::pricing::check_budget(limit)?;
             let text = format!(
                 "Budget Limit: ${:.2} USD\nTotal Cost Spent: ${:.6} USD\nPercentage Used: {:.2}%\nExceeded: {}\nStatus: {}",

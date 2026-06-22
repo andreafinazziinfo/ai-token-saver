@@ -279,7 +279,8 @@ alias terraform="rtk terraform"
 *   **Hidden Chain-of-Thought**: `rtk think` (reads from stdin to store reasoning in the FTS5 DB out of the chat context).
 *   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
 *   **Command Rewriting**: `rtk rewrite "<command>"` (PreToolUse hook engine: auto-allows, denies, or asks for dangerous commands).
-*   **Configuration**: `rtk config show`, `rtk config deny add "<pattern>"`, `rtk config dlp add "<regex>"`.
+*   **Configuration**: `rtk config show`, `rtk config deny add "<pattern>"`, `rtk config dlp add "<regex>"`, `rtk config export` (exports global config to stdout), `rtk config import [--path <file>]` (imports/overwrites config from a file or stdin).
+*   **PR Cost Estimator**: `rtk estimate` / `rtk est` (analyzes the active `git diff` and projects token usage & estimated API costs across top model tiers, showing exact potential savings).
 *   **Telemetry, Stats & Audit**: `rtk status`, `rtk stats [--chart]` / `rtk gain [--chart]` (prints shorthand savings metrics and displays a beautiful ASCII cost trend chart), `rtk dashboard` (live Web UI), `rtk audit` (aggregates savings metrics, prints summary and writes `rtk-audit.md`), `rtk telemetry export` (exports Prometheus-compatible scraping metrics).
 *   **Dynamic Plugins**: `rtk plugin -- <command>` (runs a command using custom rules from `plugins.toml`).
 
@@ -290,6 +291,8 @@ RTK uses `~/.config/rtk/config.json` and local `.rtk.json`.
 *   **Show config**: `rtk config show`
 *   **Add Guardrail**: `rtk config deny add "git push.*--force"` (Prevents AI from running this).
 *   **Add DLP Regex**: `rtk config dlp add "MY_API_KEY_[0-9a-zA-Z]{32}"` (Redacts custom secrets).
+*   **Export Settings**: `rtk config export > my_backup.json` (Dumps current configuration to a file).
+*   **Import Settings**: `rtk config import --path my_backup.json` or `cat my_backup.json | rtk config import` (Overwrites settings from stdin or file).
 </details>
 
 <details>

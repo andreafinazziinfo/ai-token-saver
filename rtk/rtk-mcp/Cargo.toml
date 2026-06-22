@@ -1,6 +1,6 @@
 [package]
 name = "rtk-mcp"
-version = "2.0.0"
+version = "2.3.0"
 edition = "2021"
 description = "RTK — Model Context Protocol (MCP) server for local context tools"
 
@@ -8,7 +8,7 @@ description = "RTK — Model Context Protocol (MCP) server for local context too
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rtk-db = { path = "../rtk-db" }
-rtk-index = { path = "../rtk-index" }
-rtk-pack = { path = "../rtk-pack" }
+rtk-db = { version = "2.3.0", path = "../rtk-db" }
+rtk-index = { version = "2.3.0", path = "../rtk-index" }
+rtk-pack = { version = "2.3.0", path = "../rtk-pack" }
 dirs = "5.0"

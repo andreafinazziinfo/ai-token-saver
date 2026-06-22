@@ -1,6 +1,6 @@
 [package]
 name = "rtk-filters"
-version = "2.0.0"
+version = "2.3.0"
 edition = "2021"
 description = "RTK — pre-built parser filters for CLI command outputs"
 

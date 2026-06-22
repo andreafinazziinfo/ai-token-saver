@@ -217,6 +217,9 @@ enum Commands {
     },
     /// Check the health of the RTK installation and configuration
     Doctor,
+    /// Estimate token counts and API costs for the active git diff
+    #[command(alias = "est")]
+    Estimate,
     /// Manage session-state variables for context handoff
     SessionState {
         #[command(subcommand)]
@@ -309,6 +312,14 @@ enum ConfigCommands {
     Profile {
         /// The profile name to set (strict, balanced, developer, audit, json-only)
         name: String,
+    },
+    /// Export the global configuration file to stdout (JSON format)
+    Export,
+    /// Import and overwrite the global configuration file from a file path or stdin
+    Import {
+        /// Optional path to the JSON configuration file to import (omitted reads from stdin)
+        #[arg(short, long)]
+        path: Option<String>,
     },
 }
 
@@ -749,6 +760,7 @@ fn main() {
             None => tracking::run_audit(&output),
         },
         Commands::Doctor => doctor::run_doctor(),
+        Commands::Estimate => distiller::run_estimate(),
         Commands::SessionState { subcmd } => match subcmd {
             SessionStateCommands::Init => session::session_init().map(|_| {
                 println!("✅ Session state initialized with default fields.");
@@ -824,6 +836,12 @@ fn main() {
             ConfigCommands::Profile { name } => config::config_profile_set(&name).map(|_| {
                 println!("⚙️  Default savings profile updated to: \"{}\"", name);
             }),
+            ConfigCommands::Export => config::config_export(),
+            ConfigCommands::Import { path } => {
+                config::config_import(path.as_deref()).map(|_| {
+                    println!("✅ Configuration successfully imported and updated.");
+                })
+            }
         },
         Commands::Context { subcmd } => {
             let res: Result<()> = (|| {

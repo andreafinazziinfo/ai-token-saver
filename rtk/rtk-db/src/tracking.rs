@@ -1209,8 +1209,9 @@ mod tests {
              ('git diff', 1000, 400, '2026-06-20 12:00:00', 'claude-4.6-sonnet'),
              ('git diff', 2000, 800, '2026-06-20 13:00:00', 'claude-4.6-sonnet'),
              ('git status', 500, 100, '2026-06-21 14:00:00', 'gemini-3.5-flash')",
-            []
-        ).unwrap();
+            [],
+        )
+        .unwrap();
 
         // Print without chart
         print_stats_with_chart(false).unwrap();

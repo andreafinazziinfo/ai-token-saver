@@ -61,10 +61,12 @@ The toolkit automatically scrubs credentials, private keys, JWTs, and high-entro
 - **Zero Leakage**: Ensure you do not try to bypass this guard or log credentials, as they are securely filtered at the proxy layer.
 - **Custom Patterns**: You can add your own custom regex scanner patterns to redact project-specific keys.
 - **Personal Guardrails**: Configure `denied_commands` to automatically reject destructive/dangerous commands (ex: `git push.*--force`) with exit code `2`, avoiding accidental command executions on your terminal.
-- **CLI Configuration Management (`rtk config`)**: Instead of manual file edits, read and update personal guardrails and DLP patterns directly from the command line:
+- **CLI Configuration Management (`rtk config`)**: Instead of manual file edits, read, update, export, and import personal guardrails and DLP patterns directly from the command line:
   - View merged configuration: `rtk config show`
   - Guard a dangerous command: `rtk config deny add "<pattern>"`
   - Add custom secret patterns: `rtk config dlp add "<regex>"`
+  - Export settings: `rtk config export > rtk_backup.json`
+  - Import settings: `rtk config import --path rtk_backup.json` (or read from stdin)
 
 ## 6. Local Savings Dashboard (`rtk dashboard`) & CLI Trend Chart
 If you or the user want to view the savings dashboard:
@@ -109,3 +111,11 @@ The global telemetry database remains isolated at `~/.local/share/rtk/rtk.db` fo
 ## 10. Self-Regulating Budget MCP Tool (`get_budget_status`)
 When running as an MCP server, RTK exposes a special tool to allow AI agents to check the current budget spend and limit:
 - **`get_budget_status`**: Accepts an optional `limit` parameter (default: 50.0 USD). Returns a detailed text response summarizing budget status, total cost spent, percentage used, and alerts when exceeded, enabling agents to self-regulate.
+
+## 11. PR Cost & Token Estimator (`rtk estimate`)
+Before sharing a git diff with an AI agent or committing, you can calculate the exact token counts and estimated financial cost across major models:
+```bash
+rtk estimate
+```
+*(or alias `rtk est`)*
+This calculates original vs compressed diff tokens, providing savings projections in a structured comparison table for models such as Claude Opus, Claude Sonnet, GPT-5, and Gemini.

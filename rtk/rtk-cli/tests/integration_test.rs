@@ -461,3 +461,83 @@ fn test_rtk_budget_and_mcp_cli_lifecycle() {
 
     std::fs::remove_dir_all(&temp_dir).unwrap();
 }
+
+#[test]
+fn test_rtk_config_and_estimate_commands() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let temp_dir = std::env::temp_dir().join(format!("rtk_config_est_test_{timestamp}"));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(&temp_dir)
+        .output()
+        .unwrap();
+
+    let test_file = temp_dir.join("test.txt");
+    std::fs::write(&test_file, "hello world first line\n").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "test.txt"])
+        .current_dir(&temp_dir)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "initial"])
+        .current_dir(&temp_dir)
+        .output()
+        .unwrap();
+
+    std::fs::write(
+        &test_file,
+        "hello world first line\nhello world second line modified\n",
+    )
+    .unwrap();
+
+    let est_out = rtk_bin()
+        .current_dir(&temp_dir)
+        .args(["estimate"])
+        .output()
+        .expect("rtk not found");
+    assert!(est_out.status.success());
+    let est_str = String::from_utf8_lossy(&est_out.stdout);
+    assert!(est_str.contains("RTK PR TOKEN & COST ESTIMATOR"));
+    assert!(est_str.contains("Claude Sonnet 4.6"));
+
+    let config_dir = temp_dir.join(".config/rtk");
+    std::fs::create_dir_all(&config_dir).unwrap();
+
+    let export_out = rtk_bin()
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["config", "export"])
+        .output()
+        .expect("rtk not found");
+    assert!(export_out.status.success());
+    let export_str = String::from_utf8_lossy(&export_out.stdout);
+    assert!(export_str.contains("default_profile"));
+
+    let import_file = temp_dir.join("import.json");
+    let import_json = r#"{
+        "denied_commands": ["rm -rf", "git push --force"],
+        "dlp": {
+            "custom_patterns": []
+        },
+        "default_profile": "developer"
+    }"#;
+    std::fs::write(&import_file, import_json).unwrap();
+
+    let import_out = rtk_bin()
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["config", "import", "--path", import_file.to_str().unwrap()])
+        .output()
+        .expect("rtk not found");
+    assert!(import_out.status.success());
+    let import_str = String::from_utf8_lossy(&import_out.stdout);
+    assert!(import_str.contains("Configuration successfully imported"));
+
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}

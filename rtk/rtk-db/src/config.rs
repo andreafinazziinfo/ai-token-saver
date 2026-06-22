@@ -294,6 +294,60 @@ pub fn config_show() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Export the global configuration file to stdout.
+pub fn config_export() -> anyhow::Result<()> {
+    let path = global_config_path()
+        .ok_or_else(|| anyhow::anyhow!("could not determine global config directory"))?;
+
+    let content = if path.exists() {
+        fs::read_to_string(&path)?
+    } else {
+        let default_val = serde_json::json!({
+            "denied_commands": [],
+            "dlp": {
+                "custom_patterns": []
+            },
+            "default_profile": "balanced"
+        });
+        serde_json::to_string_pretty(&default_val)?
+    };
+
+    println!("{}", content);
+    Ok(())
+}
+
+/// Import configuration from a path (or stdin if None) and overwrite the global config file.
+pub fn config_import(import_path: Option<&str>) -> anyhow::Result<()> {
+    let path = global_config_path()
+        .ok_or_else(|| anyhow::anyhow!("could not determine global config directory"))?;
+
+    let input_content = match import_path {
+        Some(p) => fs::read_to_string(p)
+            .map_err(|e| anyhow::anyhow!("failed to read import file {p}: {e}"))?,
+        None => {
+            use std::io::Read;
+            let mut buf = String::new();
+            std::io::stdin().read_to_string(&mut buf)?;
+            buf
+        }
+    };
+
+    let val: serde_json::Value = serde_json::from_str(&input_content)
+        .map_err(|e| anyhow::anyhow!("invalid JSON configuration: {e}"))?;
+
+    if !val.is_object() {
+        return Err(anyhow::anyhow!("configuration must be a JSON object"));
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let pretty_str = serde_json::to_string_pretty(&val)?;
+    fs::write(&path, pretty_str)?;
+    Ok(())
+}
+
 /// Append a regex pattern to the list of denied commands in the global config.
 pub fn config_deny_add(pattern: &str) -> anyhow::Result<()> {
     regex::Regex::new(pattern).map_err(|e| anyhow::anyhow!("invalid regex pattern: {e}"))?;
@@ -418,6 +472,7 @@ pub fn apply_regex_filters(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    static CONFIG_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_merge_from_str() {
@@ -449,6 +504,7 @@ mod tests {
 
     #[test]
     fn test_modify_config() {
+        let _lock = CONFIG_TEST_LOCK.lock().unwrap();
         let temp_dir =
             std::env::temp_dir().join(format!("rtk_config_modify_test_{}", rand_suffix()));
         fs::create_dir_all(&temp_dir).unwrap();
@@ -568,5 +624,63 @@ mod tests {
         let step1 = re1.replace_all(input, "").to_string();
         let step2 = re2.replace_all(&step1, "[collapsed]").to_string();
         assert_eq!(step2, "url: http://api.com?\n[collapsed]");
+    }
+
+    #[test]
+    fn test_config_export_import() {
+        let _lock = CONFIG_TEST_LOCK.lock().unwrap();
+        let temp_dir =
+            std::env::temp_dir().join(format!("rtk_config_export_import_test_{}", rand_suffix()));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let original_home = std::env::var_os("HOME");
+        let original_userprofile = std::env::var_os("USERPROFILE");
+        std::env::set_var("HOME", &temp_dir);
+        std::env::set_var("USERPROFILE", &temp_dir);
+
+        create_default_config().unwrap();
+        config_deny_add("test_deny_from_export").unwrap();
+
+        let path = global_config_path().unwrap();
+        assert!(path.exists());
+
+        let import_data = serde_json::json!({
+            "denied_commands": ["forbidden_1", "forbidden_2"],
+            "dlp": {
+                "custom_patterns": ["PAT_[0-9]+"]
+            },
+            "default_profile": "developer"
+        });
+        let import_file = temp_dir.join("new_config.json");
+        fs::write(
+            &import_file,
+            serde_json::to_string_pretty(&import_data).unwrap(),
+        )
+        .unwrap();
+
+        config_import(Some(import_file.to_str().unwrap())).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        let val: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(val["default_profile"], "developer");
+        assert_eq!(val["denied_commands"].as_array().unwrap().len(), 2);
+        assert!(val["denied_commands"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::Value::String("forbidden_1".to_string())));
+        assert_eq!(val["dlp"]["custom_patterns"].as_array().unwrap().len(), 1);
+
+        if let Some(h) = original_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
+        }
+        if let Some(up) = original_userprofile {
+            std::env::set_var("USERPROFILE", up);
+        } else {
+            std::env::remove_var("USERPROFILE");
+        }
+
+        fs::remove_dir_all(temp_dir).unwrap();
     }
 }
