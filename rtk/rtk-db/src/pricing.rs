@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 
-const PRICING_JSON: &str = include_str!("../../../data/model_pricing.json");
+const PRICING_JSON: &str = include_str!("../model_pricing.json");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelPrice {
