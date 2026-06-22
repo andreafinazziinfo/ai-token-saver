@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="rtk/assets/logo.png" alt="RTK Rust Context Engine" width="200"/>
+  <img src="rtk/rtk-cli/assets/logo.png" alt="RTK Rust Context Engine" width="200"/>
 </p>
 
 <h1 align="center">RTK: Rust Context Engine 🚀</h1>
@@ -12,7 +12,7 @@
   <a href="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/ci.yml"><img src="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <a href="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/release.yml"><img src="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/release.yml/badge.svg" alt="Release Builds"/></a>
   <a href="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/codeql.yml"><img src="https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"/></a>
-  <a href="https://crates.io/crates/rtk"><img src="https://img.shields.io/crates/v/rtk.svg" alt="Crates.io Version"/></a>
+  <a href="https://crates.io/crates/rtk-context-engine"><img src="https://img.shields.io/crates/v/rtk-context-engine.svg" alt="Crates.io Version"/></a>
   <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/rust-1.75%2B-orange.svg" alt="Rust Version"/></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"/></a>
 </p>
@@ -227,9 +227,16 @@ RTK combines standard full-text lexical search (SQLite FTS5) with local vector s
 
 1. **Requirements**: Rust toolchain (Cargo), Bash-compatible shell.
 2. **Install**:
-   ```bash
-   bash install.sh
-   ```
+   - **Via Cargo (Recommended)**:
+     ```bash
+     cargo install rtk-context-engine
+     ```
+   - **From Source**:
+     ```bash
+     git clone https://github.com/andreafinazziinfo/rust-context-engine.git
+     cd rust-context-engine
+     bash install.sh
+     ```
 3. **Initialize AI Profiles & Auto-Install** (in your workspace):
    ```bash
    rtk init --profile high
@@ -388,8 +395,7 @@ graph TD
     CheckStrip -- Yes --> Minify[Minify: Strip comments/empty lines] --> CheckSkeleton
     CheckStrip -- No --> CheckSkeleton{--skeleton?}
     
-    CheckSkeleton -- Yes --> Skeletonize[Collapse function bodies
-    via Tree-Sitter AST] --> DLPRedact
+    CheckSkeleton -- Yes --> Skeletonize["Collapse function bodies via Tree-Sitter AST"] --> DLPRedact
     CheckSkeleton -- No --> DLPRedact[Apply DLP Redact]
     
     DLPRedact --> WrapXML["Wrap in &lt;file path='...'&gt;&lt;![CDATA[...]]&gt;&lt;/file&gt;"]
