@@ -22,8 +22,8 @@ After pushing tag `vX.Y.Z`:
    ```bash
    # once: token from https://crates.io/settings/tokens
    cargo login
-   bash scripts/publish-crates.sh --dry-run   # optional check
-   bash scripts/publish-crates.sh             # publishes 6 crates in order
+   bash scripts/publish-crates.sh --dry-run   # packages leaf crates only (db, filters, index)
+   bash scripts/publish-crates.sh             # publishes all 6 crates in order
    ```
    Order: `rtk-context-db` → `filters` → `index` → `pack` → `mcp` → `rtk-context-engine`.
    Wait ~30–60s between crates if publish fails with “dependency not found”.
