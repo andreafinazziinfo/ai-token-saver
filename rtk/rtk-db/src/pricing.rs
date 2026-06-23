@@ -263,6 +263,51 @@ pub fn suggest_model(task_type: &str) -> &'static str {
 mod tests {
     use super::*;
 
+    static PRICING_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn with_isolated_pricing<F: FnOnce()>(f: F) {
+        let _lock = PRICING_TEST_LOCK.lock().unwrap();
+        let tmp = std::env::temp_dir().join(format!("rtk_pricing_test_{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let original_cwd = std::env::current_dir().unwrap();
+        let original_home = std::env::var("HOME").ok();
+        let original_userprofile = std::env::var("USERPROFILE").ok();
+        std::env::set_current_dir(&tmp).unwrap();
+        std::env::set_var("HOME", &tmp);
+        if cfg!(windows) {
+            std::env::set_var("USERPROFILE", &tmp);
+        }
+        struct Restore {
+            cwd: std::path::PathBuf,
+            tmp: std::path::PathBuf,
+            home: Option<String>,
+            userprofile: Option<String>,
+        }
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                let _ = std::env::set_current_dir(&self.cwd);
+                match &self.home {
+                    Some(h) => std::env::set_var("HOME", h),
+                    None => std::env::remove_var("HOME"),
+                }
+                if cfg!(windows) {
+                    match &self.userprofile {
+                        Some(up) => std::env::set_var("USERPROFILE", up),
+                        None => std::env::remove_var("USERPROFILE"),
+                    }
+                }
+                let _ = std::fs::remove_dir_all(&self.tmp);
+            }
+        }
+        let _restore = Restore {
+            cwd: original_cwd,
+            tmp: tmp.clone(),
+            home: original_home,
+            userprofile: original_userprofile,
+        };
+        f();
+    }
+
     #[test]
     fn test_pricing_registry_loads() {
         let registry = get_registry();
@@ -280,50 +325,34 @@ mod tests {
 
     #[test]
     fn test_calculate_cost() {
-        // 100,000 input tokens for claude-4.6-sonnet -> $3.00 * 0.1 = $0.30
-        let cost = calculate_cost(100_000, "claude-4.6-sonnet", false);
-        assert!((cost - 0.30).abs() < 1e-6);
+        with_isolated_pricing(|| {
+            // 100,000 input tokens for claude-4.6-sonnet -> $3.00 * 0.1 = $0.30
+            let cost = calculate_cost(100_000, "claude-4.6-sonnet", false);
+            assert!((cost - 0.30).abs() < 1e-6);
 
-        // 10,000 output tokens for claude-4.6-sonnet -> $15.00 * 0.01 = $0.15
-        let cost_out = calculate_cost(10_000, "claude-4.6-sonnet", true);
-        assert!((cost_out - 0.15).abs() < 1e-6);
+            // 10,000 output tokens for claude-4.6-sonnet -> $15.00 * 0.01 = $0.15
+            let cost_out = calculate_cost(10_000, "claude-4.6-sonnet", true);
+            assert!((cost_out - 0.15).abs() < 1e-6);
+        });
     }
 
     #[test]
     fn test_pricing_overrides() {
-        let tmp = std::env::temp_dir().join(format!("rtk_pricing_test_{}", std::process::id()));
-        std::fs::create_dir_all(&tmp).unwrap();
-        let original_cwd = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&tmp).unwrap();
-        let tmp_cleanup = tmp.clone();
-        struct RestoreCwd {
-            cwd: std::path::PathBuf,
-            tmp: std::path::PathBuf,
-        }
-        impl Drop for RestoreCwd {
-            fn drop(&mut self) {
-                let _ = std::env::set_current_dir(&self.cwd);
-                let _ = std::fs::remove_dir_all(&self.tmp);
-            }
-        }
-        let _restore = RestoreCwd {
-            cwd: original_cwd,
-            tmp: tmp_cleanup,
-        };
+        with_isolated_pricing(|| {
+            let override_json = serde_json::json!({
+                "models": [
+                    {
+                        "model_id": "claude-4.6-sonnet",
+                        "input_price_per_mtok": 1.23,
+                        "output_price_per_mtok": 4.56
+                    }
+                ]
+            });
+            std::fs::write(".rtk_pricing.json", override_json.to_string()).unwrap();
 
-        let override_json = serde_json::json!({
-            "models": [
-                {
-                    "model_id": "claude-4.6-sonnet",
-                    "input_price_per_mtok": 1.23,
-                    "output_price_per_mtok": 4.56
-                }
-            ]
+            let price = get_merged_price("claude-4.6-sonnet").unwrap();
+            assert_eq!(price.input_price_per_mtok, 1.23);
+            assert_eq!(price.output_price_per_mtok, 4.56);
         });
-        std::fs::write(".rtk_pricing.json", override_json.to_string()).unwrap();
-
-        let price = get_merged_price("claude-4.6-sonnet").unwrap();
-        assert_eq!(price.input_price_per_mtok, 1.23);
-        assert_eq!(price.output_price_per_mtok, 4.56);
     }
 }
