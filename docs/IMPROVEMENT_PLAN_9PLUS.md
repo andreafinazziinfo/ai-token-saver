@@ -91,7 +91,7 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | **S1 Fondamenta** | Dev gate WSL · fix pricing · lazy index · DLP/GRD · MCP version · Cargo.lock · docs onesti | ✅ Gate verde · IDX-1/2 · FIN-1 · MCP-1 · DOC-1 · DLP-1 · GRD-1 · ARCH-1 |
 | **S2 Affidabilità** | MCP tests · memory · filtri golden · CI matrix | ✅ |
 | **S3 Qualità** | tiktoken · pack limits · git show/branch · GC throttle · strict_chained | ✅ PACK-1/2 · DB-2/3 · FILT-2/3 · GRD-2 · ARCH-3 |
-| **S4 Polish** | doctor · benchmark gate · release smoke · graph UX | DoD §8 completo |
+| **S4 Polish** | doctor · benchmark gate · release smoke · graph UX | ✅ REL/GRAPH/CI-3 · TST-4 push pending |
 
 ### 3.2 Sprint 1 — ordine di esecuzione (P0 → P1)
 
@@ -486,7 +486,7 @@ Progetto **9+** quando tutti veri:
 | 4 | DLP base64 + deny chained verdi | ✅ |
 | 5 | MCP version = crate version; 8 tool testati | 🔄 (version ✅, MCP-4 pending) |
 | 6 | `Cargo.lock` + `cargo build --locked` | 🔄 (lock ✅, CI-2 pending) |
-| 7 | Benchmark regression gate CI |
+| 7 | Benchmark regression gate CI | ✅ |
 | 8 | `rtk doctor` OK post-`init --profile high` | 🔄 (doctor ✅, smoke manuale pending) |
 
 ---
