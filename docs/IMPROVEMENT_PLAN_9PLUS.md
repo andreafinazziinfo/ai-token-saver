@@ -120,7 +120,18 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | 6 | FILT-3 | Tabella filtered vs passthrough in `cli.md` | ✅ |
 | 7 | GRD-2 | `strict_chained` in `.rtk.json` | ✅ |
 | 8 | ARCH-3 | Tabella env in `configuration.md` | ✅ |
-| 9 | ARCH-2 | Estrarre filter pipeline | ⬜ S4 |
+| 9 | ARCH-2 | Estrarre filter pipeline | ✅ S4 |
+
+### 3.5 Sprint 4 — in corso (2026-06-23)
+
+| Ordine | ID | Descrizione | Status |
+|:------:|----|-------------|:------:|
+| 1 | FILT-4 | `get_profile_for_cmd` in pipeline | ✅ |
+| 2 | DOCTOR-1 | `rtk doctor` esteso + exit 0/1/2 | ✅ |
+| 3 | ARCH-2 | `filter_pipeline.rs` estratto | ✅ |
+| 4 | CI-3 | Gate `token_savings` in CI + script | ✅ |
+| 5 | REL-1 | Release smoke / install parity | ⬜ |
+| 6 | GRAPH-1 | Graph UX export/audit polish | ⬜ |
 
 **Regola merge Sprint 1:** nessuna PR feature senza **DEV-WSL-2** verde (fmt + clippy + test).
 
@@ -476,7 +487,7 @@ Progetto **9+** quando tutti veri:
 | 5 | MCP version = crate version; 8 tool testati | 🔄 (version ✅, MCP-4 pending) |
 | 6 | `Cargo.lock` + `cargo build --locked` | 🔄 (lock ✅, CI-2 pending) |
 | 7 | Benchmark regression gate CI |
-| 8 | `rtk doctor` OK post-`init --profile high` |
+| 8 | `rtk doctor` OK post-`init --profile high` | 🔄 (doctor ✅, smoke manuale pending) |
 
 ---
 
@@ -499,7 +510,9 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 | DEV-WSL-2-script | 1 | S1 | ✅ | scripts/dev-gate.sh |
 | CI-1 | 2 | S1–S2 | ✅ | Matrix ubuntu/windows/macos |
 | CI-2 | 2 | S1–S2 | ✅ | build --release --locked in CI |
-| ARCH-2 | 2 | S2 | ⬜ | filter_pipeline refactor |
+| ARCH-2 | 2 | S4 | ✅ | filter_pipeline.rs |
+| FILT-4 | 2 | S4 | ✅ | apply_profile_settings in pipeline |
+| DOCTOR-1 | 2 | S4 | ✅ | doctor esteso exit 0/1/2 |
 | FILT-1 | 2 | S2 | ✅ | Golden insta git_status/cargo_* |
 | MCP-4 | 2 | S2 | ✅ | 10 test MCP (initialize + tools) |
 | DB-1 | 2 | S2 | ✅ | memory_set preserves created_at |
@@ -518,7 +531,7 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 | FILT-3 | 2 | S3 | ✅ | cli.md table |
 | GRD-2 | 2 | S3 | ✅ | strict_chained |
 | ARCH-3 | 2 | S3 | ✅ | env var table |
-| CI-3 | 2 | S4 | ⬜ | benchmark gate |
+| CI-3 | 2 | S4 | ✅ | token_savings gate + benchmark_gate.sh |
 
 ⬜ TODO · 🔄 IN PROGRESS · ✅ DONE
 

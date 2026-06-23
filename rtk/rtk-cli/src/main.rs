@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
-use rtk_db::{config, dlp, session, status, think, tracking};
+use rtk_db::{config, session, status, think, tracking};
 use rtk_filters::{
     cargo_build, cargo_test, docker_filter, git_branch, git_diff, git_log, git_show, git_status,
     go_test, gradle, ls_filter, pytest_filter,
@@ -16,6 +16,7 @@ mod dashboard;
 mod distiller;
 mod doctor;
 mod dotnet;
+mod filter_pipeline;
 mod index_cli;
 mod plugins;
 mod rewrite;
@@ -24,6 +25,11 @@ mod sync_rules;
 
 #[cfg(test)]
 mod fuzz_tests;
+
+use filter_pipeline::{
+    execute_with_filter, run_distilled, run_filtered, run_filtered_combined, run_filtered_stderr,
+    FilterMode,
+};
 
 #[derive(Parser)]
 #[command(
@@ -770,7 +776,13 @@ fn main() {
             Some(AuditCommands::Graph) => index_cli::audit_graph(),
             None => tracking::run_audit(&output),
         },
-        Commands::Doctor => doctor::run_doctor(),
+        Commands::Doctor => {
+            match doctor::run_doctor() {
+                doctor::DoctorOutcome::Ok => Ok(()),
+                doctor::DoctorOutcome::Warnings => std::process::exit(2),
+                doctor::DoctorOutcome::Critical => std::process::exit(1),
+            }
+        }
         Commands::Estimate => distiller::run_estimate(),
         Commands::SessionState { subcmd } => match subcmd {
             SessionStateCommands::Init => session::session_init().map(|_| {
@@ -987,199 +999,4 @@ fn passthrough(bin: &str, args: &[String]) -> Result<()> {
         std::process::exit(status.code().unwrap_or(1));
     }
     Ok(())
-}
-
-enum FilterMode {
-    Stdout(fn(&str) -> String),
-    Stderr(fn(&str) -> String),
-    Combined(fn(&str) -> String),
-    Distilled,
-    PluginFilter(plugins::Plugin),
-}
-
-fn execute_with_filter(bin: &str, args: &[String], mode: FilterMode) -> Result<()> {
-    let start = std::time::Instant::now();
-    let output = std::process::Command::new(bin)
-        .args(args)
-        .output()
-        .with_context(|| format!("failed to execute {bin}"))?;
-    let duration_ms = start.elapsed().as_millis() as i64;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    let cmd_label = format!("{} {}", bin, args.first().map(|s| s.as_str()).unwrap_or(""));
-
-    let (mut out_print, mut err_print, raw_db, filtered_db) = match mode {
-        FilterMode::Stdout(filter) => {
-            let filtered = filter(&stdout);
-            let filtered = rtk_db::config::apply_regex_filters(&filtered);
-            let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
-            let r_stdout = dlp::redact_with_source(&stdout, &cmd_label);
-            (
-                r_filtered.clone(),
-                dlp::redact_with_source(&stderr, &cmd_label),
-                r_stdout.clone(),
-                r_filtered,
-            )
-        }
-        FilterMode::Stderr(filter) => {
-            let filtered = filter(&stderr);
-            let filtered = rtk_db::config::apply_regex_filters(&filtered);
-            let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
-            let r_stderr = dlp::redact_with_source(&stderr, &cmd_label);
-            (
-                dlp::redact_with_source(&stdout, &cmd_label),
-                r_filtered.clone(),
-                r_stderr.clone(),
-                r_filtered,
-            )
-        }
-        FilterMode::Combined(filter) => {
-            let combined = format!("{stderr}\n{stdout}");
-            let filtered = filter(&combined);
-            let filtered = rtk_db::config::apply_regex_filters(&filtered);
-            let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
-            let r_combined = dlp::redact_with_source(&combined, &cmd_label);
-            (
-                r_filtered.clone(),
-                String::new(),
-                r_combined.clone(),
-                r_filtered,
-            )
-        }
-        FilterMode::Distilled => {
-            let d_stdout = distiller::distill(&stdout, None);
-            let d_stderr = distiller::distill(&stderr, None);
-            let r_d_out = dlp::redact_with_source(&d_stdout, &cmd_label);
-            let r_d_err = dlp::redact_with_source(&d_stderr, &cmd_label);
-            let r_comb = dlp::redact_with_source(
-                &format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"),
-                &cmd_label,
-            );
-            (
-                r_d_out.clone(),
-                r_d_err.clone(),
-                r_comb,
-                format!("{r_d_out}\n{r_d_err}"),
-            )
-        }
-        FilterMode::PluginFilter(ref plugin) => {
-            let capture_mode = plugin.filter_mode.as_deref().unwrap_or("stdout");
-            match capture_mode {
-                "stderr" => {
-                    let filtered = plugins::filter_plugin(&stderr, plugin);
-                    let filtered = rtk_db::config::apply_regex_filters(&filtered);
-                    let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
-                    let r_stderr = dlp::redact_with_source(&stderr, &cmd_label);
-                    (
-                        dlp::redact_with_source(&stdout, &cmd_label),
-                        r_filtered.clone(),
-                        r_stderr.clone(),
-                        r_filtered,
-                    )
-                }
-                "combined" => {
-                    let combined = format!("{stderr}\n{stdout}");
-                    let filtered = plugins::filter_plugin(&combined, plugin);
-                    let filtered = rtk_db::config::apply_regex_filters(&filtered);
-                    let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
-                    let r_combined = dlp::redact_with_source(&combined, &cmd_label);
-                    (
-                        r_filtered.clone(),
-                        String::new(),
-                        r_combined.clone(),
-                        r_filtered,
-                    )
-                }
-                "distill" => {
-                    let d_stdout = distiller::distill(&stdout, None);
-                    let d_stderr = distiller::distill(&stderr, None);
-                    let r_d_out = dlp::redact_with_source(&d_stdout, &cmd_label);
-                    let r_d_err = dlp::redact_with_source(&d_stderr, &cmd_label);
-                    let r_comb = dlp::redact_with_source(
-                        &format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}"),
-                        &cmd_label,
-                    );
-                    (
-                        r_d_out.clone(),
-                        r_d_err.clone(),
-                        r_comb,
-                        format!("{r_d_out}\n{r_d_err}"),
-                    )
-                }
-                _ => {
-                    // stdout default
-                    let filtered = plugins::filter_plugin(&stdout, plugin);
-                    let filtered = rtk_db::config::apply_regex_filters(&filtered);
-                    let r_filtered = dlp::redact_with_source(&filtered, &cmd_label);
-                    let r_stdout = dlp::redact_with_source(&stdout, &cmd_label);
-                    (
-                        r_filtered.clone(),
-                        dlp::redact_with_source(&stderr, &cmd_label),
-                        r_stdout.clone(),
-                        r_filtered,
-                    )
-                }
-            }
-        }
-    };
-
-    match tracking::record(
-        cmd_label.trim(),
-        &raw_db,
-        &filtered_db,
-        &raw_db,
-        Some(duration_ms),
-    ) {
-        Ok(log_id) => {
-            if filtered_db.len() < raw_db.len() && !filtered_db.trim().is_empty() {
-                let msg = format!("\n[Full output cached. Access with: rtk show-log {log_id}]\n");
-                if !out_print.trim().is_empty() {
-                    out_print.push_str(&msg);
-                } else if !err_print.trim().is_empty() {
-                    err_print.push_str(&msg);
-                }
-            }
-        }
-        Err(e) => eprintln!("rtk: tracking warning: {e}"),
-    }
-
-    if let Some(warning) = tracking::check_autonomy(&filtered_db) {
-        if !out_print.trim().is_empty() {
-            out_print.push_str(warning);
-            out_print.push('\n');
-        } else if !err_print.trim().is_empty() {
-            err_print.push_str(warning);
-            err_print.push('\n');
-        }
-    }
-
-    if !out_print.is_empty() {
-        print!("{out_print}");
-    }
-    if !err_print.is_empty() {
-        eprint!("{err_print}");
-    }
-
-    if !output.status.success() {
-        std::process::exit(output.status.code().unwrap_or(1));
-    }
-    Ok(())
-}
-
-fn run_filtered(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
-    execute_with_filter(bin, args, FilterMode::Stdout(filter))
-}
-
-fn run_filtered_stderr(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
-    execute_with_filter(bin, args, FilterMode::Stderr(filter))
-}
-
-fn run_filtered_combined(bin: &str, args: &[String], filter: fn(&str) -> String) -> Result<()> {
-    execute_with_filter(bin, args, FilterMode::Combined(filter))
-}
-
-fn run_distilled(bin: &str, args: &[String]) -> Result<()> {
-    execute_with_filter(bin, args, FilterMode::Distilled)
 }

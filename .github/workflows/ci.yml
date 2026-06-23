@@ -54,6 +54,10 @@ jobs:
     - name: Run Unit Tests
       run: cargo test --manifest-path rtk/Cargo.toml --workspace
 
+    - name: Filter savings regression gate (CI-3)
+      if: runner.os == 'Linux'
+      run: cargo test --manifest-path rtk/Cargo.toml -p rtk-context-filters token_savings
+
     - name: Security Audit
       if: runner.os == 'Linux'
       uses: actions-rust-lang/audit@v1

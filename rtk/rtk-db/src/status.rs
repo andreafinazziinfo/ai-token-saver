@@ -62,6 +62,11 @@ pub fn run_status() -> Result<()> {
     Ok(())
 }
 
+/// Whether Claude/Gemini settings reference the RTK rewrite hook.
+pub fn is_rewrite_hook_installed() -> bool {
+    check_hook_installed()
+}
+
 fn check_hook_installed() -> bool {
     let home = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))

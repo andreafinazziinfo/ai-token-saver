@@ -1,100 +1,209 @@
-use anyhow::Result;
-use rtk_db::{pricing, tracking};
+use rtk_db::{config, pricing, status, tracking};
 use std::path::PathBuf;
 
-pub fn run_doctor() -> Result<()> {
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum DoctorOutcome {
+    Ok,
+    Warnings,
+    Critical,
+}
+
+pub fn run_doctor() -> DoctorOutcome {
     println!("🩺 Running RTK Health Check...");
     println!("==================================================");
 
-    let mut all_ok = true;
+    let mut critical = false;
+    let mut warnings = false;
 
-    // 1. Check database access
+    print!("📦 RTK Version: ");
+    println!("✅ {} (build)", env!("CARGO_PKG_VERSION"));
+
     print!("🗄️  Database Access: ");
     match tracking::get_recent_logs(1) {
-        Ok(_) => {
-            println!("✅ OK");
-        }
+        Ok(_) => println!("✅ OK"),
         Err(e) => {
             println!("❌ FAILED (Error: {e})");
-            println!("   👉 Suggestions: Check RTK_DB_PATH env variable or folder permissions.");
-            all_ok = false;
+            println!("   👉 Check RTK_DB_PATH or folder permissions.");
+            critical = true;
         }
     }
 
-    // 2. Check pricing registry
+    if let Ok(db_path) = std::env::var("RTK_DB_PATH") {
+        let on_windows = std::env::var("USERPROFILE").is_ok();
+        if on_windows && db_path.contains("/mnt/") {
+            println!("⚠️  RTK_DB_PATH looks like a WSL path but shell is Windows-side");
+            println!("   👉 Use a native path or run RTK inside WSL for dev/test.");
+            warnings = true;
+        }
+    }
+
+    print!("📁 Project .rtk/: ");
+    match std::env::current_dir() {
+        Ok(cwd) => {
+            let rtk_dir = cwd.join(".rtk");
+            if rtk_dir.is_dir() {
+                println!("✅ OK ({})", rtk_dir.display());
+            } else {
+                println!("⚠️  missing (created on first tracked command)");
+                warnings = true;
+            }
+        }
+        Err(e) => {
+            println!("❌ FAILED ({e})");
+            critical = true;
+        }
+    }
+
     print!("💰 Pricing Registry: ");
     let registry = pricing::get_registry();
-    if !registry.models.is_empty() {
+    if registry.models.is_empty() {
+        println!("❌ FAILED (no models loaded)");
+        critical = true;
+    } else {
         println!(
-            "✅ OK (revision: {}, {} models loaded)",
+            "✅ OK (revision: {}, {} models)",
             registry.pricing_revision,
             registry.models.len()
         );
-    } else {
-        println!("❌ FAILED (no models loaded in registry)");
-        all_ok = false;
     }
 
-    // 3. Check shell aliases / hooks
+    print!("🧠 Project Memory: ");
+    match tracking::memory_doctor() {
+        Ok(report) => {
+            if report.duplicates.is_empty()
+                && report.stale.is_empty()
+                && report.contradictory.is_empty()
+            {
+                println!("✅ OK");
+            } else {
+                println!("⚠️  issues detected");
+                if !report.duplicates.is_empty() {
+                    println!("   duplicates: {}", report.duplicates.join(", "));
+                }
+                if !report.stale.is_empty() {
+                    println!("   stale keys (>30d): {}", report.stale.len());
+                }
+                if !report.contradictory.is_empty() {
+                    println!("   contradictory: {}", report.contradictory.len());
+                }
+                warnings = true;
+            }
+        }
+        Err(e) => {
+            println!("⚠️  skipped ({e})");
+            warnings = true;
+        }
+    }
+
+    print!("🔍 Code Index: ");
+    match rtk_index::get_index_status() {
+        Ok(st) if st.symbols_count == 0 => {
+            println!("⚠️  empty (run `rtk index run`)");
+            warnings = true;
+        }
+        Ok(st) if st.stale => {
+            println!(
+                "⚠️  stale ({} symbols, last: {})",
+                st.symbols_count,
+                st.last_indexed
+                    .map(|t| t.to_string())
+                    .unwrap_or_else(|| "never".into())
+            );
+            warnings = true;
+        }
+        Ok(st) => {
+            println!(
+                "✅ OK ({} symbols, {:.0}% graph)",
+                st.symbols_count, st.graph_coverage
+            );
+        }
+        Err(e) => {
+            println!("⚠️  unavailable ({e})");
+            warnings = true;
+        }
+    }
+
+    print!("⚙️  Config Regex: ");
+    let regex_errors = config::validate_regex_config();
+    if regex_errors.is_empty() {
+        println!("✅ OK");
+    } else {
+        println!("❌ FAILED");
+        for err in &regex_errors {
+            println!("   - {err}");
+        }
+        critical = true;
+    }
+
+    print!("🪝 PreToolUse Hook: ");
+    if status::is_rewrite_hook_installed() {
+        println!("✅ OK");
+    } else {
+        println!("⚠️  not found in ~/.claude or ~/.gemini settings");
+        println!("   👉 Run `rtk init` or add hooks/rtk-rewrite.sh to settings.json");
+        warnings = true;
+    }
+
     print!("🐚 Shell Aliases: ");
+    if shell_aliases_installed() {
+        println!("✅ OK");
+    } else {
+        println!("⚠️  RTK aliases not found in shell rc");
+        println!("   👉 Run `rtk init` to install aliases.");
+        warnings = true;
+    }
+
+    print!("🦀 Rust Toolchain: ");
+    match std::process::Command::new("rustc")
+        .arg("--version")
+        .output()
+    {
+        Ok(o) if o.status.success() => {
+            println!("✅ OK ({})", String::from_utf8_lossy(&o.stdout).trim());
+        }
+        _ => {
+            println!("⚠️  rustc not found (needed only for source builds)");
+            warnings = true;
+        }
+    }
+
+    print!("💾 Workspace Access: ");
+    if std::fs::metadata(".").is_ok() {
+        println!("✅ OK");
+    } else {
+        println!("❌ FAILED");
+        critical = true;
+    }
+
+    println!("==================================================");
+    if critical {
+        println!("❌ RTK doctor found critical issues.");
+        DoctorOutcome::Critical
+    } else if warnings {
+        println!("⚠️  RTK doctor completed with warnings.");
+        DoctorOutcome::Warnings
+    } else {
+        println!("✅ RTK is healthy and ready to optimize your AI coding agent workflow!");
+        DoctorOutcome::Ok
+    }
+}
+
+fn shell_aliases_installed() -> bool {
     let home = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from);
 
-    let mut alias_found = false;
     if let Some(h) = home {
-        let shells = [".bashrc", ".zshrc", ".profile"];
-        for shell in shells {
+        for shell in [".bashrc", ".zshrc", ".profile"] {
             let path = h.join(shell);
             if path.exists() {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     if content.contains("RTK AI Token Saver Aliases") {
-                        alias_found = true;
-                        break;
+                        return true;
                     }
                 }
             }
         }
     }
-
-    if alias_found {
-        println!("✅ OK");
-    } else {
-        println!("⚠️  WARNING (aliases not found in ~/.bashrc, ~/.zshrc or ~/.profile)");
-        println!(
-            "   👉 Suggestion: Run `rtk init` to automatically install aliases and shell hooks."
-        );
-    }
-
-    // 4. Check Rust version
-    print!("🦀 Rust Version: ");
-    let rustc_version = std::process::Command::new("rustc")
-        .arg("--version")
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
-
-    if let Some(version) = rustc_version {
-        println!("✅ OK ({})", version);
-    } else {
-        println!("⚠️  WARNING (rustc command not found)");
-    }
-
-    // 5. Check Disk space / directory permissions
-    print!("💾 Workspace Access: ");
-    if std::fs::metadata(".").is_ok() {
-        println!("✅ OK");
-    } else {
-        println!("❌ FAILED (current workspace is not readable/writable)");
-        all_ok = false;
-    }
-
-    println!("==================================================");
-    if all_ok {
-        println!("✅ RTK is healthy and ready to optimize your AI coding agent workflow!");
-        Ok(())
-    } else {
-        println!("❌ RTK doctor found some issues. Please fix the failures above.");
-        Err(anyhow::anyhow!("RTK health check failed"))
-    }
+    false
 }

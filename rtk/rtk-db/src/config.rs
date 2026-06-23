@@ -475,6 +475,95 @@ pub fn apply_regex_filters(input: &str) -> String {
     current
 }
 
+/// Apply savings profile settings (line cap, comments, JSON) after command filters.
+pub fn apply_profile_settings(input: &str, profile: &ProfileSettings) -> String {
+    let mut lines: Vec<String> = input.lines().map(String::from).collect();
+
+    if profile.json_only == Some(true) {
+        lines.retain(|l| {
+            let t = l.trim();
+            t.starts_with('{')
+                || t.starts_with('[')
+                || t.starts_with('"')
+                || t.contains(": {")
+                || t.contains(": [")
+        });
+    }
+
+    if profile.remove_comments == Some(true) {
+        lines = lines
+            .into_iter()
+            .map(|l| {
+                if l.trim_start().starts_with('#') {
+                    return String::new();
+                }
+                if let Some(idx) = l.find("//") {
+                    l[..idx].trim_end().to_string()
+                } else {
+                    l
+                }
+            })
+            .filter(|l| !l.is_empty())
+            .collect();
+    }
+
+    if let Some(max) = profile.max_line_length {
+        lines = lines
+            .into_iter()
+            .map(|l| {
+                if l.len() > max {
+                    format!("{}…", &l[..max.saturating_sub(1)])
+                } else {
+                    l
+                }
+            })
+            .collect();
+    }
+
+    let mut out = lines.join("\n");
+    if input.ends_with('\n') && !out.is_empty() {
+        out.push('\n');
+    }
+
+    if profile.minify_json == Some(true) {
+        out = out
+            .lines()
+            .map(|line| {
+                let t = line.trim();
+                if (t.starts_with('{') && t.ends_with('}'))
+                    || (t.starts_with('[') && t.ends_with(']'))
+                {
+                    serde_json::from_str::<serde_json::Value>(t)
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|_| line.to_string())
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+
+    out
+}
+
+/// Return human-readable errors for invalid regex rules in config.
+pub fn validate_regex_config() -> Vec<String> {
+    let config = get_config();
+    let mut errors = Vec::new();
+    for rule in &config.regex_filters {
+        if regex::Regex::new(&rule.pattern).is_err() {
+            errors.push(format!("regex_filters pattern invalid: '{}'", rule.pattern));
+        }
+    }
+    for pat in &config.denied_commands {
+        if regex::Regex::new(pat).is_err() {
+            errors.push(format!("denied_commands pattern invalid: '{pat}'"));
+        }
+    }
+    errors
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -696,5 +785,53 @@ mod tests {
         }
 
         fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn filt4_strict_profile_shrinks_more_than_audit() {
+        let strict = ProfileSettings {
+            max_line_length: Some(20),
+            remove_comments: Some(true),
+            minify_json: None,
+            json_only: None,
+        };
+        let audit = ProfileSettings {
+            max_line_length: None,
+            remove_comments: Some(false),
+            minify_json: None,
+            json_only: None,
+        };
+        let input = format!("{} // noise", "x".repeat(80));
+        let strict_out = apply_profile_settings(&input, &strict);
+        let audit_out = apply_profile_settings(&input, &audit);
+        assert!(
+            strict_out.len() < audit_out.len(),
+            "strict profile should reduce output measurably"
+        );
+    }
+
+    #[test]
+    fn apply_profile_settings_truncates_lines() {
+        let profile = ProfileSettings {
+            max_line_length: Some(10),
+            remove_comments: None,
+            minify_json: None,
+            json_only: None,
+        };
+        let out = apply_profile_settings("12345678901\nshort", &profile);
+        assert!(out.starts_with("123456789…"));
+        assert!(out.contains("short"));
+    }
+
+    #[test]
+    fn apply_profile_settings_removes_line_comments() {
+        let profile = ProfileSettings {
+            max_line_length: None,
+            remove_comments: Some(true),
+            minify_json: None,
+            json_only: None,
+        };
+        let out = apply_profile_settings("keep // drop tail\n# skip\nok", &profile);
+        assert_eq!(out, "keep\nok");
     }
 }
