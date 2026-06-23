@@ -1,0 +1,5 @@
+---
+source: rtk-filters/src/cargo_build.rs
+expression: filter(input)
+---
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 38.12s

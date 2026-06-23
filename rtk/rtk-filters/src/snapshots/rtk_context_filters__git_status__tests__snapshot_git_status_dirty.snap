@@ -1,0 +1,12 @@
+---
+source: rtk-filters/src/git_status.rs
+expression: filter(input)
+---
+On branch main
+Your branch is up to date with 'origin/main'.
+unstaged: modified:   src/main.rs
+unstaged: modified:   Cargo.toml
+untracked: README.md
+untracked: tests/common.rs
+untracked: src/filters/
+untracked: docs/usage.md

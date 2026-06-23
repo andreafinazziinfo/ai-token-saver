@@ -424,7 +424,10 @@ pub fn memory_set(key: &str, val: &str) -> Result<()> {
         .to_string_lossy()
         .replace('\\', "/");
     conn.execute(
-        "INSERT OR REPLACE INTO project_memory (key, val, project_path) VALUES (?1, ?2, ?3)",
+        "INSERT INTO project_memory (key, val, project_path) VALUES (?1, ?2, ?3)
+         ON CONFLICT(key, project_path) DO UPDATE SET
+           val = excluded.val,
+           last_accessed_at = datetime('now')",
         params![key, val, pwd],
     )
     .context("insert project memory")?;
@@ -1126,6 +1129,49 @@ mod tests {
 
         std::fs::remove_file(&tmp).ok();
         env::remove_var("RTK_DB_PATH");
+        env::remove_var("RTK_PROJECT_DB_PATH");
+    }
+
+    #[test]
+    fn test_memory_set_preserves_created_at() {
+        let _lock = DB_TEST_LOCK.lock().unwrap();
+        let tmp = env::temp_dir().join(format!("rtk_mem_ts_{}.db", std::process::id()));
+        env::set_var("RTK_PROJECT_DB_PATH", &tmp);
+        let work = env::temp_dir().join(format!("rtk_mem_proj_{}", std::process::id()));
+        std::fs::create_dir_all(&work).unwrap();
+        let prev = env::current_dir().unwrap();
+        env::set_current_dir(&work).unwrap();
+
+        memory_set("keep_ts", "v1").unwrap();
+        let conn = open_project_db().unwrap();
+        let pwd = env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let created1: String = conn
+            .query_row(
+                "SELECT created_at FROM project_memory WHERE key = 'keep_ts' AND project_path = ?1",
+                params![pwd],
+                |r| r.get(0),
+            )
+            .unwrap();
+
+        memory_set("keep_ts", "v2").unwrap();
+        let created2: String = conn
+            .query_row(
+                "SELECT created_at FROM project_memory WHERE key = 'keep_ts' AND project_path = ?1",
+                params![pwd],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let val: String = memory_get("keep_ts").unwrap();
+
+        assert_eq!(val, "v2");
+        assert_eq!(created1, created2);
+
+        let _ = env::set_current_dir(prev);
+        std::fs::remove_file(&tmp).ok();
+        let _ = std::fs::remove_dir_all(work);
         env::remove_var("RTK_PROJECT_DB_PATH");
     }
 

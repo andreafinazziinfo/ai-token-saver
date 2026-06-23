@@ -89,7 +89,8 @@ fn handle_connection(mut stream: std::net::TcpStream) -> Result<()> {
             // Query for most saved and most frequent commands
             let breakdown = tracking::get_command_breakdown()?;
             let top_saver = breakdown
-                .first()
+                .iter()
+                .max_by_key(|(_, _, saved)| *saved)
                 .map(|(cmd, _, _)| cmd.clone())
                 .unwrap_or_else(|| "N/A".to_string());
             let most_frequent = breakdown

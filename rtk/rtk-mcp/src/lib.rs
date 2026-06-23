@@ -752,16 +752,143 @@ pub fn install_mcp_client(client: &str) -> Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::sync::{Mutex, OnceLock};
+
+    fn mcp_test_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn with_temp_project_db<F: FnOnce()>(f: F) {
+        let _lock = mcp_test_lock();
+        let tmp = std::env::temp_dir().join(format!("rtk_mcp_test_{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let db_path = tmp.join("rtk.db");
+        std::env::set_var("RTK_PROJECT_DB_PATH", &db_path);
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&tmp).unwrap();
+        f();
+        let _ = std::env::set_current_dir(prev);
+        std::env::remove_var("RTK_PROJECT_DB_PATH");
+        let _ = std::fs::remove_dir_all(tmp);
+    }
 
     #[test]
-    fn test_execute_get_budget_status() {
-        let args = json!({
-            "limit": 100.0
-        });
+    fn initialize_reports_crate_version() {
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(json!(1)),
+            method: "initialize".to_string(),
+            params: None,
+        };
+        let resp = handle_request(&req).expect("initialize response");
+        let result = resp.result.unwrap();
+        let version = result["serverInfo"]["version"].as_str().unwrap();
+        assert_eq!(version, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn tools_list_has_nine_tools() {
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(json!(2)),
+            method: "tools/list".to_string(),
+            params: None,
+        };
+        let resp = handle_request(&req).expect("tools/list response");
+        let result = resp.result.unwrap();
+        let tools = result["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 9);
+    }
+
+    #[test]
+    fn execute_get_budget_status() {
+        let args = json!({ "limit": 100.0 });
         let result = execute_tool("get_budget_status", args).unwrap();
-        let content = result.get("content").unwrap().as_array().unwrap();
-        let text = content[0].get("text").unwrap().as_str().unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("Budget Limit: $100.00 USD"));
         assert!(text.contains("Total Cost Spent:"));
+    }
+
+    #[test]
+    fn execute_project_memory_set_and_list() {
+        with_temp_project_db(|| {
+            let set = execute_tool(
+                "project_memory",
+                json!({ "action": "set", "key": "port", "value": "8080" }),
+            )
+            .unwrap();
+            assert!(set["content"][0]["text"].as_str().unwrap().contains("8080"));
+
+            let list = execute_tool("project_memory", json!({ "action": "list" })).unwrap();
+            let text = list["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains("port: 8080"));
+        });
+    }
+
+    #[test]
+    fn execute_find_symbols_empty_ok() {
+        with_temp_project_db(|| {
+            let tmp_index =
+                std::env::temp_dir().join(format!("rtk_mcp_idx_{}", std::process::id()));
+            std::fs::create_dir_all(&tmp_index).unwrap();
+            std::env::set_var("RTK_INDEX_DB_PATH", tmp_index.join("index.db"));
+            let result =
+                execute_tool("find_symbols", json!({ "query": "nonexistent_xyz" })).unwrap();
+            let text = result["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains("No symbols found"));
+            std::env::remove_var("RTK_INDEX_DB_PATH");
+        });
+    }
+
+    #[test]
+    fn execute_context_pack_current_dir() {
+        with_temp_project_db(|| {
+            std::fs::write("sample.txt", "hello world").unwrap();
+            let result = execute_tool("context_pack", json!({ "paths": ["sample.txt"] })).unwrap();
+            let text = result["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains("sample.txt"));
+            assert!(text.contains("hello"));
+        });
+    }
+
+    #[test]
+    fn execute_session_state_get() {
+        with_temp_project_db(|| {
+            let result = execute_tool("session_state", json!({ "action": "get" })).unwrap();
+            assert!(result.get("content").is_some());
+        });
+    }
+
+    #[test]
+    fn execute_ping_tool() {
+        let result = execute_tool("ping", json!({})).unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert_eq!(text, "pong");
+    }
+
+    #[test]
+    fn execute_search_code_no_match() {
+        with_temp_project_db(|| {
+            let result =
+                execute_tool("search_code", json!({ "query": "zzz_no_match_zzz" })).unwrap();
+            assert!(result.get("content").is_some());
+        });
+    }
+
+    #[test]
+    fn execute_find_refs_empty_ok() {
+        with_temp_project_db(|| {
+            let tmp_index =
+                std::env::temp_dir().join(format!("rtk_mcp_refs_{}", std::process::id()));
+            std::fs::create_dir_all(&tmp_index).unwrap();
+            std::env::set_var("RTK_INDEX_DB_PATH", tmp_index.join("index.db"));
+            let result = execute_tool("find_refs", json!({ "symbol": "missing_sym" })).unwrap();
+            let text = result["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains("No references found"));
+            std::env::remove_var("RTK_INDEX_DB_PATH");
+        });
     }
 }

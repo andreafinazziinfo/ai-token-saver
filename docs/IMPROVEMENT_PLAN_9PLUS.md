@@ -482,13 +482,14 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 | GRD-1 | 1 | S1 | ✅ | chained deny |
 | DOC-1 | 1 | S1 | ✅ | README default vs full |
 | DEV-WSL-2-script | 1 | S1 | ✅ | scripts/dev-gate.sh |
-| CI-1 | 2 | S1–S2 | ⬜ | Matrix 3 OS |
+| CI-1 | 2 | S1–S2 | ✅ | Matrix ubuntu/windows/macos |
+| CI-2 | 2 | S1–S2 | ✅ | build --release --locked in CI |
 | ARCH-2 | 2 | S2 | ⬜ | filter_pipeline refactor |
-| FILT-1 | 2 | S2 | ⬜ | Golden fixtures |
-| MCP-4 | 2 | S2 | ⬜ | MCP tests |
-| DB-1 | 2 | S2 | ⬜ | memory created_at |
+| FILT-1 | 2 | S2 | ✅ | Golden insta git_status/cargo_* |
+| MCP-4 | 2 | S2 | ✅ | 10 test MCP (initialize + tools) |
+| DB-1 | 2 | S2 | ✅ | memory_set preserves created_at |
 | DB-2 | 2 | S3 | ⬜ | tiktoken feature |
-| DASH-1 | 2 | S3 | ⬜ | dashboard bug |
+| DASH-1 | 2 | S3 | ✅ | top_saver vs most_frequent fix |
 | PACK-1 | 2 | S3 | ⬜ | limit tokens |
 | CI-3 | 2 | S4 | ⬜ | benchmark gate |
 

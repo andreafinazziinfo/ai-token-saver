@@ -58,6 +58,13 @@ mod tests {
     }
 
     #[test]
+    fn test_snapshot_cargo_test_passing() {
+        use insta::assert_snapshot;
+        let input = include_str!("../tests/fixtures/cargo_test_passing.txt");
+        assert_snapshot!(filter(input));
+    }
+
+    #[test]
     fn drops_passing_tests_and_preamble() {
         let input = concat!(
             "   Compiling rtk v0.1.0 (/path)\n",

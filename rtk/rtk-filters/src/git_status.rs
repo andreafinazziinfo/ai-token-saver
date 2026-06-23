@@ -163,6 +163,13 @@ mod tests {
     }
 
     #[test]
+    fn test_snapshot_git_status_dirty() {
+        use insta::assert_snapshot;
+        let input = include_str!("../tests/fixtures/git_status_dirty.txt");
+        assert_snapshot!(filter(input));
+    }
+
+    #[test]
     fn token_savings_dirty() {
         let input = include_str!("../tests/fixtures/git_status_dirty.txt");
         let out = filter(input);

@@ -64,6 +64,13 @@ mod tests {
     }
 
     #[test]
+    fn test_snapshot_cargo_build_clean() {
+        use insta::assert_snapshot;
+        let input = include_str!("../tests/fixtures/cargo_build_clean.txt");
+        assert_snapshot!(filter(input));
+    }
+
+    #[test]
     fn keeps_warnings() {
         let input = concat!(
             "   Compiling rtk v0.1.0 (/path)\n",
