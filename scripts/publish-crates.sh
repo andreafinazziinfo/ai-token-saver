@@ -29,12 +29,13 @@ cargo test --workspace
 for pkg in "${PACKAGES[@]}"; do
   echo "== publish $pkg =="
   if [ "$DRY" = "1" ]; then
-    cargo publish --manifest-path "$MANIFEST" -p "$pkg" --dry-run "$@"
-  else
-    cargo publish --manifest-path "$MANIFEST" -p "$pkg" "$@"
-    echo "waiting for index..."
-    sleep 45
+    # package only: publish --dry-run fails if upstream 2.3.x not on crates.io yet
+    cargo package --manifest-path "$MANIFEST" -p "$pkg" --allow-dirty "$@"
+    continue
   fi
+  cargo publish --manifest-path "$MANIFEST" -p "$pkg" "$@"
+  echo "waiting for index..."
+  sleep 45
 done
 
 echo "Done. Verify: https://crates.io/crates/rtk-context-engine"
