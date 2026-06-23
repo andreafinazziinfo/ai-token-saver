@@ -1,0 +1,93 @@
+# RTK Quickstart (~5 minutes)
+
+Get filtered terminal output, project memory, and code index working for AI agents (Claude Code, Cursor, etc.).
+
+## 1. Install
+
+### macOS (Homebrew tap)
+
+```bash
+brew tap andreafinazziinfo/rust-context-engine
+brew install rtk
+```
+
+Or from a [release tarball](https://github.com/andreafinazziinfo/rust-context-engine/releases/latest).
+
+### Linux / WSL
+
+```bash
+git clone https://github.com/andreafinazziinfo/rust-context-engine.git
+cd rust-context-engine
+bash install.sh
+# or prebuilt: bash install.sh --prebuilt rtk-linux-amd64.tar.gz
+```
+
+Ensure `~/.local/bin` is on your `PATH`.
+
+### Windows (daily use)
+
+Download `rtk-windows-amd64.zip` from [Releases](https://github.com/andreafinazziinfo/rust-context-engine/releases/latest), extract to `%USERPROFILE%\.rtk-bin\rtk.exe`, add that folder to PATH.
+
+Development and tests: use **WSL** with the Linux install path above (native MSVC build not required).
+
+## 2. Initialize in your project
+
+```bash
+cd /path/to/your/project
+rtk init --profile high
+rtk index run
+rtk doctor
+```
+
+`init` installs shell aliases and attempts PreToolUse hook setup. `doctor` should show mostly ✅; warnings link back here.
+
+## 3. Try the core loop
+
+```bash
+# Filtered git status (compare with raw git status)
+rtk git status
+
+# Pack codebase for an agent (strip comments, optional skeleton)
+rtk pack . --strip --limit 30000
+
+# Persist a project fact across sessions
+rtk memory set db_port 5432
+rtk memory get db_port
+```
+
+If output is truncated, use `rtk show-log <id>` — do not re-run the same noisy command.
+
+## 4. MCP (optional)
+
+```bash
+rtk mcp install --client cursor
+# or: rtk mcp install --client claude
+rtk mcp start
+```
+
+## 5. Verify health
+
+```bash
+rtk doctor          # exit 0 = OK, 1 = critical, 2 = warnings
+rtk index status    # re-run `rtk index run` after large refactors (no file watcher)
+```
+
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| Raw git/cargo output | Run `source ~/.bashrc` or `~/.zshrc`; check `rtk doctor` aliases |
+| Empty symbols | `rtk index run` in project root |
+| Hook not rewriting | Absolute path to `hooks/rtk-rewrite.sh` in Claude settings; see README |
+| WSL vs Windows DB | Run RTK in one environment consistently; see `RTK_DB_PATH` in docs |
+
+More: [README](../README.md) · [ROADMAP.md](./ROADMAP.md) · [PLAN_NOW.md](./PLAN_NOW.md)
+
+## Contributors
+
+```bash
+bash scripts/setup-githooks.sh   # fmt pre-push
+bash scripts/dev-gate.sh         # before PR
+```
+
+Build from source: clone under `~/dev/` on WSL (not `/mnt/c/target`) — see `docs/archive/IMPROVEMENT_PLAN_9PLUS.md` DEV-WSL notes.

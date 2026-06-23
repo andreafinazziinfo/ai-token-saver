@@ -152,4 +152,20 @@ mod tests {
             "summary info missing"
         );
     }
+
+    fn count_tokens(s: &str) -> usize {
+        s.split_whitespace().map(str::len).sum::<usize>().max(1)
+    }
+
+    #[test]
+    fn token_savings_verbose_run() {
+        let input = include_str!("../tests/fixtures/pytest_verbose.txt");
+        let out = filter(input);
+        let savings = 1.0 - count_tokens(&out) as f64 / count_tokens(input) as f64;
+        assert!(
+            savings >= 0.40,
+            "pytest filter: expected ≥40% savings, got {:.1}%",
+            savings * 100.0
+        );
+    }
 }

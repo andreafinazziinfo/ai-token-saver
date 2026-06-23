@@ -142,6 +142,7 @@ pub fn run_doctor() -> DoctorOutcome {
     } else {
         println!("⚠️  not found in ~/.claude or ~/.gemini settings");
         println!("   👉 Run `rtk init` or add hooks/rtk-rewrite.sh to settings.json");
+        println!("   👉 Quickstart: docs/QUICKSTART.md (install → init → index run)");
         warnings = true;
     }
 
@@ -151,6 +152,7 @@ pub fn run_doctor() -> DoctorOutcome {
     } else {
         println!("⚠️  RTK aliases not found in shell rc");
         println!("   👉 Run `rtk init` to install aliases.");
+        println!("   👉 Quickstart: docs/QUICKSTART.md");
         warnings = true;
     }
 

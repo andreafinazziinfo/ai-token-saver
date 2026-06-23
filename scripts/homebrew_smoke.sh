@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FORMULA="$ROOT/rtk.rb"
+TAP_FORMULA="$ROOT/Formula/rtk.rb"
 PKG="$ROOT/rtk/rtk-cli/Cargo.toml"
 
 grep -q 'license "Apache-2.0"' "$FORMULA" || {
@@ -40,4 +41,13 @@ if [ "$PKG_VER" != "$FORMULA_VER" ]; then
   exit 1
 fi
 
-echo "homebrew smoke OK (formula v$FORMULA_VER)"
+[ -f "$TAP_FORMULA" ] || {
+  echo "homebrew smoke FAIL: missing Formula/rtk.rb (Homebrew tap)" >&2
+  exit 1
+}
+grep -q 'PLACEHOLDER' "$TAP_FORMULA" && {
+  echo "homebrew smoke FAIL: Formula/rtk.rb has PLACEHOLDER" >&2
+  exit 1
+}
+
+echo "homebrew smoke OK (formula v$FORMULA_VER, tap Formula/rtk.rb present)"

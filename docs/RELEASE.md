@@ -1,0 +1,19 @@
+# Release checklist (maintainer)
+
+After pushing tag `vX.Y.Z`:
+
+1. Wait for [Release workflow](https://github.com/andreafinazziinfo/rust-context-engine/actions/workflows/release.yml) to finish.
+2. Refresh Homebrew checksums:
+   ```bash
+   bash scripts/update_homebrew_sha256.sh vX.Y.Z
+   git add rtk.rb Formula/rtk.rb && git commit -m "chore: homebrew sha256 vX.Y.Z"
+   ```
+3. Verify: `bash scripts/homebrew_smoke.sh` and `bash scripts/release_smoke.sh`
+4. Release assets include `*.tar.gz.sha256` sidecars (Unix builds).
+
+Homebrew install (in-repo tap):
+
+```bash
+brew tap andreafinazziinfo/rust-context-engine
+brew install rtk
+```

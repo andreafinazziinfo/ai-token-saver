@@ -67,4 +67,20 @@ Status: Downloaded newer image for alpine:latest
         assert!(!filtered.contains("Pulling fs layer"));
         assert!(!filtered.contains("Downloading"));
     }
+
+    fn count_tokens(s: &str) -> usize {
+        s.split_whitespace().map(str::len).sum::<usize>().max(1)
+    }
+
+    #[test]
+    fn token_savings_build_output() {
+        let input = include_str!("../tests/fixtures/docker_build_verbose.txt");
+        let out = filter(input);
+        let savings = 1.0 - count_tokens(&out) as f64 / count_tokens(input) as f64;
+        assert!(
+            savings >= 0.40,
+            "docker filter: expected ≥40% savings, got {:.1}%",
+            savings * 100.0
+        );
+    }
 }
