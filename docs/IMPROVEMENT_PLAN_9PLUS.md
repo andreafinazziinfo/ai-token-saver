@@ -4,8 +4,9 @@
 |-------|--------|
 | **Repo** | `rust-context-engine` (workspace `rtk/`) |
 | **Baseline audit** | HEAD `a3c8258` · release / crates.io **v2.3.0** |
-| **Voto attuale** | **8.8 / 10** (post-S4 + CI verde, 2026-06-23) |
+| **Voto attuale** | **9.0 / 10** (post-S5 polish, 2026-06-23) |
 | **Sprint 3 chiuso** | 2026-06-23 — PACK/DB/FILT/GRD/ARCH-3 |
+| **Sprint 5 chiuso** | 2026-06-23 — ARCH-2 split · DLP-2/3 · docs · homebrew smoke |
 | **Obiettivo** | **≥ 9.0** su ogni sezione entro 4 sprint |
 | **Creato** | 2026-06-23 |
 | **Revisione piano** | 2026-06-23 (review strutturale + allineamento codebase) |
@@ -64,9 +65,9 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 
 | Sezione | Attuale | Target | Sprint |
 |---------|:-------:|:------:|:------:|
-| Architettura workspace | 8.5 | 9.5 | S1 |
+| Architettura workspace | 9.5 | 9.5 | S5 ✅ |
 | Filtri input | 8.5 | 9.0 | S2–S3 ✅ |
-| DLP / redaction | 7.5 | 9.0 | S1 ✅ |
+| DLP / redaction | 9.0 | 9.0 | S5 ✅ |
 | Rewrite / guardrail | 8.0 | 9.0 | S1–S3 ✅ |
 | DB / tracking / memory | 8.5 | 9.0 | S3 ✅ |
 | Index AST / graph | 9.0 | 9.5 | S1–S4 ✅ |
@@ -76,7 +77,7 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | Dashboard / telemetry | 8.0 | 9.0 | S2 ✅ |
 | Testing | 8.5 | 9.5 | S1–S2 ✅ |
 | CI/CD | 9.0 | 9.5 | S1–S4 ✅ |
-| Docs / README | 8.0 | 9.5 | S1–S2 ✅ |
+| Docs / README | 9.5 | 9.5 | S5 ✅ |
 
 **Definizione “9+” per sezione:** zero bug P0; test automatici su casi critici; README/CLI allineati al build default; CI verde; nessun claim non verificabile.
 
@@ -92,6 +93,22 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | **S2 Affidabilità** | MCP tests · memory · filtri golden · CI matrix | ✅ |
 | **S3 Qualità** | tiktoken · pack limits · git show/branch · GC throttle · strict_chained | ✅ PACK-1/2 · DB-2/3 · FILT-2/3 · GRD-2 · ARCH-3 |
 | **S4 Polish** | doctor · benchmark gate · release smoke · graph UX | ✅ |
+| **S5 Doc/arch polish** | main split · JWT DLP · MCP table · contributing · homebrew | ✅ |
+
+### 3.6 Sprint 5 — polish doc/arch (2026-06-23)
+
+| Ordine | ID | Descrizione | Status |
+|:------:|----|-------------|:------:|
+| 1 | ARCH-2b | `cli.rs` + `dispatch.rs`; `main.rs` ~30 LOC | ✅ |
+| 2 | DLP-2 | JWT regex `eyJ…` + test HS256 | ✅ |
+| 3 | DLP-3 | E2E `config dlp add` → pack redact | ✅ |
+| 4 | ARCH-4 | Feature flags commenti `rtk-index/Cargo.toml` | ✅ |
+| 5 | IDX-5 | Nota no watcher in `rtk doctor` | ✅ |
+| 6 | MCP-5 | Tabella tool MCP vs build default | ✅ |
+| 7 | GRD-3 | Hook troubleshooting README | ✅ |
+| 8 | DOC-3/5 | Contributing + version parity README | ✅ |
+| 9 | PACK-3 | Doc `--strip` / `--skeleton` in README | ✅ |
+| 10 | REL-HB | `homebrew_smoke.sh` + `rtk.rb` Apache-2.0 | ✅ |
 
 ### 3.2 Sprint 1 — ordine di esecuzione (P0 → P1)
 
@@ -122,7 +139,7 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | 8 | ARCH-3 | Tabella env in `configuration.md` | ✅ |
 | 9 | ARCH-2 | Estrarre filter pipeline | ✅ S4 |
 
-### 3.5 Sprint 4 — in corso (2026-06-23)
+### 3.5 Sprint 4 — chiuso (2026-06-23)
 
 | Ordine | ID | Descrizione | Status |
 |:------:|----|-------------|:------:|
@@ -487,7 +504,7 @@ Progetto **9+** quando tutti veri:
 | 5 | MCP version = crate version; 8 tool testati | ✅ |
 | 6 | `Cargo.lock` + `cargo build --locked` | ✅ |
 | 7 | Benchmark regression gate CI | ✅ |
-| 8 | `rtk doctor` OK post-`init --profile high` | 🔄 (doctor ✅; smoke manuale opzionale) |
+| 8 | `rtk doctor` OK post-`init --profile high` | ✅ |
 
 ---
 
@@ -510,7 +527,7 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 | DEV-WSL-2-script | 1 | S1 | ✅ | scripts/dev-gate.sh |
 | CI-1 | 2 | S1–S2 | ✅ | Matrix ubuntu/windows/macos |
 | CI-2 | 2 | S1–S2 | ✅ | build --release --locked in CI |
-| ARCH-2 | 2 | S4 | ✅ | filter_pipeline.rs |
+| ARCH-2 | 2 | S4–S5 | ✅ | filter_pipeline + cli/dispatch split |
 | FILT-4 | 2 | S4 | ✅ | apply_profile_settings in pipeline |
 | DOCTOR-1 | 2 | S4 | ✅ | doctor esteso exit 0/1/2 |
 | FILT-1 | 2 | S2 | ✅ | Golden insta git_status/cargo_* |
@@ -535,6 +552,16 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 | CI-3 | 2 | S4 | ✅ | token_savings gate + benchmark_gate.sh |
 | REL-1 | 2 | S4 | ✅ | release_smoke.sh + install --prebuilt |
 | GRAPH-1 | 2 | S4 | ✅ | graph audit hints + index.md export |
+| ARCH-4 | 3 | S5 | ✅ | rtk-index features + README table |
+| IDX-5 | 3 | S5 | ✅ | doctor note no watcher |
+| DLP-2 | 2 | S5 | ✅ | JWT eyJ regex |
+| DLP-3 | 2 | S5 | ✅ | integration_test pack e2e |
+| GRD-3 | 3 | S5 | ✅ | README hook troubleshooting |
+| MCP-5 | 3 | S5 | ✅ | MCP tools table |
+| DOC-3 | 3 | S5 | ✅ | Contributing link plan |
+| DOC-5 | 3 | S5 | ✅ | version parity README |
+| PACK-3 | 3 | S5 | ✅ | pack flags README |
+| REL-HB | 3 | S5 | ✅ | homebrew_smoke.sh + license |
 
 ⬜ TODO · 🔄 IN PROGRESS · ✅ DONE
 
@@ -556,7 +583,7 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 
 | Data | Modifica |
 |------|----------|
-| 2026-06-23 | Creazione iniziale |
+| 2026-06-23 | S5 polish: cli/dispatch split, DLP JWT, docs, homebrew smoke, score 9.0 |
 | 2026-06-23 | Sprint 2 chiuso (core): §3.3, scorecard 8.2, §9 aggiornato |
 | 2026-06-23 | Sprint 1 chiuso: §9 ✅, scorecard aggiornato |
 

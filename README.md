@@ -209,6 +209,16 @@ RTK implements a lightweight, high-performance MCP server built directly into th
 *   `session_state`: Check or update active tasks and decisions to manage handoffs.
 *   `get_budget_status`: Retrieve the current budget spend and check limit (exposes FinOps budget status to self-regulating agents).
 
+| MCP tool | Default build | Requires `--features embeddings` |
+| :--- | :---: | :---: |
+| `find_symbols`, `find_refs`, `impact_analyze` | yes (AST graph) | no |
+| `search_code` | yes (FTS / substring) | hybrid ONNX optional |
+| `project_memory`, `session_state`, `artifact_get` | yes | no |
+| `context_pack` (`--skeleton` uses Tree-sitter) | yes | no |
+| `get_budget_status`, `ping` | yes | no |
+
+MCP `initialize` reports the same version as `rtk --version` and `CARGO_PKG_VERSION` (see `scripts/release_smoke.sh`).
+
 *To install the MCP server into Claude Desktop or Cursor:*
 ```bash
 rtk mcp install --client claude
@@ -295,6 +305,9 @@ alias terraform="rtk terraform"
 *   **Input Wrappers (15 tools)**: `rtk git status/diff/log`, `rtk cargo test/build/check`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk yarn`, `rtk pnpm`, `rtk composer`, `rtk terraform`, `rtk dotnet`, `rtk gradle`, `rtk go_test`, `rtk ls`.
 *   **Context Virtualization & Compaction**: `rtk show-log <id>` (reads full uncompressed log), `rtk context compact` (compresses/compacts active context state), `rtk gc` (cleans old DB logs and reclaims space).
 *   **Directory Packaging**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
+    *   `--strip`: remove single-line comments and collapse blank lines (smaller XML, same semantics).
+    *   `--skeleton`: Tree-sitter AST mode — function bodies collapsed to signatures/docstrings (~90% savings on large files).
+    *   `--limit`: abort if packed token count exceeds budget (uses `count_tokens`; optional `--features tiktoken` in `rtk-db` for exact BPE).
 *   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>` (FTS5 keyword search; hybrid ONNX requires `--features embeddings`).
 *   **Hidden Chain-of-Thought**: `rtk think` (reads from stdin to store reasoning in the FTS5 DB out of the chat context).
 *   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
@@ -449,6 +462,20 @@ To ensure complete project portability and clean namespace isolation, RTK consol
 *   **Best-Effort DLP Redaction**: RTK's Data Loss Prevention (DLP) engine uses pattern matching (regular expressions) and entropy-based heuristics (Shannon entropy scanner) to strip private keys, credentials, and API tokens. While highly effective, **no scanner can guarantee 100% secret detection**. Avoid writing plain text production secrets in files or terminal commands.
 *   **Alias Bypassing**: RTK terminal wrappers rely on shell aliases (e.g., `alias git="rtk git"`). These wrappers are developer aids to keep context slim, but they are not an OS-level sandbox. The AI agent or a script can bypass RTK by using absolute paths (e.g., `/usr/bin/git`) or escaping the alias (e.g., `\git`).
 *   **PreToolUse Hook Support**: Transparent rewriting via `PreToolUse` hook requires support from the AI CLI client (such as Claude Code). If you run another client, ensure you register the suggestion hook in its configuration.
+*   **Hook exit codes**: `rtk rewrite` returns `0` = rewrite found, `1` = passthrough, `2` = denied, `3` = ask user. If hooks silently fail, run `rtk doctor` and verify `hooks/rtk-rewrite.sh` path is absolute in `settings.json`.
+*   **Hook timeout**: Claude Code default hook timeout is 5s; increase if rewrite runs on slow disks.
+
+---
+
+## 🤝 Contributing
+
+Dev gate (WSL/Linux): `bash scripts/dev-gate.sh` — fmt, clippy, full workspace tests.
+
+Improvement roadmap and task registry: [`docs/IMPROVEMENT_PLAN_9PLUS.md`](docs/IMPROVEMENT_PLAN_9PLUS.md).
+
+Release checks: `bash scripts/release_smoke.sh`, `bash scripts/homebrew_smoke.sh`.
+
+Version parity: workspace crates, `rtk --version`, and MCP `initialize` must match (`rtk/rtk-cli/Cargo.toml`).
 
 ---
 
@@ -457,6 +484,8 @@ To ensure complete project portability and clean namespace isolation, RTK consol
 *   **Aliases not loaded**: If aliases like `git` or `cargo` do not execute `rtk`, ensure you run `source ~/.bashrc` or `source ~/.zshrc` after the installer completes.
 *   **Database is Locked (`database is locked`)**: SQLite can temporarily lock the database during concurrent write/read operations. RTK is optimized for low latency, but if this happens, wait a few seconds and run the command again. You can also run `rtk gc` to clean up old logs.
 *   **WSL Paths on Windows**: When running under Windows with WSL, make sure `rtk` is installed in the WSL environment. If git outputs look raw, check that your WSL shell profiles contain the `ALIASES_BLOCK`.
+*   **PreToolUse hook not rewriting**: Confirm absolute path to `hooks/rtk-rewrite.sh` in Claude/Gemini settings; run `bash hooks/rtk-rewrite.sh` manually with `RTK_REWRITE_CMD='git status'`. Exit `2` means guardrail deny (expected for dangerous commands).
+*   **Stale code index**: RTK has no filesystem watcher — after large refactors run `rtk index run` (also noted by `rtk doctor`).
 
 ---
 

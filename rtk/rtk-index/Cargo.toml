@@ -37,9 +37,13 @@ optional = true
 default-features = false
 
 [features]
+# Default build: AST graph + FTS only (no ONNX).
 default = []
+# Hybrid semantic search via tract-onnx + HF tokenizers.
 embeddings = ["dep:tract-onnx", "dep:tokenizers", "dep:ndarray"]
+# Optional ort backend (alternative to tract for embeddings).
 ort = ["dep:ort"]
+# GPU / accelerator backends (require embeddings + ort):
 onnx-cuda = ["embeddings", "ort", "ort/cuda"]
 onnx-coreml = ["embeddings", "ort", "ort/coreml"]
 onnx-directml = ["embeddings", "ort", "ort/directml"]

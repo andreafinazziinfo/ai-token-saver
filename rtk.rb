@@ -1,7 +1,7 @@
 class Rtk < Formula
   desc "Rust Context Engine (rtk) — token-saving context engine for AI agents"
   homepage "https://github.com/andreafinazziinfo/rust-context-engine"
-  license "MIT"
+  license "Apache-2.0"
 
   if OS.mac?
     if Hardware::CPU.arm?

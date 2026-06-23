@@ -54,9 +54,9 @@ pub fn redact_with_source(text: &str, source: &str) -> String {
         Regex::new(r"(?s)-----BEGIN [A-Z ]+-----.*?-----END [A-Z ]+-----").unwrap()
     });
 
-    // Match JWT Tokens
+    // Match JWT Tokens (header starts with eyJ per RFC 7519)
     static JWT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\beyJh[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]*\b").unwrap()
+        Regex::new(r"\beyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]*\b").unwrap()
     });
 
     // Match typical API keys:
@@ -217,6 +217,14 @@ mod tests {
         let output = redact(input);
         assert!(output.contains("[REDACTED_JWT]"));
         assert!(!output.contains("eyJhR2VuZGEi"));
+    }
+
+    #[test]
+    fn test_redact_jwt_hs256_header() {
+        let input = "Auth JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature";
+        let output = redact(input);
+        assert!(output.contains("[REDACTED_JWT]"));
+        assert!(!output.contains("eyJhbGci"));
     }
 
     #[test]

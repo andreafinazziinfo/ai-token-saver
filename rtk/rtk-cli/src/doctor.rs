@@ -122,6 +122,7 @@ pub fn run_doctor() -> DoctorOutcome {
             warnings = true;
         }
     }
+    println!("   ℹ️  No file watcher — run `rtk index run` after large refactors");
 
     print!("⚙️  Config Regex: ");
     let regex_errors = config::validate_regex_config();

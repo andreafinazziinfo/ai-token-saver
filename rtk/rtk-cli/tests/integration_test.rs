@@ -541,3 +541,48 @@ fn test_rtk_config_and_estimate_commands() {
 
     std::fs::remove_dir_all(temp_dir).unwrap();
 }
+
+#[test]
+fn test_config_dlp_add_redacts_in_pack_output() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let temp_dir = std::env::temp_dir().join(format!("rtk_dlp_e2e_{timestamp}"));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    let secret = "MYTESTSECRET_9876";
+    std::fs::write(temp_dir.join("leak.txt"), format!("token={secret}\n")).unwrap();
+
+    let add_out = rtk_bin()
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["config", "dlp", "add", "MYTESTSECRET_[0-9]{4}"])
+        .output()
+        .expect("rtk not found");
+    assert!(
+        add_out.status.success(),
+        "config dlp add failed: {}",
+        String::from_utf8_lossy(&add_out.stderr)
+    );
+
+    let pack_out = rtk_bin()
+        .current_dir(&temp_dir)
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["pack", ".", "--strip"])
+        .output()
+        .expect("rtk not found");
+    assert!(pack_out.status.success());
+    let packed = String::from_utf8_lossy(&pack_out.stdout);
+    assert!(
+        packed.contains("[REDACTED_SECRET]"),
+        "expected custom DLP redaction in pack output"
+    );
+    assert!(
+        !packed.contains(secret),
+        "secret leaked in pack output after config dlp add"
+    );
+
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
