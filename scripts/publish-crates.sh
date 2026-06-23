@@ -40,6 +40,7 @@ needs_registry_deps() {
 
 publish_one() {
   local dir="$1"
+  shift
   local attempt
   for attempt in 1 2 3 4 5; do
     if (cd "$RTK/$dir" && cargo publish --allow-dirty "$@"); then
