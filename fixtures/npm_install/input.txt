@@ -1,0 +1,64 @@
+npm warn deprecated querystring@0.2.0: Legacy API
+npm warn deprecated uuid@3.4.0: upgrade to v7
+npm warn deprecated har-validator@5.1.5: deprecated
+npm warn deprecated request@2.88.2: deprecated
+npm warn deprecated @npmcli/move-file@1.1.2: moved
+added express@1.0.0 (from npm registry)
+npm warn deprecated express-legacy@0.0.0: deprecated
+added lodash@2.1.2 (from npm registry)
+added axios@3.2.4 (from npm registry)
+added moment@4.3.6 (from npm registry)
+added chalk@5.4.8 (from npm registry)
+added commander@6.5.10 (from npm registry)
+npm warn deprecated commander-legacy@0.5.0: deprecated
+added debug@7.6.12 (from npm registry)
+added dotenv@8.7.14 (from npm registry)
+added cors@9.8.16 (from npm registry)
+added body-parser@10.9.18 (from npm registry)
+added morgan@11.10.20 (from npm registry)
+npm warn deprecated morgan-legacy@0.10.0: deprecated
+added helmet@12.11.22 (from npm registry)
+added jsonwebtoken@13.12.24 (from npm registry)
+added bcrypt@14.13.26 (from npm registry)
+added mongoose@15.14.28 (from npm registry)
+added sequelize@16.15.30 (from npm registry)
+npm warn deprecated sequelize-legacy@0.15.0: deprecated
+added pg@17.16.32 (from npm registry)
+added redis@18.17.34 (from npm registry)
+added ioredis@19.18.36 (from npm registry)
+added bull@20.19.38 (from npm registry)
+added nodemailer@21.20.40 (from npm registry)
+npm warn deprecated nodemailer-legacy@0.20.0: deprecated
+added winston@22.21.42 (from npm registry)
+added pino@23.22.44 (from npm registry)
+added jest@24.23.46 (from npm registry)
+added mocha@25.24.48 (from npm registry)
+added chai@26.25.50 (from npm registry)
+npm warn deprecated chai-legacy@0.25.0: deprecated
+added supertest@27.26.52 (from npm registry)
+added sinon@28.27.54 (from npm registry)
+added nyc@29.28.56 (from npm registry)
+added eslint@30.29.58 (from npm registry)
+added prettier@31.30.60 (from npm registry)
+npm warn deprecated prettier-legacy@0.30.0: deprecated
+added typescript@32.31.62 (from npm registry)
+added ts-node@33.32.64 (from npm registry)
+added nodemon@34.33.66 (from npm registry)
+added webpack@35.34.68 (from npm registry)
+added babel@36.35.70 (from npm registry)
+npm warn deprecated babel-legacy@0.35.0: deprecated
+added rollup@37.36.72 (from npm registry)
+added vite@38.37.74 (from npm registry)
+added esbuild@39.38.76 (from npm registry)
+added terser@40.39.78 (from npm registry)
+
+added 40 packages, and audited 90 packages in 8.234s
+
+12 packages are looking for funding
+  run rust-context-engine for details
+
+3 moderate severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+

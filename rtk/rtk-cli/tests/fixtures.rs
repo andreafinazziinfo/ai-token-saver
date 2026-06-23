@@ -64,6 +64,11 @@ fn refresh_golden_expected_files() {
             "docker_build",
             rtk_filters::docker_filter::filter as fn(&str) -> String,
         ),
+        (
+            "npm_install",
+            rtk_filters::npm_filter::filter as fn(&str) -> String,
+        ),
+        ("ls", rtk_filters::ls_filter::filter as fn(&str) -> String),
     ] {
         let input = read_fixture(&dir.join(format!("{subdir}/input.txt")));
         let out = filter_fn(&input);
@@ -88,5 +93,23 @@ fn test_golden_fixtures_docker_build() {
     let expected = read_fixture(&fixtures_dir.join("docker_build/expected.txt"));
 
     let filtered = rtk_filters::docker_filter::filter(&input);
+    assert_eq!(filtered.trim(), expected.trim());
+}
+
+#[test]
+fn test_golden_fixtures_npm_install() {
+    let fixtures_dir = fixtures_dir();
+    let input = read_fixture(&fixtures_dir.join("npm_install/input.txt"));
+    let expected = read_fixture(&fixtures_dir.join("npm_install/expected.txt"));
+    let filtered = rtk_filters::npm_filter::filter(&input);
+    assert_eq!(filtered.trim(), expected.trim());
+}
+
+#[test]
+fn test_golden_fixtures_ls() {
+    let fixtures_dir = fixtures_dir();
+    let input = read_fixture(&fixtures_dir.join("ls/input.txt"));
+    let expected = read_fixture(&fixtures_dir.join("ls/expected.txt"));
+    let filtered = rtk_filters::ls_filter::filter(&input);
     assert_eq!(filtered.trim(), expected.trim());
 }

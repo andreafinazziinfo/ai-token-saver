@@ -160,4 +160,25 @@ mod tests {
         assert!(out.contains("file24.txt"));
         assert!(!out.contains("file15.txt"));
     }
+
+    fn count_tokens(s: &str) -> usize {
+        s.split_whitespace().map(str::len).sum::<usize>().max(1)
+    }
+
+    #[test]
+    fn token_savings_large_listing() {
+        let mut input = String::new();
+        for i in 0..25 {
+            input.push_str(&format!(
+                "-rw-r--r--  1 username username 100 Jun 18 22:00 file{i}.txt\n"
+            ));
+        }
+        let out = filter(&input);
+        let savings = 1.0 - count_tokens(&out) as f64 / count_tokens(&input) as f64;
+        assert!(
+            savings >= 0.40,
+            "ls filter: expected ≥40% savings, got {:.1}%",
+            savings * 100.0
+        );
+    }
 }

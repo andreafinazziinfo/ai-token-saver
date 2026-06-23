@@ -26,9 +26,21 @@ Ensure `~/.local/bin` is on your `PATH`.
 
 ### Windows (daily use)
 
-Download `rtk-windows-amd64.zip` from [Releases](https://github.com/andreafinazziinfo/rust-context-engine/releases/latest), extract to `%USERPROFILE%\.rtk-bin\rtk.exe`, add that folder to PATH.
+1. Download [`rtk-windows-amd64.zip`](https://github.com/andreafinazziinfo/rust-context-engine/releases/latest) from Releases.
+2. Extract `rtk.exe` to `%USERPROFILE%\.rtk-bin\`.
+3. Add to PATH (PowerShell, current user):
 
-Development and tests: use **WSL** with the Linux install path above (native MSVC build not required).
+```powershell
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  $env:Path + ";$env:USERPROFILE\.rtk-bin",
+  "User"
+)
+```
+
+4. Open a new terminal: `rtk --version`
+
+**Do not** build from source with MSVC for daily use — use the prebuilt binary or WSL for development.
 
 ## 2. Initialize in your project
 

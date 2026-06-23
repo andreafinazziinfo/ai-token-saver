@@ -16,15 +16,9 @@ Public snapshot for **v2.3.0**. Execution plan (what to do now): **[PLAN_NOW.md]
 
 Completed v2.3.0+ — see [QUICKSTART.md](./QUICKSTART.md).
 
-## Subito dopo (Fase B)
+## Subito dopo (Fase B) ✅
 
-| Item |
-|------|
-| Native npm/yarn filters (`NEXT-1`) |
-| Targeted tests dlp/rewrite/pipeline (`NEXT-2`) |
-| Golden ls/npm (`NEXT-3`) |
-| Split user vs contributor docs (`NEXT-4`) |
-| Windows prebuilt quickstart (`NEXT-6`) |
+Completed — native npm/yarn filters, golden ls/npm, core integration tests, USER/CONTRIBUTING docs.
 
 ## Won't do (unless product direction changes)
 

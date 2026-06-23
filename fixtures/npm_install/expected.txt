@@ -1,0 +1,17 @@
+npm warn deprecated querystring@0.2.0: Legacy API
+npm warn deprecated uuid@3.4.0: upgrade to v7
+npm warn deprecated har-validator@5.1.5: deprecated
+... 2 deprecation warnings collapsed ...
+added express@1.0.0 (from npm registry)
+... 1 deprecation warnings collapsed ...
+added lodash@2.1.2 (from npm registry)
+added axios@3.2.4 (from npm registry)
+added moment@4.3.6 (from npm registry)
+added chalk@5.4.8 (from npm registry)
+... 36 packages added (collapsed) ...
+... 7 deprecation warnings collapsed ...
+12 packages are looking for funding
+  run rust-context-engine for details
+3 moderate severity vulnerabilities
+To address all issues, run:
+  npm audit fix

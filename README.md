@@ -25,8 +25,7 @@
 
 ---
 
-> **Quickstart (~5 min):** [docs/QUICKSTART.md](docs/QUICKSTART.md) — install → `rtk init --profile high` → `rtk index run` → `rtk doctor`  
-> **macOS:** `brew tap andreafinazziinfo/rust-context-engine && brew install rtk`
+> **Quickstart (~5 min):** [docs/QUICKSTART.md](docs/QUICKSTART.md) · **User guide:** [docs/USER.md](docs/USER.md) · **macOS:** `brew tap andreafinazziinfo/rust-context-engine && brew install rtk`
 
 **RTK (Rust Context Engine)** is a high-performance, Rust-based local runtime and context engine designed to optimize how Autonomous Agents (like Claude Code, Cursor, Windsurf, Antigravity) interact with your project codebase.
 
@@ -472,18 +471,9 @@ To ensure complete project portability and clean namespace isolation, RTK consol
 
 ## 🤝 Contributing
 
-```bash
-bash scripts/setup-githooks.sh   # pre-push: cargo fmt --check
-bash scripts/dev-gate.sh         # fmt + clippy + test before PR
-```
+See **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** — dev gate, golden fixtures, release checklist, git hooks.
 
-Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md) · Plan: [`docs/PLAN_NOW.md`](docs/PLAN_NOW.md) · Quickstart: [`docs/QUICKSTART.md`](docs/QUICKSTART.md).
-
-After each release tag: `bash scripts/update_homebrew_sha256.sh vX.Y.Z` (updates `rtk.rb` + `Formula/rtk.rb`).
-
-Release checks: `bash scripts/release_smoke.sh`, `bash scripts/homebrew_smoke.sh`. Refresh Homebrew checksums after a tag: `bash scripts/update_homebrew_sha256.sh vX.Y.Z`.
-
-Version parity: workspace crates, `rtk --version`, and MCP `initialize` must match (`rtk/rtk-cli/Cargo.toml`).
+Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · Plan: [docs/PLAN_NOW.md](docs/PLAN_NOW.md)
 
 ---
 

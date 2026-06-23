@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use rtk_db::{config, session, status, think, tracking};
 use rtk_filters::{
     cargo_build, cargo_test, docker_filter, git_branch, git_diff, git_log, git_show, git_status,
-    go_test, gradle, ls_filter, pytest_filter,
+    go_test, gradle, ls_filter, npm_filter, pytest_filter,
 };
 use rtk_pack::pack;
 
@@ -49,9 +49,9 @@ pub fn dispatch(command: Commands) -> Result<()> {
                 _ => passthrough("cargo", &args),
             }
         }
-        Commands::Npm { args } => run_distilled("npm", &args),
-        Commands::Yarn { args } => run_distilled("yarn", &args),
-        Commands::Pnpm { args } => run_distilled("pnpm", &args),
+        Commands::Npm { args } => run_filtered_combined("npm", &args, npm_filter::filter),
+        Commands::Yarn { args } => run_filtered_combined("yarn", &args, npm_filter::filter_yarn),
+        Commands::Pnpm { args } => run_filtered_combined("pnpm", &args, npm_filter::filter),
         Commands::Composer { args } => run_distilled("composer", &args),
         Commands::Terraform { args } => run_distilled("terraform", &args),
         Commands::Dotnet { args } => {

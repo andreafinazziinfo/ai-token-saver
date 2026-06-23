@@ -543,6 +543,87 @@ fn test_rtk_config_and_estimate_commands() {
 }
 
 #[test]
+fn test_rewrite_strict_chained_denies() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let temp_dir = std::env::temp_dir().join(format!("rtk_strict_chain_{timestamp}"));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    std::fs::create_dir_all(temp_dir.join(".config/rtk")).unwrap();
+    std::fs::write(
+        temp_dir.join(".config/rtk/config.json"),
+        r#"{"strict_chained":true,"denied_commands":[],"dlp":{"custom_patterns":[]}}"#,
+    )
+    .unwrap();
+
+    let out = rtk_bin()
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["rewrite", "git status && git push"])
+        .output()
+        .expect("rtk not found");
+    assert_eq!(out.status.code(), Some(2));
+
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn test_config_deny_add_blocks_rewrite() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let temp_dir = std::env::temp_dir().join(format!("rtk_deny_e2e_{timestamp}"));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    let add = rtk_bin()
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["config", "deny", "add", "dangerous_tool"])
+        .output()
+        .expect("rtk not found");
+    assert!(add.status.success(), "deny add failed");
+
+    let out = rtk_bin()
+        .env("HOME", &temp_dir)
+        .env("USERPROFILE", &temp_dir)
+        .args(["rewrite", "dangerous_tool --force"])
+        .output()
+        .expect("rtk not found");
+    assert_eq!(out.status.code(), Some(2));
+
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn test_dlp_jwt_redacted_via_pack_cli() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let temp_dir = std::env::temp_dir().join(format!("rtk_jwt_pack_{timestamp}"));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    std::fs::write(
+        temp_dir.join("token.txt"),
+        "Auth: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.sig\n",
+    )
+    .unwrap();
+
+    let pack = rtk_bin()
+        .current_dir(&temp_dir)
+        .args(["pack", ".", "--strip"])
+        .output()
+        .expect("rtk not found");
+    assert!(pack.status.success());
+    let out = String::from_utf8_lossy(&pack.stdout);
+    assert!(out.contains("[REDACTED_JWT]"));
+    assert!(!out.contains("eyJhbGci"));
+
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
 fn test_config_dlp_add_redacts_in_pack_output() {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

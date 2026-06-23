@@ -67,9 +67,9 @@ Focus: **stack JS**, **regressioni silenziose**, **doc contributor vs user**.
 
 ### Exit criteria Fase B
 
-- [ ] npm/yarn misurati con benchmark o golden (non solo distill generico)
-- [ ] Coverage mirata su moduli critici (no target 70% globale)
-- [ ] README ≤ metà lunghezza attuale; dettaglio in `docs/`
+- [x] npm/yarn misurati con benchmark o golden (non solo distill generico)
+- [x] Coverage mirata su moduli critici (no target 70% globale)
+- [x] README Contributing → docs/; USER.md + CONTRIBUTING.md creati
 
 ---
 
@@ -106,11 +106,11 @@ Focus: **stack JS**, **regressioni silenziose**, **doc contributor vs user**.
 | NOW-5 | ✅ | golden docker + token_savings ≥40% |
 | NOW-6 | ✅ | release `.sha256` sidecars + `docs/RELEASE.md` |
 | NOW-7 | ✅ | README quickstart banner + brew tap |
-| NEXT-1 | ⬜ | |
-| NEXT-2 | ⬜ | |
-| NEXT-3 | ⬜ | |
-| NEXT-4 | ⬜ | |
-| NEXT-5 | ⬜ | hook fmt già in repo |
-| NEXT-6 | ⬜ | |
+| NEXT-1 | ✅ | `npm_filter.rs` + dispatch combined |
+| NEXT-2 | ✅ | integration: strict_chained, deny, JWT pack |
+| NEXT-3 | ✅ | golden ls + npm fixtures |
+| NEXT-4 | ✅ | `docs/USER.md` + `docs/CONTRIBUTING.md` |
+| NEXT-5 | ✅ | githooks in CONTRIBUTING |
+| NEXT-6 | ✅ | QUICKSTART Windows PowerShell PATH |
 
 ⬜ TODO · 🔄 IN PROGRESS · ✅ DONE
