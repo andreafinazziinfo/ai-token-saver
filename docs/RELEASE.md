@@ -18,6 +18,15 @@ After pushing tag `vX.Y.Z`:
    ```
 3. Verify: `bash scripts/homebrew_smoke.sh` and `bash scripts/release_smoke.sh`
 4. Release assets include `*.tar.gz.sha256` sidecars (Unix builds).
+5. **crates.io** (manual — not in GitHub Actions):
+   ```bash
+   # once: token from https://crates.io/settings/tokens
+   cargo login
+   bash scripts/publish-crates.sh --dry-run   # optional check
+   bash scripts/publish-crates.sh             # publishes 6 crates in order
+   ```
+   Order: `rtk-context-db` → `filters` → `index` → `pack` → `mcp` → `rtk-context-engine`.
+   Wait ~30–60s between crates if publish fails with “dependency not found”.
 
 Homebrew install (in-repo tap):
 
