@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 
 use rtk_db::{config, dlp, session, status, think, tracking};
 use rtk_filters::{
-    cargo_build, cargo_test, docker_filter, git_diff, git_log, git_status, go_test, gradle,
-    ls_filter, pytest_filter,
+    cargo_build, cargo_test, docker_filter, git_branch, git_diff, git_log, git_show, git_status,
+    go_test, gradle, ls_filter, pytest_filter,
 };
 use rtk_pack::pack;
 
@@ -559,6 +559,10 @@ fn main() {
                     run_filtered("git", &args, git_status::filter)
                 }
                 "log" => run_filtered("git", &args, git_log::filter),
+                "show" => run_filtered("git", &args, git_show::filter),
+                "branch" if has_flag(&args, &["-v", "-vv", "--verbose"]) => {
+                    run_filtered("git", &args, git_branch::filter)
+                }
                 _ => passthrough("git", &args),
             }
         }
@@ -596,7 +600,7 @@ fn main() {
             limit,
         } => pack::pack_directory(Path::new(&path), strip, skeleton).and_then(|packed| {
             if let Some(lim) = limit {
-                let tokens = packed.split_whitespace().count();
+                let tokens = rtk_db::tracking::count_tokens(&packed) as usize;
                 if tokens > lim {
                     return Err(anyhow::anyhow!(
                         "Pack exceeded token limit! (Limit: {}, Total: {})",

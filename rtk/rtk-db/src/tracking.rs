@@ -43,6 +43,10 @@ pub(crate) fn open_db() -> Result<Connection> {
             filtered_tokens  INTEGER NOT NULL,
             timestamp        TEXT    NOT NULL DEFAULT (datetime('now')),
             raw_output       TEXT
+        );
+        CREATE TABLE IF NOT EXISTS meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );",
     )
     .context("create DB tables")?;
@@ -55,6 +59,47 @@ pub(crate) fn open_db() -> Result<Connection> {
     let _ = conn.execute("ALTER TABLE tracking ADD COLUMN duration_ms INTEGER", []);
 
     Ok(conn)
+}
+
+const GC_INTERVAL_SECS: i64 = 86400;
+
+fn gc_due(conn: &Connection) -> Result<bool> {
+    let last: i64 = conn
+        .query_row(
+            "SELECT CAST(COALESCE((SELECT value FROM meta WHERE key = 'last_gc'), '0') AS INTEGER)",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let now: i64 = conn.query_row("SELECT CAST(strftime('%s','now') AS INTEGER)", [], |r| {
+        r.get(0)
+    })?;
+    Ok(last == 0 || now - last > GC_INTERVAL_SECS)
+}
+
+fn stamp_gc(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('last_gc', strftime('%s','now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [],
+    )?;
+    Ok(())
+}
+
+fn purge_old_tracking(conn: &Connection) -> Result<usize> {
+    let deleted = conn.execute(
+        "DELETE FROM tracking WHERE timestamp < datetime('now', '-30 days')",
+        [],
+    )?;
+    Ok(deleted)
+}
+
+fn purge_tracking_if_due(conn: &Connection) -> Result<()> {
+    if gc_due(conn)? {
+        let _ = purge_old_tracking(conn)?;
+        stamp_gc(conn)?;
+    }
+    Ok(())
 }
 
 pub(crate) fn project_db_path() -> PathBuf {
@@ -133,9 +178,14 @@ fn get_git_branch() -> String {
     "detached".to_string()
 }
 
-/// Estimate the token count of a string slice.
-/// Uses a simple heuristic of approximately 1 token per 4 characters.
+/// Estimate token count (chars/4 heuristic; optional `tiktoken` feature uses cl100k_base).
 pub fn count_tokens(text: &str) -> i64 {
+    #[cfg(feature = "tiktoken")]
+    {
+        if let Ok(bpe) = tiktoken_rs::cl100k_base() {
+            return bpe.encode_ordinary(text).len() as i64;
+        }
+    }
     (text.len().div_ceil(4)) as i64
 }
 
@@ -160,11 +210,7 @@ pub fn record(
     let filt = count_tokens(filtered);
     let conn = open_db()?;
 
-    // Automatic DB garbage collection: purge logs older than 30 days during record calls
-    let _ = conn.execute(
-        "DELETE FROM tracking WHERE timestamp < datetime('now', '-30 days')",
-        [],
-    );
+    purge_tracking_if_due(&conn)?;
 
     let mut model_name = String::from("Unknown Model");
     for var in &[
@@ -211,16 +257,9 @@ pub fn record(
 /// Returns the number of purged rows.
 pub fn gc() -> Result<usize> {
     let conn = open_db()?;
-    let deleted = conn
-        .execute(
-            "DELETE FROM tracking WHERE timestamp < datetime('now', '-30 days')",
-            [],
-        )
-        .context("execute GC delete query")?;
-
-    // Shrink database file to reclaim deleted space
+    let deleted = purge_old_tracking(&conn).context("execute GC delete query")?;
+    stamp_gc(&conn)?;
     let _ = conn.execute("VACUUM", []);
-
     Ok(deleted)
 }
 
@@ -900,9 +939,17 @@ mod tests {
 
     #[test]
     fn count_tokens_basic() {
-        assert_eq!(count_tokens("hello world foo"), 4);
         assert_eq!(count_tokens(""), 0);
-        assert_eq!(count_tokens("  lots   of   space  "), 6);
+        #[cfg(not(feature = "tiktoken"))]
+        {
+            assert_eq!(count_tokens("hello world foo"), 4);
+            assert_eq!(count_tokens("  lots   of   space  "), 6);
+        }
+        #[cfg(feature = "tiktoken")]
+        {
+            assert!(count_tokens("hello world foo") >= 3);
+            assert!(count_tokens("  lots   of   space  ") >= 3);
+        }
     }
 
     #[test]
@@ -991,7 +1038,13 @@ mod tests {
         )
         .unwrap();
 
-        // 2. Call record() and verify it triggers automatic purge
+        // 2. Call record() and verify it triggers automatic purge (reset throttle)
+        conn.execute(
+            "INSERT INTO meta (key, value) VALUES ('last_gc', '0')
+             ON CONFLICT(key) DO UPDATE SET value = '0'",
+            [],
+        )
+        .unwrap();
         record("new_cmd", "foo bar", "foo", "foo bar", None).unwrap();
 
         // 3. Verify total rows is still 2 (the first recorded cmd, plus the new_cmd. The old_cmd_2 should be auto-purged)
@@ -1168,6 +1221,77 @@ mod tests {
 
         assert_eq!(val, "v2");
         assert_eq!(created1, created2);
+
+        let _ = env::set_current_dir(prev);
+        std::fs::remove_file(&tmp).ok();
+        let _ = std::fs::remove_dir_all(work);
+        env::remove_var("RTK_PROJECT_DB_PATH");
+    }
+
+    #[test]
+    fn test_gc_throttled_on_record() {
+        let _lock = DB_TEST_LOCK.lock().unwrap();
+        use std::env;
+        let tmp = env::temp_dir().join(format!("rtk_gc_throttle_{}.db", std::process::id()));
+        env::set_var("RTK_DB_PATH", &tmp);
+        let conn = open_db().unwrap();
+        conn.execute(
+            "INSERT INTO tracking (cmd, original_tokens, filtered_tokens, raw_output, timestamp) \
+             VALUES ('old', 10, 2, 'x', datetime('now', '-31 days'))",
+            [],
+        )
+        .unwrap();
+        stamp_gc(&conn).unwrap();
+
+        purge_tracking_if_due(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracking", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1, "GC should be throttled within 24h");
+
+        conn.execute("UPDATE meta SET value = '0' WHERE key = 'last_gc'", [])
+            .unwrap();
+        purge_tracking_if_due(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracking", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+
+        std::fs::remove_file(&tmp).ok();
+        env::remove_var("RTK_DB_PATH");
+    }
+
+    #[test]
+    fn test_concurrent_memory_fts() {
+        use std::thread;
+
+        let _lock = DB_TEST_LOCK.lock().unwrap();
+        let tmp = env::temp_dir().join(format!("rtk_fts_concurrent_{}.db", std::process::id()));
+        let work = env::temp_dir().join(format!("rtk_fts_proj_{}", std::process::id()));
+        std::fs::create_dir_all(&work).unwrap();
+        env::set_var("RTK_PROJECT_DB_PATH", &tmp);
+        let prev = env::current_dir().unwrap();
+        env::set_current_dir(&work).unwrap();
+
+        for i in 0..5 {
+            memory_set(&format!("seed{i}"), &format!("searchterm value {i}")).unwrap();
+        }
+
+        let mut handles = Vec::new();
+        for t in 0..4 {
+            handles.push(thread::spawn(move || {
+                for j in 0..25 {
+                    let _ = memory_search("searchterm");
+                    let _ = memory_set(&format!("t{t}_k{j}"), &format!("searchterm thread {t}"));
+                }
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let hits = memory_search("searchterm").unwrap();
+        assert!(!hits.is_empty());
 
         let _ = env::set_current_dir(prev);
         std::fs::remove_file(&tmp).ok();

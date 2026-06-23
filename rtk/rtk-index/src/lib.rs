@@ -143,7 +143,7 @@ pub fn analyze_impact(symbol_name: &str) -> Result<Vec<db::DbSymbol>> {
         return Ok(Vec::new());
     }
 
-    let impact_graph = graph::ImpactGraph::build(all_syms, all_deps);
+    let impact_graph = graph::ImpactGraph::build(all_syms.clone(), all_deps);
 
     let mut affected_ids = std::collections::HashSet::new();
     for target_id in target_ids {
@@ -153,9 +153,7 @@ pub fn analyze_impact(symbol_name: &str) -> Result<Vec<db::DbSymbol>> {
         }
     }
 
-    let conn2 = db::open_db()?;
-    let reloaded = db::get_all_symbols(&conn2)?;
-    let result = reloaded
+    let result = all_syms
         .into_iter()
         .filter(|s| affected_ids.contains(&s.id))
         .collect();

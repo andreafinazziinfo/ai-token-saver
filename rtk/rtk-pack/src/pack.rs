@@ -314,6 +314,10 @@ fn test() {
         assert!(!packed.contains("sk-proj-"));
         assert!(!packed.contains("let x = 10"));
 
+        let packed_full = pack_directory(&temp_dir, false, false).unwrap();
+        assert!(packed_full.contains("[REDACTED_API_KEY]"));
+        assert!(!packed_full.contains("sk-proj-"));
+
         fs::remove_dir_all(&temp_dir).ok();
     }
 }

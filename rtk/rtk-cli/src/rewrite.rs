@@ -21,6 +21,9 @@ pub fn run(raw: &str) -> Result<()> {
 
     // Security bypass: if command contains chaining/metacharacters, bypass rewriting
     if is_chained(cmd) {
+        if rtk_db::config::get_config().strict_chained {
+            std::process::exit(2);
+        }
         std::process::exit(1);
     }
 

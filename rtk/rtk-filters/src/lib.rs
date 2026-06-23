@@ -1,8 +1,10 @@
 pub mod cargo_build;
 pub mod cargo_test;
 pub mod docker_filter;
+pub mod git_branch;
 pub mod git_diff;
 pub mod git_log;
+pub mod git_show;
 pub mod git_status;
 pub mod go_test;
 pub mod gradle;

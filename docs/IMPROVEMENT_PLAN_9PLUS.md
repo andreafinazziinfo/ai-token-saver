@@ -4,7 +4,8 @@
 |-------|--------|
 | **Repo** | `rust-context-engine` (workspace `rtk/`) |
 | **Baseline audit** | HEAD `a3c8258` · release / crates.io **v2.3.0** |
-| **Voto attuale** | **7.8 / 10** (post-S1, 2026-06-23) |
+| **Voto attuale** | **8.6 / 10** (post-S3, 2026-06-23) |
+| **Sprint 3 chiuso** | 2026-06-23 — PACK/DB/FILT/GRD/ARCH-3 |
 | **Obiettivo** | **≥ 9.0** su ogni sezione entro 4 sprint |
 | **Creato** | 2026-06-23 |
 | **Revisione piano** | 2026-06-23 (review strutturale + allineamento codebase) |
@@ -64,15 +65,15 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | Sezione | Attuale | Target | Sprint |
 |---------|:-------:|:------:|:------:|
 | Architettura workspace | 8.5 | 9.5 | S1 |
-| Filtri input | 8.0 | 9.0 | S2 |
+| Filtri input | 8.5 | 9.0 | S2–S3 ✅ |
 | DLP / redaction | 7.5 | 9.0 | S1 ✅ |
-| Rewrite / guardrail | 7.5 | 9.0 | S1 ✅ |
-| DB / tracking / memory | 8.0 | 9.0 | S2 ✅ |
+| Rewrite / guardrail | 8.0 | 9.0 | S1–S3 ✅ |
+| DB / tracking / memory | 8.5 | 9.0 | S3 ✅ |
 | Index AST / graph | 8.5 | 9.5 | S1–S2 ✅ |
 | MCP server | 8.0 | 9.0 | S2 ✅ |
-| Pack / skeleton | 7.5 | 9.0 | S3 |
+| Pack / skeleton | 8.5 | 9.0 | S3 ✅ |
 | Pricing / FinOps | 8.0 | 9.0 | S1 ✅ |
-| Dashboard / telemetry | 7.5 | 9.0 | S3 |
+| Dashboard / telemetry | 8.0 | 9.0 | S2 ✅ |
 | Testing | 8.5 | 9.5 | S1–S2 ✅ |
 | CI/CD | 8.0 | 9.5 | S1–S2 |
 | Docs / README | 8.0 | 9.5 | S1–S2 ✅ |
@@ -88,8 +89,8 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | Sprint | Focus | Exit criteria (sintesi) |
 |--------|-------|-------------------------|
 | **S1 Fondamenta** | Dev gate WSL · fix pricing · lazy index · DLP/GRD · MCP version · Cargo.lock · docs onesti | ✅ Gate verde · IDX-1/2 · FIN-1 · MCP-1 · DOC-1 · DLP-1 · GRD-1 · ARCH-1 |
-| **S2 Affidabilità** | MCP tests · memory · filtri golden · CI matrix | MCP-4 · FILT-1 · CI-1 verde 3 OS |
-| **S3 Qualità** | tiktoken · dashboard fix · pack limits · embeddings policy A | DB-2 · DASH-1 · PACK-1 |
+| **S2 Affidabilità** | MCP tests · memory · filtri golden · CI matrix | ✅ |
+| **S3 Qualità** | tiktoken · pack limits · git show/branch · GC throttle · strict_chained | ✅ PACK-1/2 · DB-2/3 · FILT-2/3 · GRD-2 · ARCH-3 |
 | **S4 Polish** | doctor · benchmark gate · release smoke · graph UX | DoD §8 completo |
 
 ### 3.2 Sprint 1 — ordine di esecuzione (P0 → P1)
@@ -105,7 +106,21 @@ RTK è un prodotto **reale e ben archittettato** (6 crate, ~12k LOC, CI attiva, 
 | 7 | DLP-1 | P1 | Fix bypass base64 `=` | ✅ |
 | 8 | GRD-1 | P1 | Deny su comandi chained | ✅ |
 | 9 | DOC-1 | P1 | README “Default vs Full build” | ✅ |
-| 10 | CI-1 | P2 | Matrix OS (slittato → S2) | ⬜ |
+| 10 | CI-1 | P2 | Matrix OS (slittato → S2) | ✅ |
+
+### 3.4 Sprint 3 — ordine eseguito (2026-06-23)
+
+| Ordine | ID | Descrizione | Status |
+|:------:|----|-------------|:------:|
+| 1 | PACK-1 | `--limit` usa `count_tokens` centralizzato | ✅ |
+| 2 | PACK-2 | Test DLP pack full + skeleton | ✅ |
+| 3 | DB-3 | GC throttled 24h su `record()` | ✅ |
+| 4 | DB-2 | Feature `tiktoken` opzionale su `count_tokens` | ✅ |
+| 5 | FILT-2 | Filtri `git show`, `git branch -v` | ✅ |
+| 6 | FILT-3 | Tabella filtered vs passthrough in `cli.md` | ✅ |
+| 7 | GRD-2 | `strict_chained` in `.rtk.json` | ✅ |
+| 8 | ARCH-3 | Tabella env in `configuration.md` | ✅ |
+| 9 | ARCH-2 | Estrarre filter pipeline | ⬜ S4 |
 
 **Regola merge Sprint 1:** nessuna PR feature senza **DEV-WSL-2** verde (fmt + clippy + test).
 
@@ -143,7 +158,7 @@ cd ~/dev/rust-context-engine/rtk
 - [x] `cargo build --release` exit 0 in `~/dev/rust-context-engine/rtk`
 - [x] `./target/release/rtk status` risponde
 - [x] Nessun `target/` sotto `/mnt/c/` usato per dev/test
-- [ ] Nota in `docs/src/installation.md` — sezione “Sviluppo WSL”
+- [x] Nota in `docs/src/installation.md` — sezione “Sviluppo WSL”
 
 **Effort:** S · **Blocker:** sì
 
@@ -488,15 +503,21 @@ Aggiornare a ogni merge. **FIN-1** è il fix pricing; non duplicare con alias se
 | FILT-1 | 2 | S2 | ✅ | Golden insta git_status/cargo_* |
 | MCP-4 | 2 | S2 | ✅ | 10 test MCP (initialize + tools) |
 | DB-1 | 2 | S2 | ✅ | memory_set preserves created_at |
-| DB-2 | 2 | S3 | ⬜ | tiktoken feature |
-| DASH-1 | 2 | S3 | ✅ | top_saver vs most_frequent fix |
-| DOC-4 | 2 | S2 | ✅ | limitations.md post-IDX/DLP/GRD |
-| DB-4 | 2 | S2 | ✅ | README FTS5 default |
-| IDX-3 | 2 | S2 | ✅ | analyze_impact single read |
-| TST-3 | 2 | S2 | ✅ | scripts/e2e_smoke.sh |
-| TST-6 | 2 | S2 | ✅ | concurrent memory FTS |
-| TST-4 | 2 | S2 | 🔄 | CI matrix green on push |
-| PACK-1 | 2 | S3 | ⬜ | limit tokens |
+| DASH-1 | 2 | S2 | ✅ | top_saver fix |
+| DOC-4 | 2 | S2 | ✅ | limitations.md |
+| DB-4 | 2 | S2 | ✅ | README FTS5 |
+| IDX-3 | 2 | S2 | ✅ | analyze_impact |
+| TST-3 | 2 | S2 | ✅ | e2e_smoke.sh |
+| TST-6 | 2 | S2 | ✅ | FTS concurrent |
+| TST-4 | 2 | S2 | 🔄 | CI push pending |
+| PACK-1 | 2 | S3 | ✅ | pack --limit count_tokens |
+| PACK-2 | 2 | S3 | ✅ | DLP pack test |
+| DB-2 | 2 | S3 | ✅ | feature tiktoken |
+| DB-3 | 2 | S3 | ✅ | GC throttle 24h |
+| FILT-2 | 2 | S3 | ✅ | git show / branch -v |
+| FILT-3 | 2 | S3 | ✅ | cli.md table |
+| GRD-2 | 2 | S3 | ✅ | strict_chained |
+| ARCH-3 | 2 | S3 | ✅ | env var table |
 | CI-3 | 2 | S4 | ⬜ | benchmark gate |
 
 ⬜ TODO · 🔄 IN PROGRESS · ✅ DONE

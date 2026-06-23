@@ -63,6 +63,37 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
+## 4. Development on WSL (recommended)
+
+Building and testing from a Windows-mounted path (`/mnt/c/...`) often causes slow I/O and OOM on `target/`. Use a Linux-native clone for development:
+
+```bash
+mkdir -p ~/dev && cd ~/dev
+git clone https://github.com/andreafinazziinfo/rust-context-engine.git
+cd rust-context-engine/rtk
+cargo build --release
+```
+
+Sync from an existing Windows checkout instead of cloning:
+
+```bash
+mkdir -p ~/dev/rust-context-engine
+rsync -a --exclude target --exclude .rtk \
+  /mnt/c/Users/YOU/dev/rust-context-engine/ ~/dev/rust-context-engine/
+cd ~/dev/rust-context-engine/rtk
+```
+
+Quality gate before merge (same as CI):
+
+```bash
+bash scripts/dev-gate.sh
+# fmt + clippy + cargo test --workspace
+```
+
+For daily RTK usage on Windows, prefer the [GitHub release zip](https://github.com/andreafinazziinfo/rust-context-engine/releases) (`%USERPROFILE%\.rtk-bin\rtk.exe`). Native MSVC build is optional.
+
+---
+
 ## 3. IDE & AI CLI Hook Integrations
 
 Integrating RTK directly into the AI toolchain ensures that commands typed by the AI are transparently rewritten without you needing to do it manually.

@@ -23,11 +23,31 @@ rtk audit
 Aggregates workspace source files into a single structured XML envelope for AI consumption.
 * `--strip`: Strips comments and empty lines from source code.
 * `--skeleton`: Uses Tree-Sitter parsing to collapse function/method bodies, returning only API signatures.
-* `--limit <tokens>`: Fails with an error if the packaged result exceeds the specified token threshold.
+* `--limit <tokens>`: Fails if packaged output exceeds the token budget (same `count_tokens` heuristic as stats/tracking).
 
 ```bash
 rtk pack src/ --strip --skeleton --limit 20000
 ```
+
+---
+
+## 2b. Filtered Git / Cargo Commands
+
+RTK intercepts common dev commands and compresses stdout. Passthrough = raw output unchanged.
+
+| Command | Filtered? | Notes |
+|---------|:---------:|-------|
+| `git status` | yes | Skips porcelain/short flags |
+| `git diff` | yes | Collapses hunks, drops noise |
+| `git log` | yes | One line per commit (default format) |
+| `git show` | yes | Subject + patch; drops Author/Date |
+| `git branch -v` | yes | Compact branch lines |
+| `git` (other) | no | Passthrough |
+| `cargo test` | yes | Drops passing tests + build preamble |
+| `cargo build` / `check` | yes | stderr warnings/errors kept |
+| `cargo` (other) | no | Passthrough |
+| `pytest`, `ls`, `docker`, `go test`, `gradle` | yes | See filter modules |
+| `npm`, `yarn`, `pnpm`, `composer`, `terraform` | distill | Generic line collapse |
 
 ---
 

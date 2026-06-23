@@ -295,7 +295,7 @@ alias terraform="rtk terraform"
 *   **Input Wrappers (15 tools)**: `rtk git status/diff/log`, `rtk cargo test/build/check`, `rtk pytest`, `rtk docker`, `rtk npm`, `rtk yarn`, `rtk pnpm`, `rtk composer`, `rtk terraform`, `rtk dotnet`, `rtk gradle`, `rtk go_test`, `rtk ls`.
 *   **Context Virtualization & Compaction**: `rtk show-log <id>` (reads full uncompressed log), `rtk context compact` (compresses/compacts active context state), `rtk gc` (cleans old DB logs and reclaims space).
 *   **Directory Packaging**: `rtk pack [path] [--strip] [--skeleton] [--limit 50000]`.
-*   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>` (hybrid BM25 keyword + local ONNX vector search).
+*   **Project Memory & Search**: `rtk memory set <key> <val>`, `rtk memory get <key>`, `rtk memory list`, `rtk memory search <query>` (FTS5 keyword search; hybrid ONNX requires `--features embeddings`).
 *   **Hidden Chain-of-Thought**: `rtk think` (reads from stdin to store reasoning in the FTS5 DB out of the chat context).
 *   **Rules & Profiles**: `rtk init --profile <low|medium|high|max>`, `rtk sync-rules` (recursively mirrors `.cursor/rules` to subprojects).
 *   **Command Rewriting**: `rtk rewrite "<command>"` (PreToolUse hook engine: auto-allows, denies, or asks for dangerous commands).
@@ -371,7 +371,7 @@ sequenceDiagram
     LLM->>RTK: rtk memory set db_port 5432
     RTK->>DB: Store KV in project_memory
     LLM->>RTK: rtk memory search "database"
-    RTK->>DB: Hybrid (FTS5 + ONNX) Search
+    RTK->>DB: FTS5 Search (ONNX optional in full build)
     DB-->>RTK: Matching Entries
     RTK-->>LLM: Relevant Context
     end

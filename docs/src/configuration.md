@@ -15,6 +15,14 @@ To inspect the active configuration configuration merged from both files, run:
 rtk config show
 ```
 
+### Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `RTK_DB_PATH` | Global tracking DB (command logs, stats) |
+| `RTK_PROJECT_DB_PATH` | Project-local DB (memory, session) override |
+| `RTK_INDEX_DB_PATH` | Code index SQLite path override |
+
 ---
 
 ## Command Guardrails (Deny Lists)
@@ -40,6 +48,16 @@ To prevent resetting Kubernetes clusters:
 ```bash
 rtk config deny add "kubectl delete namespace"
 ```
+
+### Strict chained commands
+
+By default, chained commands (`&&`, `;`, `|`, `||`) bypass rewrite but **deny rules still apply per segment**. Set in `.rtk.json`:
+
+```json
+{ "strict_chained": true }
+```
+
+When enabled, any chained command is blocked by `rtk rewrite` (exit code 2) unless you split into single commands.
 
 ---
 

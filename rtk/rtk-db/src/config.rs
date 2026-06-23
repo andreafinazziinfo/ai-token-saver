@@ -45,6 +45,8 @@ pub struct UserConfig {
     pub overrides: std::collections::HashMap<String, String>,
     /// Custom config-driven regex filtering rules.
     pub regex_filters: Vec<RegexFilterRule>,
+    /// When true, chained shell commands are blocked (exit 2) instead of passthrough.
+    pub strict_chained: bool,
 }
 
 impl Default for UserConfig {
@@ -106,6 +108,7 @@ impl Default for UserConfig {
             default_profile: "strict".to_string(),
             overrides: std::collections::HashMap::new(),
             regex_filters: Vec::new(),
+            strict_chained: false,
         }
     }
 }
@@ -188,6 +191,9 @@ impl UserConfig {
                         }
                     }
                 }
+            }
+            if let Some(strict) = val.get("strict_chained").and_then(|v| v.as_bool()) {
+                self.strict_chained = strict;
             }
         }
         Ok(())
@@ -473,6 +479,14 @@ pub fn apply_regex_filters(input: &str) -> String {
 mod tests {
     use super::*;
     static CONFIG_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn merge_strict_chained() {
+        let json = r#"{ "strict_chained": true }"#;
+        let mut config = UserConfig::default();
+        config.merge_from_str(json).unwrap();
+        assert!(config.strict_chained);
+    }
 
     #[test]
     fn test_merge_from_str() {
