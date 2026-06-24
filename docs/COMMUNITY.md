@@ -5,6 +5,7 @@ Welcome to the RTK user space on GitHub.
 | Channel | Use for |
 |---------|---------|
 | **[Discussions](https://github.com/andreafinazziinfo/rust-context-engine/discussions)** | Questions, setup help, ideas, savings screenshots |
+| **[Wiki](https://github.com/andreafinazziinfo/rust-context-engine/wiki)** (optional) | Short landing page — links to `docs/` ([setup guide](./WIKI_SETUP.md)) |
 | **[Issues](https://github.com/andreafinazziinfo/rust-context-engine/issues)** | Reproducible bugs, security reports |
 | **[Releases](https://github.com/andreafinazziinfo/rust-context-engine/releases)** | Install binaries, changelog |
 

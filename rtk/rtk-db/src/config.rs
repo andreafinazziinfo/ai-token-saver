@@ -569,6 +569,49 @@ mod tests {
     use super::*;
     static CONFIG_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    fn test_temp_dir(label: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "rtk_{label}_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    fn restore_home_env(
+        original_home: Option<std::ffi::OsString>,
+        original_userprofile: Option<std::ffi::OsString>,
+    ) {
+        if let Some(h) = original_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
+        }
+        if let Some(up) = original_userprofile {
+            std::env::set_var("USERPROFILE", up);
+        } else {
+            std::env::remove_var("USERPROFILE");
+        }
+    }
+
+    /// ponytail: Windows CI can race on temp dir delete; retry briefly.
+    fn cleanup_temp_dir(path: &std::path::Path) {
+        if !path.exists() {
+            return;
+        }
+        for attempt in 0..8 {
+            match fs::remove_dir_all(path) {
+                Ok(()) => return,
+                Err(_) if attempt + 1 < 8 => {
+                    std::thread::sleep(std::time::Duration::from_millis(25 * (attempt as u64 + 1)));
+                }
+                Err(e) => panic!("cleanup {}: {e}", path.display()),
+            }
+        }
+    }
+
     #[test]
     fn merge_strict_chained() {
         let json = r#"{ "strict_chained": true }"#;
@@ -608,8 +651,7 @@ mod tests {
     #[test]
     fn test_modify_config() {
         let _lock = CONFIG_TEST_LOCK.lock().unwrap();
-        let temp_dir =
-            std::env::temp_dir().join(format!("rtk_config_modify_test_{}", rand_suffix()));
+        let temp_dir = test_temp_dir("config_modify_test");
         fs::create_dir_all(&temp_dir).unwrap();
 
         // Temporarily override HOME and USERPROFILE env vars
@@ -639,26 +681,8 @@ mod tests {
         // Test config_show does not error
         assert!(config_show().is_ok());
 
-        // Restore env vars
-        if let Some(h) = original_home {
-            std::env::set_var("HOME", h);
-        } else {
-            std::env::remove_var("HOME");
-        }
-        if let Some(up) = original_userprofile {
-            std::env::set_var("USERPROFILE", up);
-        } else {
-            std::env::remove_var("USERPROFILE");
-        }
-
-        fs::remove_dir_all(temp_dir).unwrap();
-    }
-
-    fn rand_suffix() -> u32 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .subsec_nanos()
+        restore_home_env(original_home, original_userprofile);
+        cleanup_temp_dir(&temp_dir);
     }
 
     #[test]
@@ -732,8 +756,7 @@ mod tests {
     #[test]
     fn test_config_export_import() {
         let _lock = CONFIG_TEST_LOCK.lock().unwrap();
-        let temp_dir =
-            std::env::temp_dir().join(format!("rtk_config_export_import_test_{}", rand_suffix()));
+        let temp_dir = test_temp_dir("config_export_import_test");
         fs::create_dir_all(&temp_dir).unwrap();
 
         let original_home = std::env::var_os("HOME");
@@ -773,18 +796,8 @@ mod tests {
             .contains(&serde_json::Value::String("forbidden_1".to_string())));
         assert_eq!(val["dlp"]["custom_patterns"].as_array().unwrap().len(), 1);
 
-        if let Some(h) = original_home {
-            std::env::set_var("HOME", h);
-        } else {
-            std::env::remove_var("HOME");
-        }
-        if let Some(up) = original_userprofile {
-            std::env::set_var("USERPROFILE", up);
-        } else {
-            std::env::remove_var("USERPROFILE");
-        }
-
-        fs::remove_dir_all(temp_dir).unwrap();
+        restore_home_env(original_home, original_userprofile);
+        cleanup_temp_dir(&temp_dir);
     }
 
     #[test]
