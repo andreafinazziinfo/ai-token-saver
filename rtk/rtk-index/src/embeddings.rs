@@ -28,6 +28,7 @@ impl OnnxEmbedder {
     pub fn load_model(model_path: &Path, tokenizer_path: &Path) -> Result<Self> {
         let model = tract_onnx::onnx()
             .model_for_path(model_path)?
+            .into_optimized()?
             .into_runnable()?;
         let tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| anyhow!(e))?;
         Ok(Self { model, tokenizer })
@@ -58,8 +59,8 @@ impl OnnxEmbedder {
 
         // Run model
         let outputs = self.model.run(tvec!(
-            input_ids_tensor.into_tensor(),
-            attention_mask_tensor.into_tensor()
+            input_ids_tensor.into_tensor().into(),
+            attention_mask_tensor.into_tensor().into()
         ))?;
 
         // Extract last_hidden_state (usually index 0)
