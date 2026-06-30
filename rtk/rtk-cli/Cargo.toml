@@ -23,7 +23,8 @@ rtk_pack = { package = "rtk-context-pack", version = "2.3.1", path = "../rtk-pac
 rtk_index = { package = "rtk-context-index", version = "2.3.1", path = "../rtk-index" }
 rtk_mcp = { package = "rtk-context-mcp", version = "2.3.1", path = "../rtk-mcp" }
 
-
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 insta = "1"
