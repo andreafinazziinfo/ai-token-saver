@@ -499,7 +499,7 @@ See **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** — `rtk validate`, golden 
 *   **Aliases not loaded**: If aliases like `git` or `cargo` do not execute `rtk`, ensure you run `source ~/.bashrc` or `source ~/.zshrc` after the installer completes.
 *   **Database is Locked (`database is locked`)**: SQLite can temporarily lock the database during concurrent write/read operations. RTK is optimized for low latency, but if this happens, wait a few seconds and run the command again. You can also run `rtk gc` to clean up old logs.
 *   **WSL Paths on Windows**: When running under Windows with WSL, make sure `rtk` is installed in the WSL environment. If git outputs look raw, check that your WSL shell profiles contain the `ALIASES_BLOCK`.
-*   **PreToolUse hook not rewriting**: Confirm absolute path to `hooks/rtk-rewrite.sh` in Claude/Gemini settings; run `bash hooks/rtk-rewrite.sh` manually with `RTK_REWRITE_CMD='git status'`. Exit `2` means guardrail deny (expected for dangerous commands).
+*   **PreToolUse hook not rewriting**: Confirm absolute path to `hooks/rtk-rewrite.sh` in Claude/Gemini settings. The hook reads the command from **stdin JSON** (`.tool_input.command`), so test it manually with `echo '{"tool_input":{"command":"git status"}}' | bash hooks/rtk-rewrite.sh` (expect a `hookSpecificOutput` JSON rewriting to `rtk git status`). Exit `2` means guardrail deny (expected for dangerous commands).
 *   **Stale code index**: RTK has no filesystem watcher — after large refactors run `rtk index run` (also noted by `rtk doctor`).
 
 ---

@@ -60,16 +60,19 @@ pub fn redact_with_source(text: &str, source: &str) -> String {
     });
 
     // Match typical API keys:
-    // OpenAI: sk-proj-...
+    // OpenAI: sk-proj-... and legacy/generic sk-<alnum>
     // Stripe: sk_live_... / sk_test_...
     // AWS client id/secret: AKIA...
     // Anthropic: sk-ant-...
     // GitHub: ghp_...
     // Google: AIza...
     // Slack: xox...
+    // Note: the generic `sk-[alnum]{20,}` alternative is placed after the
+    // sk-proj/sk-ant forms; those carry a hyphen within 20 chars so they never
+    // collide with the generic catch-all.
     static API_KEYS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
-            r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|sk-ant-api[0-9a-zA-Z\-_]{30,}|ghp_[a-zA-Z0-9]{36}|xox[baprs]-[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{35}|AKIA[0-9A-Z]{16})\b"
+            r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|sk-ant-api[0-9a-zA-Z\-_]{30,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xox[baprs]-[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{35}|AKIA[0-9A-Z]{16})\b"
         ).unwrap()
     });
 
@@ -234,6 +237,15 @@ mod tests {
         let output = redact(input);
         assert!(output.contains("[REDACTED_API_KEY]"));
         assert!(!output.contains("sk-proj-"));
+    }
+
+    #[test]
+    fn test_redact_generic_sk_key() {
+        // Legacy/generic OpenAI-style key: sk- followed by 20+ alnum, no inner hyphen.
+        let input = "openai legacy: sk-test123ABCDEF456789ghijkl rest";
+        let output = redact(input);
+        assert!(output.contains("[REDACTED_API_KEY]"));
+        assert!(!output.contains("sk-test123"));
     }
 
     #[test]
