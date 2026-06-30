@@ -194,6 +194,20 @@ fn get_tools_list() -> serde_json::Value {
             }
         },
         {
+            "name": "analyze_impact",
+            "description": "Analyze the upstream blast radius of a symbol: every symbol that transitively depends on it, with a risk level (LOW/MEDIUM/HIGH). Run before editing a symbol.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The symbol name to analyze"
+                    }
+                },
+                "required": ["symbol"]
+            }
+        },
+        {
             "name": "project_memory",
             "description": "Perform get, set, overwrite, search, or list operations on project memory.",
             "inputSchema": {
@@ -356,6 +370,47 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
             if text.is_empty() {
                 text = "No references found.".to_string();
             }
+            Ok(json!({
+                "content": [{
+                    "type": "text",
+                    "text": text
+                }]
+            }))
+        }
+        "analyze_impact" => {
+            let symbol = args
+                .get("symbol")
+                .and_then(|s| s.as_str())
+                .ok_or_else(|| anyhow!("Missing symbol"))?;
+            let affected = rtk_index::analyze_impact(symbol)?;
+            let text = if affected.is_empty() {
+                format!(
+                    "No upstream blast radius found for '{}' (or symbol not indexed).",
+                    symbol
+                )
+            } else {
+                // Same risk thresholds as the CLI `impact analyze` command.
+                let risk = if affected.len() > 10 {
+                    "HIGH"
+                } else if affected.len() > 3 {
+                    "MEDIUM"
+                } else {
+                    "LOW"
+                };
+                let mut t = format!(
+                    "Blast radius for '{}' — Risk: {} ({} affected upstream)\n",
+                    symbol,
+                    risk,
+                    affected.len()
+                );
+                for s in affected {
+                    t.push_str(&format!(
+                        "- {} ({}) in {}:{}\n",
+                        s.name, s.kind, s.file_path, s.line_start
+                    ));
+                }
+                t
+            };
             Ok(json!({
                 "content": [{
                     "type": "text",
@@ -790,7 +845,7 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_has_nine_tools() {
+    fn tools_list_has_expected_tools() {
         let req = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: Some(json!(2)),
@@ -800,7 +855,12 @@ mod tests {
         let resp = handle_request(&req).expect("tools/list response");
         let result = resp.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 9);
+        assert_eq!(tools.len(), 10);
+        let names: Vec<&str> = tools
+            .iter()
+            .filter_map(|t| t["name"].as_str())
+            .collect();
+        assert!(names.contains(&"analyze_impact"));
     }
 
     #[test]
@@ -839,6 +899,21 @@ mod tests {
                 execute_tool("find_symbols", json!({ "query": "nonexistent_xyz" })).unwrap();
             let text = result["content"][0]["text"].as_str().unwrap();
             assert!(text.contains("No symbols found"));
+            std::env::remove_var("RTK_INDEX_DB_PATH");
+        });
+    }
+
+    #[test]
+    fn execute_analyze_impact_empty_ok() {
+        with_temp_project_db(|| {
+            let tmp_index =
+                std::env::temp_dir().join(format!("rtk_mcp_imp_{}", std::process::id()));
+            std::fs::create_dir_all(&tmp_index).unwrap();
+            std::env::set_var("RTK_INDEX_DB_PATH", tmp_index.join("index.db"));
+            let result =
+                execute_tool("analyze_impact", json!({ "symbol": "nonexistent_xyz" })).unwrap();
+            let text = result["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains("No upstream blast radius"));
             std::env::remove_var("RTK_INDEX_DB_PATH");
         });
     }
