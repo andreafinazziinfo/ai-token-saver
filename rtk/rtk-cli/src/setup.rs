@@ -381,7 +381,20 @@ You are operating under the RTK LOW profile for safe efficiency.
     fs::write(cursor_rules_dir.join("rtk-profile.mdc"), profile_content)?;
     fs::write(windsurf_rules_dir.join("rtk-profile.md"), profile_content)?;
     fs::write(agents_rules_dir.join("AGENTS.md"), profile_content)?;
-    fs::write(base.join("CLAUDE.md"), profile_content)?;
+
+    // CLAUDE.md is a user-curated file — never overwrite it. Append the RTK
+    // profile once, preserving existing content (same guard pattern as the
+    // copilot-instructions append below). Empty/absent file is written fresh.
+    let claude_file = base.join("CLAUDE.md");
+    let existing_claude = fs::read_to_string(&claude_file).unwrap_or_default();
+    if existing_claude.trim().is_empty() {
+        fs::write(&claude_file, profile_content)?;
+    } else if !existing_claude.contains("RTK Output Profile") {
+        fs::write(
+            &claude_file,
+            format!("{}\n\n{}", existing_claude, profile_content),
+        )?;
+    }
 
     // Append to copilot instructions
     let copilot_file = github_dir.join("copilot-instructions.md");
@@ -573,6 +586,36 @@ mod tests {
 
         let rtk_rules = fs::read_to_string(temp_dir.join(".agents/rules/rtk-toolkit.mdc")).unwrap();
         assert_eq!(rtk_rules, RTK_TOOLKIT_CONTENT);
+
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn test_init_preserves_existing_claude_md() {
+        let temp_dir = std::env::temp_dir().join(format!("rtk_init_preserve_{}", rand_suffix()));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let curated = "# My Project\n\n## Stack\ndocker compose up -d\n";
+        let claude = temp_dir.join("CLAUDE.md");
+        fs::write(&claude, curated).unwrap();
+
+        run_init_in(&temp_dir, "high").unwrap();
+
+        let after = fs::read_to_string(&claude).unwrap();
+        // Existing curated content is preserved...
+        assert!(after.contains("## Stack"), "curated content was destroyed");
+        assert!(after.contains("docker compose up -d"));
+        // ...and the RTK profile is appended once.
+        assert!(after.contains("RTK Output Profile"));
+
+        // Idempotent: a second init must not duplicate the profile block.
+        run_init_in(&temp_dir, "high").unwrap();
+        let after2 = fs::read_to_string(&claude).unwrap();
+        assert_eq!(
+            after2.matches("RTK Output Profile").count(),
+            1,
+            "RTK profile appended more than once"
+        );
 
         fs::remove_dir_all(temp_dir).unwrap();
     }
