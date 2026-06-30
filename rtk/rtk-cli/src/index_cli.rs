@@ -91,6 +91,36 @@ pub fn impact_analyze(symbol: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn detect_changes() -> Result<()> {
+    let changed = rtk_index::detect_changes()?;
+    if changed.is_empty() {
+        println!("No indexed symbols touched by the current changes (working tree vs HEAD).");
+        return Ok(());
+    }
+
+    let highest = if changed.iter().any(|c| c.risk == "HIGH") {
+        "HIGH"
+    } else if changed.iter().any(|c| c.risk == "MEDIUM") {
+        "MEDIUM"
+    } else {
+        "LOW"
+    };
+
+    println!(
+        "Detected changes touching {} symbol(s) — highest risk: {}",
+        changed.len(),
+        highest
+    );
+    println!("{}", "-".repeat(60));
+    for c in &changed {
+        println!(
+            "- {} ({}) in {}:{}-{} → risk {} ({} affected upstream)",
+            c.name, c.kind, c.file_path, c.line_start, c.line_end, c.risk, c.impact_count
+        );
+    }
+    Ok(())
+}
+
 pub fn index_run() -> Result<()> {
     println!("🔍 Indexing codebase AST...");
     let count = rtk_index::index_project(Path::new("."))?;

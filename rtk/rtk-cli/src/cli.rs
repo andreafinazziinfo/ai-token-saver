@@ -160,6 +160,8 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         subcmd: GraphCommands,
     },
+    /// Show which indexed symbols your uncommitted changes touch, with blast radius
+    DetectChanges,
     /// Print token savings statistics
     Stats {
         /// Show text-based ASCII cost trend chart

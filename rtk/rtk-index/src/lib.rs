@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
 
 pub mod db;
@@ -159,6 +159,111 @@ pub fn analyze_impact(symbol_name: &str) -> Result<Vec<db::DbSymbol>> {
         .collect();
 
     Ok(result)
+}
+
+/// An indexed symbol overlapping the current uncommitted changes, plus its
+/// upstream blast radius and a risk level.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ChangedSymbol {
+    pub name: String,
+    pub kind: String,
+    pub file_path: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub impact_count: usize,
+    pub risk: String,
+}
+
+/// Detect which indexed symbols the current uncommitted changes touch
+/// (working tree vs HEAD) and compute each one's upstream blast radius.
+/// Deterministic, no LLM — parses `git diff --unified=0 HEAD`.
+pub fn detect_changes() -> Result<Vec<ChangedSymbol>> {
+    ensure_fresh_cwd()?;
+    let diff = run_git_diff()?;
+    let changed = parse_changed_lines(&diff);
+
+    let conn = db::open_db()?;
+    let all_syms = db::get_all_symbols(&conn)?;
+    let all_deps = db::get_all_dependencies(&conn)?;
+    let impact_graph = graph::ImpactGraph::build(all_syms.clone(), all_deps);
+
+    let mut out: Vec<ChangedSymbol> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for sym in &all_syms {
+        let Some(ranges) = changed.get(&sym.file_path) else {
+            continue;
+        };
+        // Symbol overlaps a changed hunk if their line spans intersect.
+        let touched = ranges
+            .iter()
+            .any(|&(s, e)| sym.line_start <= e && sym.line_end >= s);
+        if !touched || !seen.insert(sym.id.clone()) {
+            continue;
+        }
+        let count = impact_graph.resolve_upstream(&sym.id).len();
+        let risk = if count > 10 {
+            "HIGH"
+        } else if count > 3 {
+            "MEDIUM"
+        } else {
+            "LOW"
+        };
+        out.push(ChangedSymbol {
+            name: sym.name.clone(),
+            kind: sym.kind.clone(),
+            file_path: sym.file_path.clone(),
+            line_start: sym.line_start,
+            line_end: sym.line_end,
+            impact_count: count,
+            risk: risk.to_string(),
+        });
+    }
+    out.sort_by_key(|c| std::cmp::Reverse(c.impact_count));
+    Ok(out)
+}
+
+fn run_git_diff() -> Result<String> {
+    let output = std::process::Command::new("git")
+        .args(["diff", "--unified=0", "HEAD"])
+        .output()
+        .context("Failed to run `git diff` (not a git repository?)")?;
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Parse `git diff --unified=0` output into per-file changed line ranges on the
+/// new side. Hunk header: `@@ -a,b +c,d @@`; the `+c,d` part gives the new-side
+/// start `c` and line count `d` (omitted means 1; 0 means pure deletion).
+fn parse_changed_lines(diff: &str) -> std::collections::HashMap<String, Vec<(usize, usize)>> {
+    let mut map: std::collections::HashMap<String, Vec<(usize, usize)>> =
+        std::collections::HashMap::new();
+    let mut current: Option<String> = None;
+    for line in diff.lines() {
+        if let Some(rest) = line.strip_prefix("+++ b/") {
+            current = Some(rest.to_string());
+        } else if line.starts_with("@@") {
+            let Some(plus_part) = line.split('+').nth(1) else {
+                continue;
+            };
+            let spec = plus_part.split([' ', '@']).next().unwrap_or("");
+            let mut nums = spec.split(',');
+            let Some(start) = nums.next().and_then(|s| s.parse::<usize>().ok()) else {
+                continue;
+            };
+            let count = nums
+                .next()
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(1);
+            if count == 0 {
+                continue; // pure deletion: no new lines to map to a symbol body
+            }
+            if let Some(file) = &current {
+                map.entry(file.clone())
+                    .or_default()
+                    .push((start, start + count - 1));
+            }
+        }
+    }
+    map
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -409,6 +514,27 @@ mod tests {
     use std::env;
     use std::fs;
     use std::sync::Mutex;
+
+    #[test]
+    fn test_parse_changed_lines() {
+        let diff = "\
+diff --git a/src/foo.rs b/src/foo.rs
+--- a/src/foo.rs
++++ b/src/foo.rs
+@@ -10,2 +10,3 @@ fn foo
++new
+@@ -40 +41 @@
++x
+diff --git a/src/bar.rs b/src/bar.rs
+--- a/src/bar.rs
++++ b/src/bar.rs
+@@ -5,3 +0,0 @@
+";
+        let map = parse_changed_lines(diff);
+        assert_eq!(map.get("src/foo.rs").unwrap(), &vec![(10, 12), (41, 41)]);
+        // bar.rs hunk is a pure deletion (+0,0) → no new-line range recorded.
+        assert!(!map.contains_key("src/bar.rs"));
+    }
 
     static INDEX_TEST_LOCK: Mutex<()> = Mutex::new(());
 
