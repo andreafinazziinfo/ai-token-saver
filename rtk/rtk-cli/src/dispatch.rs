@@ -239,6 +239,7 @@ pub fn dispatch(command: Commands) -> Result<()> {
         Commands::Graph { subcmd } => match subcmd {
             GraphCommands::Export { format, output } => index_cli::graph_export(&format, &output),
         },
+        Commands::DetectChanges => index_cli::detect_changes(),
         Commands::Stats { chart } => tracking::print_stats_with_chart(chart),
         Commands::Gain { chart } => tracking::print_stats_with_chart(chart),
         Commands::Audit { subcmd, output } => match subcmd {

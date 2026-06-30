@@ -208,6 +208,14 @@ fn get_tools_list() -> serde_json::Value {
             }
         },
         {
+            "name": "detect_changes",
+            "description": "Show which indexed symbols the current uncommitted changes (working tree vs HEAD) touch, each with its upstream blast radius and risk. Run before committing.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
             "name": "project_memory",
             "description": "Perform get, set, overwrite, search, or list operations on project memory.",
             "inputSchema": {
@@ -407,6 +415,45 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
                     t.push_str(&format!(
                         "- {} ({}) in {}:{}\n",
                         s.name, s.kind, s.file_path, s.line_start
+                    ));
+                }
+                t
+            };
+            Ok(json!({
+                "content": [{
+                    "type": "text",
+                    "text": text
+                }]
+            }))
+        }
+        "detect_changes" => {
+            let changed = rtk_index::detect_changes()?;
+            let text = if changed.is_empty() {
+                "No indexed symbols touched by the current changes (working tree vs HEAD)."
+                    .to_string()
+            } else {
+                let highest = if changed.iter().any(|c| c.risk == "HIGH") {
+                    "HIGH"
+                } else if changed.iter().any(|c| c.risk == "MEDIUM") {
+                    "MEDIUM"
+                } else {
+                    "LOW"
+                };
+                let mut t = format!(
+                    "Changes touch {} symbol(s) — highest risk: {}\n",
+                    changed.len(),
+                    highest
+                );
+                for c in changed {
+                    t.push_str(&format!(
+                        "- {} ({}) in {}:{}-{} → risk {} ({} affected upstream)\n",
+                        c.name,
+                        c.kind,
+                        c.file_path,
+                        c.line_start,
+                        c.line_end,
+                        c.risk,
+                        c.impact_count
                     ));
                 }
                 t
@@ -855,9 +902,10 @@ mod tests {
         let resp = handle_request(&req).expect("tools/list response");
         let result = resp.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 10);
+        assert_eq!(tools.len(), 11);
         let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
         assert!(names.contains(&"analyze_impact"));
+        assert!(names.contains(&"detect_changes"));
     }
 
     #[test]
