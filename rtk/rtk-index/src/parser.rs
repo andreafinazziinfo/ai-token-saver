@@ -304,11 +304,11 @@ pub fn parse_file(path: &Path, root: &Path) -> Result<Vec<ParsedSymbol>> {
 
     let mut parser = Parser::new();
     let lang = match ext {
-        "rs" => tree_sitter_rust::language(),
-        "py" => tree_sitter_python::language(),
-        "go" => tree_sitter_go::language(),
-        "ts" | "tsx" => tree_sitter_typescript::language_typescript(),
-        "js" | "jsx" => tree_sitter_javascript::language(),
+        "rs" => tree_sitter_rust::LANGUAGE.into(),
+        "py" => tree_sitter_python::LANGUAGE.into(),
+        "go" => tree_sitter_go::LANGUAGE.into(),
+        "ts" | "tsx" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        "js" | "jsx" => tree_sitter_javascript::LANGUAGE.into(),
         _ => return Ok(Vec::new()),
     };
 
