@@ -22,13 +22,13 @@ fn skeletonize_ast(content: &str, extension: &str) -> Option<String> {
 
     let mut parser = Parser::new();
     let language = match extension.to_lowercase().as_str() {
-        "rs" => tree_sitter_rust::language(),
-        "py" => tree_sitter_python::language(),
-        "js" | "jsx" => tree_sitter_javascript::language(),
-        "ts" => tree_sitter_typescript::language_typescript(),
-        "tsx" => tree_sitter_typescript::language_tsx(),
-        "go" => tree_sitter_go::language(),
-        "java" => tree_sitter_java::language(),
+        "rs" => tree_sitter_rust::LANGUAGE.into(),
+        "py" => tree_sitter_python::LANGUAGE.into(),
+        "js" | "jsx" => tree_sitter_javascript::LANGUAGE.into(),
+        "ts" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
+        "go" => tree_sitter_go::LANGUAGE.into(),
+        "java" => tree_sitter_java::LANGUAGE.into(),
         _ => return None,
     };
 
