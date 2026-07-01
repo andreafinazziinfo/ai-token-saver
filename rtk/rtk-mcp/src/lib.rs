@@ -216,6 +216,19 @@ fn get_tools_list() -> serde_json::Value {
             }
         },
         {
+            "name": "rename_symbol",
+            "description": "Rename a symbol across the files the index links to it (definition + references), AST-aware (identifier tokens only, never strings/comments). Previews by default; set apply=true to write the edits.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "old_name": { "type": "string", "description": "Current symbol name" },
+                    "new_name": { "type": "string", "description": "New symbol name" },
+                    "apply": { "type": "boolean", "description": "Write changes (default false = preview)" }
+                },
+                "required": ["old_name", "new_name"]
+            }
+        },
+        {
             "name": "project_memory",
             "description": "Perform get, set, overwrite, search, or list operations on project memory.",
             "inputSchema": {
@@ -455,6 +468,48 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
                         c.risk,
                         c.impact_count
                     ));
+                }
+                t
+            };
+            Ok(json!({
+                "content": [{
+                    "type": "text",
+                    "text": text
+                }]
+            }))
+        }
+        "rename_symbol" => {
+            let old_name = args
+                .get("old_name")
+                .and_then(|s| s.as_str())
+                .ok_or_else(|| anyhow!("Missing old_name"))?;
+            let new_name = args
+                .get("new_name")
+                .and_then(|s| s.as_str())
+                .ok_or_else(|| anyhow!("Missing new_name"))?;
+            let apply = args.get("apply").and_then(|a| a.as_bool()).unwrap_or(false);
+            let plan = rtk_index::rename_symbol(old_name, new_name, apply)?;
+            let text = if plan.total_sites == 0 {
+                format!("No identifier occurrences of '{}' found.", old_name)
+            } else {
+                let verb = if plan.applied {
+                    "Renamed"
+                } else {
+                    "Would rename (preview)"
+                };
+                let mut t = format!(
+                    "{} '{}' -> '{}' — {} occurrence(s) across {} file(s):\n",
+                    verb,
+                    plan.old_name,
+                    plan.new_name,
+                    plan.total_sites,
+                    plan.files.len()
+                );
+                for f in plan.files {
+                    t.push_str(&format!("- {} ({} occurrence(s))\n", f.file_path, f.sites));
+                }
+                if !plan.applied {
+                    t.push_str("Set apply=true to write these changes.");
                 }
                 t
             };
@@ -902,10 +957,11 @@ mod tests {
         let resp = handle_request(&req).expect("tools/list response");
         let result = resp.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 11);
+        assert_eq!(tools.len(), 12);
         let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
         assert!(names.contains(&"analyze_impact"));
         assert!(names.contains(&"detect_changes"));
+        assert!(names.contains(&"rename_symbol"));
     }
 
     #[test]

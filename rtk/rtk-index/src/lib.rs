@@ -508,6 +508,84 @@ pub fn query_hybrid(
     Ok(results)
 }
 
+/// Per-file result of a rename operation.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct RenameFile {
+    pub file_path: String,
+    pub sites: usize,
+}
+
+/// Result of a rename: the files touched (with occurrence counts) and whether
+/// the edits were written to disk (`applied`) or only previewed (dry run).
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct RenamePlan {
+    pub old_name: String,
+    pub new_name: String,
+    pub applied: bool,
+    pub total_sites: usize,
+    pub files: Vec<RenameFile>,
+}
+
+/// Rename a symbol across the files the index links to it (its definition file
+/// plus files that reference it). AST-aware: only identifier tokens are matched,
+/// never strings or comments. `apply=false` previews; `apply=true` rewrites files.
+pub fn rename_symbol(old_name: &str, new_name: &str, apply: bool) -> Result<RenamePlan> {
+    ensure_fresh_cwd()?;
+
+    // Candidate files: definition sites + referencing symbols' files.
+    let mut rel_files = std::collections::BTreeSet::new();
+    for s in query_symbols(old_name)? {
+        if s.name == old_name {
+            rel_files.insert(s.file_path);
+        }
+    }
+    for s in query_references(old_name)? {
+        rel_files.insert(s.file_path);
+    }
+
+    let root = std::env::current_dir().context("cannot determine current directory")?;
+    let mut files = Vec::new();
+    let mut total = 0usize;
+
+    for rel in rel_files {
+        let abs = root.join(&rel);
+        let sites = parser::find_identifier_sites(&abs, old_name)?;
+        if sites.is_empty() {
+            continue;
+        }
+        total += sites.len();
+        if apply {
+            apply_rename_to_file(&abs, new_name, &sites)?;
+        }
+        files.push(RenameFile {
+            file_path: rel,
+            sites: sites.len(),
+        });
+    }
+
+    Ok(RenamePlan {
+        old_name: old_name.to_string(),
+        new_name: new_name.to_string(),
+        applied: apply,
+        total_sites: total,
+        files,
+    })
+}
+
+/// Replace each identifier site with `new_name`, rewriting byte ranges back to
+/// front so earlier offsets stay valid.
+fn apply_rename_to_file(path: &Path, new_name: &str, sites: &[parser::IdentSite]) -> Result<()> {
+    let mut content = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+    let mut ordered: Vec<&parser::IdentSite> = sites.iter().collect();
+    ordered.sort_by_key(|s| std::cmp::Reverse(s.byte_start));
+    for site in ordered {
+        content.replace_range(site.byte_start..site.byte_end, new_name);
+    }
+    std::fs::write(path, content).with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

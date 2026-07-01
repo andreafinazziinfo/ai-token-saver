@@ -240,6 +240,11 @@ pub fn dispatch(command: Commands) -> Result<()> {
             GraphCommands::Export { format, output } => index_cli::graph_export(&format, &output),
         },
         Commands::DetectChanges => index_cli::detect_changes(),
+        Commands::Rename {
+            old_name,
+            new_name,
+            apply,
+        } => index_cli::rename(&old_name, &new_name, apply),
         Commands::Stats { chart } => tracking::print_stats_with_chart(chart),
         Commands::Gain { chart } => tracking::print_stats_with_chart(chart),
         Commands::Audit { subcmd, output } => match subcmd {

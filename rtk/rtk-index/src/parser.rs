@@ -343,3 +343,89 @@ pub fn parse_file(path: &Path, root: &Path) -> Result<Vec<ParsedSymbol>> {
 
     Ok(symbols)
 }
+
+/// A single identifier occurrence in a file (0-based byte offsets, 1-based line).
+#[derive(Debug, Clone)]
+pub struct IdentSite {
+    pub line: usize,
+    pub byte_start: usize,
+    pub byte_end: usize,
+}
+
+/// Find every identifier-leaf node in `path` whose text equals `name`.
+/// AST-aware: only matches identifier tokens (never strings/comments), so it is
+/// safe for renames — unlike a raw text search. Returns [] for unsupported files.
+pub fn find_identifier_sites(path: &Path, name: &str) -> Result<Vec<IdentSite>> {
+    let code = fs::read_to_string(path)?;
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+
+    let mut parser = Parser::new();
+    let lang = match ext {
+        "rs" => tree_sitter_rust::LANGUAGE.into(),
+        "py" => tree_sitter_python::LANGUAGE.into(),
+        "go" => tree_sitter_go::LANGUAGE.into(),
+        "ts" | "tsx" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        "js" | "jsx" => tree_sitter_javascript::LANGUAGE.into(),
+        _ => return Ok(Vec::new()),
+    };
+    parser
+        .set_language(&lang)
+        .context("Failed to set tree-sitter language")?;
+    let Some(tree) = parser.parse(&code, None) else {
+        return Ok(Vec::new());
+    };
+
+    let code_bytes = code.as_bytes();
+    let mut sites = Vec::new();
+    collect_identifier_sites(tree.root_node(), code_bytes, name, &mut sites);
+    Ok(sites)
+}
+
+fn collect_identifier_sites(node: Node, code: &[u8], name: &str, out: &mut Vec<IdentSite>) {
+    // Identifier leaves: kind ends with "identifier" (identifier, field_identifier,
+    // type_identifier, property_identifier, ...) and has no named children.
+    if node.child_count() == 0 && node.kind().ends_with("identifier") {
+        if node.utf8_text(code).unwrap_or("") == name {
+            out.push(IdentSite {
+                line: node.start_position().row + 1,
+                byte_start: node.start_byte(),
+                byte_end: node.end_byte(),
+            });
+        }
+        return;
+    }
+    let mut cursor = node.walk();
+    if cursor.goto_first_child() {
+        loop {
+            collect_identifier_sites(cursor.node(), code, name, out);
+            if !cursor.goto_next_sibling() {
+                break;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_identifier_sites_ast_aware() {
+        let dir = std::env::temp_dir().join(format!("rtk_rename_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("sample.rs");
+        // `foo` appears as: a fn name, a call, inside a string, and in a comment.
+        // Only the two identifier occurrences must be found.
+        let code = "fn foo() {}\n// call foo here\nfn main() { let s = \"foo\"; foo(); }\n";
+        std::fs::write(&file, code).unwrap();
+
+        let sites = find_identifier_sites(&file, "foo").unwrap();
+        assert_eq!(
+            sites.len(),
+            2,
+            "should match identifiers only, not string/comment"
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}
