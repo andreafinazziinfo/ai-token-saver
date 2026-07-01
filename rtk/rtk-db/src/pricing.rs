@@ -263,10 +263,11 @@ pub fn suggest_model(task_type: &str) -> &'static str {
 mod tests {
     use super::*;
 
-    static PRICING_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     fn with_isolated_pricing<F: FnOnce()>(f: F) {
-        let _lock = PRICING_TEST_LOCK.lock().unwrap();
+        // Shared with config tests: both mutate global HOME/USERPROFILE.
+        let _lock = crate::ENV_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let tmp = std::env::temp_dir().join(format!("rtk_pricing_test_{}", std::process::id()));
         std::fs::create_dir_all(&tmp).unwrap();
         let original_cwd = std::env::current_dir().unwrap();

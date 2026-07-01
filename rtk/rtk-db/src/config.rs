@@ -579,7 +579,7 @@ pub fn validate_regex_config() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    static CONFIG_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    use crate::ENV_TEST_LOCK;
 
     fn test_temp_dir(label: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
@@ -662,7 +662,7 @@ mod tests {
 
     #[test]
     fn test_modify_config() {
-        let _lock = CONFIG_TEST_LOCK.lock().unwrap();
+        let _lock = ENV_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let temp_dir = test_temp_dir("config_modify_test");
         fs::create_dir_all(&temp_dir).unwrap();
 
@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn test_config_export_import() {
-        let _lock = CONFIG_TEST_LOCK.lock().unwrap();
+        let _lock = ENV_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let temp_dir = test_temp_dir("config_export_import_test");
         fs::create_dir_all(&temp_dir).unwrap();
 
