@@ -574,16 +574,11 @@ pub fn execute_tool(name: &str, args: serde_json::Value) -> Result<serde_json::V
                     );
                     render_flow(&trace.root.children, "", &mut t);
                     t.push_str(&format!(
-                        "[{} node(s), max depth {}{}{}{}]",
+                        "[{} node(s), max depth {}{}{}]",
                         trace.node_count,
                         trace.max_depth_reached,
                         if trace.revisits > 0 {
                             format!(", {} shared/cyclic", trace.revisits)
-                        } else {
-                            String::new()
-                        },
-                        if trace.ambiguous_hidden > 0 {
-                            format!(", {} ambiguous hidden", trace.ambiguous_hidden)
                         } else {
                             String::new()
                         },

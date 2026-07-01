@@ -111,12 +111,6 @@ pub fn flow(entry: &str, depth: usize) -> Result<()> {
     if trace.revisits > 0 {
         notes.push_str(&format!(" · {} shared/cyclic ref(s)", trace.revisits));
     }
-    if trace.ambiguous_hidden > 0 {
-        notes.push_str(&format!(
-            " · {} ambiguous callee(s) hidden",
-            trace.ambiguous_hidden
-        ));
-    }
     if trace.capped {
         notes.push_str(" · node cap hit");
     }

@@ -20,29 +20,34 @@ impl ImpactGraph {
             symbol_to_node.insert(id, idx);
         }
 
-        // Map callee name to all node indices with that name for easy lookup
+        // Map callee name -> all node indices with that name.
         let mut name_to_nodes: HashMap<String, Vec<NodeIndex>> = HashMap::new();
         for (idx, node) in graph.node_weights().enumerate() {
-            let n_idx = NodeIndex::new(idx);
             name_to_nodes
                 .entry(node.name.clone())
                 .or_default()
-                .push(n_idx);
+                .push(NodeIndex::new(idx));
         }
 
-        // Add edges
+        // File path per node index, for locality-based callee resolution.
+        let node_file: Vec<String> = graph.node_weights().map(|n| n.file_path.clone()).collect();
+
+        // Resolve edges first (immutable reads), then add them (avoids a
+        // &graph / &mut graph borrow clash).
+        let mut edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
         for dep in dependencies {
-            if let Some(&caller_node) = symbol_to_node.get(&dep.caller_id) {
-                // Find potential destination node indices matching callee_name
-                if let Some(dest_nodes) = name_to_nodes.get(&dep.callee_name) {
-                    for &dest_node in dest_nodes {
-                        // Don't add self-loops
-                        if caller_node != dest_node {
-                            graph.add_edge(caller_node, dest_node, ());
-                        }
-                    }
-                }
+            let Some(&caller_node) = symbol_to_node.get(&dep.caller_id) else {
+                continue;
+            };
+            let Some(cands) = name_to_nodes.get(&dep.callee_name) else {
+                continue;
+            };
+            for target in resolve_callee(caller_node, cands, &node_file) {
+                edges.push((caller_node, target));
             }
+        }
+        for (from, to) in edges {
+            graph.add_edge(from, to, ());
         }
 
         Self {
@@ -128,52 +133,24 @@ impl ImpactGraph {
         max_nodes: usize,
     ) -> Option<FlowTrace> {
         let start = *self.symbol_to_node.get(entry_id)?;
-
-        // Call edges resolve by name only (the index does not record the callee's
-        // file), so a ubiquitous name like `get`/`set` links to every same-named
-        // symbol. Skip names resolving to more than AMBIGUOUS_NAME_LIMIT defs when
-        // tracing, to keep flows meaningful. Trace-local: does not affect the
-        // shared graph used by impact/detect-changes.
-        const AMBIGUOUS_NAME_LIMIT: usize = 3;
-        let mut name_counts: HashMap<&str, usize> = HashMap::new();
-        for sym in self.graph.node_weights() {
-            *name_counts.entry(sym.name.as_str()).or_default() += 1;
-        }
-        let ambiguous: HashSet<String> = name_counts
-            .into_iter()
-            .filter(|&(_, c)| c > AMBIGUOUS_NAME_LIMIT)
-            .map(|(n, _)| n.to_string())
-            .collect();
-
         let mut visited = HashSet::new();
         let mut stats = TraceStats::default();
-        let root = self.build_flow_node(
-            start,
-            0,
-            max_depth,
-            max_nodes,
-            &ambiguous,
-            &mut visited,
-            &mut stats,
-        );
+        let root = self.build_flow_node(start, 0, max_depth, max_nodes, &mut visited, &mut stats);
         Some(FlowTrace {
             node_count: stats.node_count,
             max_depth_reached: stats.max_depth_reached,
             revisits: stats.revisits,
-            ambiguous_hidden: stats.ambiguous_hidden,
             capped: stats.capped,
             root,
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn build_flow_node(
         &self,
         node: NodeIndex,
         depth: usize,
         max_depth: usize,
         max_nodes: usize,
-        ambiguous: &HashSet<String>,
         visited: &mut HashSet<NodeIndex>,
         stats: &mut TraceStats,
     ) -> FlowNode {
@@ -208,15 +185,6 @@ impl ImpactGraph {
                     truncated = true;
                     break;
                 }
-                let tname = self
-                    .graph
-                    .node_weight(t)
-                    .map(|s| s.name.as_str())
-                    .unwrap_or("");
-                if ambiguous.contains(tname) {
-                    stats.ambiguous_hidden += 1;
-                    continue;
-                }
                 if visited.contains(&t) {
                     stats.revisits += 1;
                     let csym = self
@@ -240,7 +208,6 @@ impl ImpactGraph {
                     depth + 1,
                     max_depth,
                     max_nodes,
-                    ambiguous,
                     visited,
                     stats,
                 ));
@@ -259,12 +226,62 @@ impl ImpactGraph {
     }
 }
 
+/// Resolve a call (by name) to the most likely definition(s) using file/module
+/// locality, since the index records callees by name only:
+/// unique name wins; else prefer a same-file def, then same-directory defs;
+/// otherwise fall back to all same-named defs only when the ambiguity is small
+/// (<= FALLBACK_LIMIT), else drop the edge (too ambiguous to be meaningful).
+fn resolve_callee(
+    caller: NodeIndex,
+    candidates: &[NodeIndex],
+    node_file: &[String],
+) -> Vec<NodeIndex> {
+    const FALLBACK_LIMIT: usize = 3;
+    let cands: Vec<NodeIndex> = candidates
+        .iter()
+        .copied()
+        .filter(|&n| n != caller)
+        .collect();
+    if cands.len() <= 1 {
+        return cands;
+    }
+    let caller_file = node_file[caller.index()].as_str();
+
+    let same_file: Vec<NodeIndex> = cands
+        .iter()
+        .copied()
+        .filter(|&n| node_file[n.index()] == caller_file)
+        .collect();
+    if !same_file.is_empty() {
+        return same_file;
+    }
+
+    let caller_dir = dir_of(caller_file);
+    let same_dir: Vec<NodeIndex> = cands
+        .iter()
+        .copied()
+        .filter(|&n| dir_of(&node_file[n.index()]) == caller_dir)
+        .collect();
+    if !same_dir.is_empty() {
+        return same_dir;
+    }
+
+    if cands.len() <= FALLBACK_LIMIT {
+        cands
+    } else {
+        Vec::new()
+    }
+}
+
+fn dir_of(path: &str) -> &str {
+    path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("")
+}
+
 #[derive(Default)]
 struct TraceStats {
     node_count: usize,
     max_depth_reached: usize,
     revisits: usize,
-    ambiguous_hidden: usize,
     capped: bool,
 }
 
@@ -287,7 +304,6 @@ pub struct FlowTrace {
     pub node_count: usize,
     pub max_depth_reached: usize,
     pub revisits: usize,
-    pub ambiguous_hidden: usize,
     pub capped: bool,
     pub root: FlowNode,
 }
@@ -334,6 +350,47 @@ mod tests {
         let t = g.trace_flow("1", 10, 100).unwrap();
         assert!(t.revisits >= 1, "cycle back to 'a' should be a revisit");
         assert!(t.node_count <= 6);
+    }
+
+    #[test]
+    fn test_build_prefers_same_file_callee() {
+        // Two defs named "helper": one in a.rs (same file as caller), one in z.rs.
+        // The call from `caller` in a.rs must resolve only to the a.rs helper.
+        let mut a_helper = sym("1", "helper");
+        a_helper.file_path = "a.rs".into();
+        let mut z_helper = sym("2", "helper");
+        z_helper.file_path = "z.rs".into();
+        let mut caller = sym("3", "caller");
+        caller.file_path = "a.rs".into();
+
+        let g = ImpactGraph::build(vec![a_helper, z_helper, caller], vec![dep("3", "helper")]);
+        let downstream = g.resolve_downstream("3");
+        assert_eq!(downstream.len(), 1);
+        assert_eq!(downstream[0].id, "1"); // the same-file helper, not z.rs
+    }
+
+    #[test]
+    fn test_build_drops_highly_ambiguous_callee() {
+        // "get" defined in 4 unrelated dirs, caller elsewhere → no local/dir match
+        // and >3 candidates → edge dropped (no false connections).
+        let mk = |id: &str, dir: &str| {
+            let mut s = sym(id, "get");
+            s.file_path = format!("{dir}/f.rs");
+            s
+        };
+        let mut caller = sym("9", "caller");
+        caller.file_path = "app/x.rs".into();
+        let g = ImpactGraph::build(
+            vec![
+                mk("1", "t1"),
+                mk("2", "t2"),
+                mk("3", "t3"),
+                mk("4", "t4"),
+                caller,
+            ],
+            vec![dep("9", "get")],
+        );
+        assert_eq!(g.resolve_downstream("9").len(), 0);
     }
 
     #[test]
