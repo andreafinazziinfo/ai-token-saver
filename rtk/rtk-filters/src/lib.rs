@@ -1,7 +1,9 @@
 pub mod cargo_build;
 pub mod cargo_test;
 pub mod docker_filter;
+pub mod docker_ps_filter;
 pub mod eslint_filter;
+pub mod gh_filter;
 pub mod git_branch;
 pub mod git_diff;
 pub mod git_log;

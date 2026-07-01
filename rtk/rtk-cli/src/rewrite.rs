@@ -158,9 +158,19 @@ fn auto_rewrite(cmd: &str) -> Option<String> {
             _ => None,
         },
         "docker" if words.len() >= 2 => match words[1] {
-            "build" | "run" => Some(cmd.replacen("docker", "rtk docker", 1)),
+            "build" | "run" | "ps" => Some(cmd.replacen("docker", "rtk docker", 1)),
             _ => None,
         },
+        "gh" if words.len() >= 3 && words[1] == "pr" && words[2] == "checks" => {
+            Some(cmd.replacen("gh", "rtk gh", 1))
+        }
+        "python" | "python3" if words.get(1) == Some(&"-m") && words.get(2) == Some(&"pip") => {
+            (words.get(3) == Some(&"install")).then(|| {
+                // `python -m pip install ...` -> `rtk pip install ...`
+                let rest = words[4..].join(" ");
+                format!("rtk pip install {rest}").trim_end().to_string()
+            })
+        }
         "dotnet" if words.len() >= 2 => match words[1] {
             "build" | "run" | "test" => Some(cmd.replacen("dotnet", "rtk dotnet", 1)),
             _ => None,
@@ -262,6 +272,35 @@ mod tests {
         );
         // Non-install pip subcommands are not rewritten.
         assert_eq!(auto_rewrite("pip list"), None);
+    }
+
+    #[test]
+    fn test_python_m_pip_install_rewrite() {
+        assert_eq!(
+            auto_rewrite("python -m pip install rich"),
+            Some("rtk pip install rich".into())
+        );
+        assert_eq!(
+            auto_rewrite("python3 -m pip install -r req.txt"),
+            Some("rtk pip install -r req.txt".into())
+        );
+        assert_eq!(auto_rewrite("python -m pip list"), None);
+        assert_eq!(auto_rewrite("python manage.py runserver"), None);
+    }
+
+    #[test]
+    fn test_docker_ps_and_gh_checks_rewrite() {
+        assert_eq!(auto_rewrite("docker ps"), Some("rtk docker ps".into()));
+        assert_eq!(
+            auto_rewrite("docker ps -a"),
+            Some("rtk docker ps -a".into())
+        );
+        assert_eq!(auto_rewrite("docker logs backend"), None);
+        assert_eq!(
+            auto_rewrite("gh pr checks 42"),
+            Some("rtk gh pr checks 42".into())
+        );
+        assert_eq!(auto_rewrite("gh pr view 42"), None);
     }
 
     #[test]

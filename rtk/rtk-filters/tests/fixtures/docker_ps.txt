@@ -1,0 +1,7 @@
+CONTAINER ID   IMAGE                       COMMAND                  CREATED        STATUS                 PORTS                                                                 NAMES
+94d7ac8372d9   myapp-backend               "uvicorn app.main:ap…"   15 hours ago   Up 6 hours             127.0.0.1:18110->8000/tcp                                             backend
+c42faaf2e903   myapp-control:latest        "python -m uvicorn m…"   32 hours ago   Up 6 hours (healthy)   127.0.0.1:8765->8765/tcp                                              control-plane
+649d9abe8e98   myapp-frontend              "docker-entrypoint.s…"   35 hours ago   Up 6 hours             0.0.0.0:5173->5173/tcp, [::]:5173->5173/tcp, 127.0.0.1:13111->80/tcp   frontend
+28e74f069c87   myapp-worker                "celery -A app.worke…"   35 hours ago   Up 6 hours             8000/tcp                                                              worker
+7f1a2b3c4d5e   postgres:16                 "docker-entrypoint.s…"   3 days ago     Up 6 hours             5432/tcp                                                              db
+a1b2c3d4e5f6   redis:7-alpine              "docker-entrypoint.s…"   3 days ago     Exited (0) 2 hours ago                                                                       cache
