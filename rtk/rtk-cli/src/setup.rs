@@ -501,14 +501,18 @@ fn inject_hook_value(json: &mut serde_json::Value, hook_path: &str) {
     if !json.is_object() {
         *json = serde_json::Value::Object(serde_json::Map::new());
     }
-    let obj = json.as_object_mut().unwrap();
+    let Some(obj) = json.as_object_mut() else {
+        return;
+    };
     if !obj.contains_key("hooks") || !obj["hooks"].is_object() {
         obj.insert(
             "hooks".to_string(),
             serde_json::Value::Object(serde_json::Map::new()),
         );
     }
-    let hooks_obj = obj.get_mut("hooks").unwrap().as_object_mut().unwrap();
+    let Some(hooks_obj) = obj.get_mut("hooks").and_then(|h| h.as_object_mut()) else {
+        return;
+    };
 
     if !hooks_obj.contains_key("PreToolUse") || !hooks_obj["PreToolUse"].is_array() {
         hooks_obj.insert(
@@ -516,11 +520,12 @@ fn inject_hook_value(json: &mut serde_json::Value, hook_path: &str) {
             serde_json::Value::Array(Vec::new()),
         );
     }
-    let pre_tool_array = hooks_obj
+    let Some(pre_tool_array) = hooks_obj
         .get_mut("PreToolUse")
-        .unwrap()
-        .as_array_mut()
-        .unwrap();
+        .and_then(|p| p.as_array_mut())
+    else {
+        return;
+    };
 
     let mut bash_entry_idx = None;
     for (idx, val) in pre_tool_array.iter().enumerate() {
@@ -539,11 +544,15 @@ fn inject_hook_value(json: &mut serde_json::Value, hook_path: &str) {
     });
 
     if let Some(idx) = bash_entry_idx {
-        let bash_obj = pre_tool_array[idx].as_object_mut().unwrap();
+        let Some(bash_obj) = pre_tool_array[idx].as_object_mut() else {
+            return;
+        };
         if !bash_obj.contains_key("hooks") || !bash_obj["hooks"].is_array() {
             bash_obj.insert("hooks".to_string(), serde_json::Value::Array(Vec::new()));
         }
-        let inner_hooks = bash_obj.get_mut("hooks").unwrap().as_array_mut().unwrap();
+        let Some(inner_hooks) = bash_obj.get_mut("hooks").and_then(|h| h.as_array_mut()) else {
+            return;
+        };
 
         inner_hooks.retain(|h| {
             h.get("command")
@@ -565,6 +574,20 @@ fn inject_hook_value(json: &mut serde_json::Value, hook_path: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_inject_hook_value_survives_malformed_settings() {
+        // Non-object root: replaced with an object, then the hook is injected.
+        let mut json = serde_json::json!("not an object");
+        inject_hook_value(&mut json, "/path/to/rtk-rewrite.sh");
+        assert!(json["hooks"]["PreToolUse"].is_array());
+
+        // `hooks` present but the wrong type must be overwritten, not panic.
+        let mut json = serde_json::json!({ "hooks": 42 });
+        inject_hook_value(&mut json, "/path/to/rtk-rewrite.sh");
+        let arr = json["hooks"]["PreToolUse"].as_array().unwrap();
+        assert_eq!(arr[0]["matcher"], "Bash");
+    }
 
     #[test]
     fn test_run_init_in() {

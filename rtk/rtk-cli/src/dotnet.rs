@@ -4,10 +4,15 @@ use std::process::Command;
 /// Run a dotnet command, capture its output, apply distillation and DLP redaction, and record savings.
 pub fn execute_dotnet(args: &[String]) {
     let start = std::time::Instant::now();
-    let output = Command::new("dotnet")
-        .args(args)
-        .output()
-        .unwrap_or_else(|_| panic!("Failed to execute dotnet command"));
+    let output = match Command::new("dotnet").args(args).output() {
+        Ok(output) => output,
+        Err(e) => {
+            // Fallback philosophy: never panic. If dotnet is missing or fails to
+            // spawn, surface the error and leave the user's workflow intact.
+            eprintln!("rtk: failed to execute dotnet: {e}");
+            return;
+        }
+    };
     let duration_ms = start.elapsed().as_millis() as i64;
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
