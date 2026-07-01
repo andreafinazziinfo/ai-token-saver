@@ -21,58 +21,58 @@ pub(crate) enum Commands {
     },
     /// Run a git subcommand with filtered output
     Git {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a cargo subcommand with filtered output
     Cargo {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run an npm subcommand with filtered output
     Npm {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a yarn subcommand with filtered output
     Yarn {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a pnpm subcommand with filtered output
     Pnpm {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a composer subcommand with filtered output
     Composer {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a terraform subcommand with filtered output
     Terraform {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a dotnet subcommand with filtered output
     Dotnet {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Store LLM Chain-of-Thought in the semantic memory instead of polluting the chat window
     Think {
         /// Optional text to store (if not provided, reads from stdin)
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         content: Vec<String>,
     },
     /// Run a pytest invocation with filtered output
     Pytest {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a ruff invocation with filtered output
     Ruff {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a mypy invocation with filtered output
@@ -82,22 +82,22 @@ pub(crate) enum Commands {
     },
     /// Run ls with filtered output
     Ls {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a gradle command with filtered output
     Gradle {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run go test with filtered output
     GoTest {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Run a docker command with filtered output
     Docker {
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Pack a directory's text files into an XML context block
@@ -246,7 +246,7 @@ pub(crate) enum Commands {
         /// Name of the plugin defined in plugins.toml
         name: String,
         /// Arguments to pass to the plugin command
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     /// Synchronize rule files from root workspace to subprojects
@@ -551,4 +551,32 @@ pub(crate) enum TelemetryCommands {
         #[arg(short, long, default_value = "json")]
         format: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    /// Wrapped commands must forward leading `--flags` into `args` instead of
+    /// letting clap reject them — otherwise the rewrite hook turns a valid
+    /// `mypy --strict` into a broken `rtk mypy --strict`.
+    #[test]
+    fn leading_flags_pass_through() {
+        let cli = Cli::try_parse_from(["rtk", "pytest", "--tb=short", "-v", "tests/"])
+            .expect("leading flags should parse");
+        match cli.command {
+            Commands::Pytest { args } => {
+                assert_eq!(args, vec!["--tb=short", "-v", "tests/"]);
+            }
+            _ => panic!("expected Pytest"),
+        }
+
+        let cli =
+            Cli::try_parse_from(["rtk", "cargo", "--version"]).expect("leading flags should parse");
+        match cli.command {
+            Commands::Cargo { args } => assert_eq!(args, vec!["--version"]),
+            _ => panic!("expected Cargo"),
+        }
+    }
 }
