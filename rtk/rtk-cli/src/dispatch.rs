@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 
 use rtk_db::{config, session, status, think, tracking};
 use rtk_filters::{
-    cargo_build, cargo_test, docker_filter, eslint_filter, git_branch, git_diff, git_log, git_show,
-    git_status, go_test, gradle, ls_filter, mypy_filter, npm_filter, pip_filter, pytest_filter,
-    ruff_filter, tsc_filter, vitest_filter,
+    cargo_build, cargo_test, docker_filter, docker_ps_filter, eslint_filter, gh_filter, git_branch,
+    git_diff, git_log, git_show, git_status, go_test, gradle, ls_filter, mypy_filter, npm_filter,
+    pip_filter, pytest_filter, ruff_filter, tsc_filter, vitest_filter,
 };
 use rtk_pack::pack;
 
@@ -92,7 +92,23 @@ pub fn dispatch(command: Commands) -> Result<()> {
             full_args.extend(args);
             run_filtered("go", &full_args, go_test::filter)
         }
-        Commands::Docker { args } => run_filtered("docker", &args, docker_filter::filter),
+        Commands::Docker { args } => {
+            let subcmd = args.first().map(|s| s.as_str()).unwrap_or("");
+            match subcmd {
+                "build" | "run" => run_filtered("docker", &args, docker_filter::filter),
+                "ps" => run_filtered("docker", &args, docker_ps_filter::filter),
+                _ => passthrough("docker", &args),
+            }
+        }
+        Commands::Gh { args } => {
+            // Only `gh pr checks` carries the long per-job URLs we strip.
+            let is_checks = args.iter().any(|a| a == "checks");
+            if is_checks {
+                run_filtered("gh", &args, gh_filter::filter)
+            } else {
+                passthrough("gh", &args)
+            }
+        }
         Commands::Pack {
             path,
             strip,

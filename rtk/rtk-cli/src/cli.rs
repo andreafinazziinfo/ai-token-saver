@@ -120,6 +120,11 @@ pub(crate) enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Run a gh (GitHub CLI) command with filtered output
+    Gh {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Pack a directory's text files into an XML context block
     Pack {
         /// Path to the directory to pack
