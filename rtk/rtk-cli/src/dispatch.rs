@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use rtk_db::{config, session, status, think, tracking};
 use rtk_filters::{
     cargo_build, cargo_test, docker_filter, git_branch, git_diff, git_log, git_show, git_status,
-    go_test, gradle, ls_filter, npm_filter, pytest_filter, ruff_filter,
+    go_test, gradle, ls_filter, mypy_filter, npm_filter, pytest_filter, ruff_filter,
 };
 use rtk_pack::pack;
 
@@ -70,6 +70,7 @@ pub fn dispatch(command: Commands) -> Result<()> {
                 passthrough("ruff", &args)
             }
         }
+        Commands::Mypy { args } => run_filtered("mypy", &args, mypy_filter::filter),
         Commands::Ls { args } => run_filtered("ls", &args, ls_filter::filter),
         Commands::Gradle { args } => run_filtered(&get_gradle_bin(), &args, gradle::filter),
         Commands::GoTest { args } => {

@@ -75,6 +75,11 @@ pub(crate) enum Commands {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
+    /// Run a mypy invocation with filtered output
+    Mypy {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Run ls with filtered output
     Ls {
         #[arg(trailing_var_arg = true)]
