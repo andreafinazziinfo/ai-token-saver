@@ -91,6 +91,39 @@ pub fn impact_analyze(symbol: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn rename(old_name: &str, new_name: &str, apply: bool) -> Result<()> {
+    let plan = rtk_index::rename_symbol(old_name, new_name, apply)?;
+    if plan.total_sites == 0 {
+        println!(
+            "No identifier occurrences of '{}' found in indexed files.",
+            old_name
+        );
+        return Ok(());
+    }
+
+    let verb = if plan.applied {
+        "Renamed"
+    } else {
+        "Would rename"
+    };
+    println!(
+        "{} '{}' → '{}' — {} occurrence(s) across {} file(s):",
+        verb,
+        plan.old_name,
+        plan.new_name,
+        plan.total_sites,
+        plan.files.len()
+    );
+    println!("{}", "-".repeat(60));
+    for f in &plan.files {
+        println!("- {} ({} occurrence(s))", f.file_path, f.sites);
+    }
+    if !plan.applied {
+        println!("\nDry run — re-run with --apply to write these changes.");
+    }
+    Ok(())
+}
+
 pub fn detect_changes() -> Result<()> {
     let changed = rtk_index::detect_changes()?;
     if changed.is_empty() {

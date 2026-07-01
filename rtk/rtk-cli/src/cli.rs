@@ -162,6 +162,16 @@ pub(crate) enum Commands {
     },
     /// Show which indexed symbols your uncommitted changes touch, with blast radius
     DetectChanges,
+    /// Rename a symbol across linked files (AST-aware). Dry-run unless --apply.
+    Rename {
+        /// Current symbol name
+        old_name: String,
+        /// New symbol name
+        new_name: String,
+        /// Write the changes to disk (default: preview only)
+        #[arg(long)]
+        apply: bool,
+    },
     /// Print token savings statistics
     Stats {
         /// Show text-based ASCII cost trend chart
