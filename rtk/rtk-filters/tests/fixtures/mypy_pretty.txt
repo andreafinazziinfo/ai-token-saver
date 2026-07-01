@@ -1,0 +1,33 @@
+svc.py:25: error: Argument 1 to "greet" has incompatible type "int"; expected
+"str"  [arg-type]
+        greet(42)
+              ^~
+svc.py:26: error: Incompatible types in assignment (expression has type "int",
+variable has type "str")  [assignment]
+        result: str = total([1, 2, 3])
+                      ^~~~~~~~~~~~~~~~
+svc.py:27: error: Item "None" of "Account | None" has no attribute "withdraw" 
+[union-attr]
+        acc.withdraw(10)
+        ^~~~~~~~~~~~
+svc.py:28: error: List item 0 has incompatible type "str"; expected "int" 
+[list-item]
+        total(["a", "b"])
+               ^~~
+svc.py:28: error: List item 1 has incompatible type "str"; expected "int" 
+[list-item]
+        total(["a", "b"])
+                    ^~~
+over.py:13: error: No overload variant of "f" matches argument type "list[int]"
+ [call-overload]
+        f([1, 2])
+        ^~~~~~~~~
+over.py:13: note: Possible overload variants:
+over.py:13: note:     def f(x: int) -> int
+over.py:13: note:     def f(x: str) -> str
+over.py:15: note: Revealed type is "int"
+over.py:16: error: Dict entry 0 has incompatible type "str": "str"; expected
+"str": "int"  [dict-item]
+        data: dict[str, int] = {"a": "b"}
+                                ^~~~~~~~
+Found 7 errors in 2 files (checked 2 source files)
