@@ -510,6 +510,178 @@ def mock_pip_install_filtered(n_new: int = 8, n_satisfied: int = 15) -> str:
     ]
     return "\n".join(lines)
 
+def _eslint_problems():
+    return [
+        ("src1.js", 1, 7, "error", "'unused' is assigned a value but never used", "no-unused-vars"),
+        ("src1.js", 1, 18, "error", "Missing semicolon", "semi"),
+        ("src1.js", 4, 9, "error", "Expected '===' and instead saw '=='", "eqeqeq"),
+        ("src1.js", 5, 3, "warning", "Unexpected console statement", "no-console"),
+        ("src1.js", 5, 3, "error", "'console' is not defined", "no-undef"),
+        ("src2.js", 3, 7, "error", "'dead' is assigned a value but never used", "no-unused-vars"),
+        ("src2.js", 3, 14, "error", "'compute' is not defined", "no-undef"),
+        ("src2.js", 4, 11, "error", "Expected '!==' and instead saw '!='", "eqeqeq"),
+    ]
+
+def mock_eslint() -> str:
+    """Realistic eslint stylish output (column-aligned, per-file headers)."""
+    lines = []
+    current = None
+    for f, ln, col, sev, msg, rule in _eslint_problems():
+        if f != current:
+            lines.append("")
+            lines.append(f)
+            current = f
+        lines.append(f"  {ln}:{col:<3}  {sev:<7}  {msg:<48}  {rule}")
+    lines.append("")
+    lines.append("✖ 8 problems (7 errors, 1 warning)")
+    lines.append("  5 errors and 0 warnings potentially fixable with the `--fix` option.")
+    return "\n".join(lines)
+
+def mock_eslint_filtered() -> str:
+    lines = []
+    current = None
+    for f, ln, col, sev, msg, rule in _eslint_problems():
+        if f != current:
+            lines.append(f)
+            current = f
+        lines.append(f"{ln}:{col} {sev} {msg} ({rule})")
+    lines.append("✖ 8 problems (7 errors, 1 warning)")
+    return "\n".join(lines)
+
+def _tsc_errors():
+    return [
+        ("a.ts", 4, 7, "TS2322", "Type 'string' is not assignable to type 'number'.", "const n: number = greet(42)"),
+        ("a.ts", 4, 25, "TS2345", "Argument of type 'number' is not assignable to parameter of type 'string'.", "const n: number = greet(42)"),
+        ("a.ts", 5, 24, "TS2322", "Type 'number' is not assignable to type 'string'.", "let items: string[] = [1, 2, 3]"),
+        ("a.ts", 7, 7, "TS2741", "Property 'name' is missing in type '{ id: number; }'.", "const u: User = { id: 1 }"),
+        ("a.ts", 8, 15, "TS2554", "Expected 1 arguments, but got 2.", "greet(u.name, \"extra\")"),
+    ]
+
+def mock_tsc() -> str:
+    """Realistic `tsc --pretty` output with ANSI colors + code-frames."""
+    E = "\x1b"
+    lines = []
+    for f, ln, col, code, msg, src in _tsc_errors():
+        lines.append(
+            f"{E}[96m{f}{E}[0m:{E}[93m{ln}{E}[0m:{E}[93m{col}{E}[0m - {E}[91merror{E}[0m{E}[90m {code}: {E}[0m{msg}"
+        )
+        lines.append("")
+        lines.append(f"{E}[7m{ln}{E}[0m {src}")
+        lines.append(f"{E}[7m {E}[0m {E}[91m{' ' * col}~~~{E}[0m")
+        lines.append("")
+    return "\n".join(lines)
+
+def mock_tsc_filtered() -> str:
+    lines = []
+    for f, ln, col, code, msg, _src in _tsc_errors():
+        lines.append(f"{f}:{ln}:{col} - error {code}: {msg}")
+    return "\n".join(lines)
+
+def mock_vitest() -> str:
+    """Realistic `vitest run` output with rules, code-frames and summary."""
+    fails = [
+        ("add > fails on wrong", "sum.test.js:6:50", 5, 4,
+         "it('fails on wrong', () => { expect(add(2, 2)).toBe(5) })"),
+        ("strings > length", "sum.test.js:10:47", 4, 5,
+         "it('length', () => { expect('hello'.length).toBe(4) })"),
+    ]
+    lines = ["", " RUN  v2.1.9 /project", ""]
+    lines.append("⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯")
+    lines.append("")
+    for i, (name, loc, exp, got, src) in enumerate(fails):
+        lines.append(f" FAIL  sum.test.js > {name}")
+        lines.append(f"AssertionError: expected {got} to be {exp} // Object.is equality")
+        lines.append("")
+        lines.append("- Expected")
+        lines.append("+ Received")
+        lines.append("")
+        lines.append(f"- {exp}")
+        lines.append(f"+ {got}")
+        lines.append("")
+        lines.append(f" ❯ {loc}")
+        lines.append(f"      {src}")
+        lines.append("       |                          ^")
+        lines.append("")
+        lines.append(f"⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[{i+1}/2]⎯")
+        lines.append("")
+    lines.append(" Test Files  1 failed (1)")
+    lines.append("      Tests  2 failed | 3 passed (5)")
+    lines.append("   Start at  19:58:47")
+    lines.append("   Duration  1.03s (transform 66ms, setup 0ms, collect 38ms, tests 34ms)")
+    return "\n".join(lines)
+
+def mock_vitest_filtered() -> str:
+    fails = [
+        ("add > fails on wrong", "sum.test.js:6:50", 5, 4),
+        ("strings > length", "sum.test.js:10:47", 4, 5),
+    ]
+    lines = ["Failed Tests 2"]
+    for name, loc, exp, got in fails:
+        lines.append(f" FAIL  sum.test.js > {name}")
+        lines.append(f"AssertionError: expected {got} to be {exp} // Object.is equality")
+        lines.append("- Expected")
+        lines.append("+ Received")
+        lines.append(f"- {exp}")
+        lines.append(f"+ {got}")
+        lines.append(f" ❯ {loc}")
+    lines.append(" Test Files  1 failed (1)")
+    lines.append("      Tests  2 failed | 3 passed (5)")
+    lines.append("   Duration  1.03s (transform 66ms, setup 0ms, collect 38ms, tests 34ms)")
+    return "\n".join(lines)
+
+def _docker_containers():
+    return [
+        ("94d7ac8372d9", "myapp-backend", "uvicorn app.main:ap…", "15 hours ago", "Up 6 hours", "127.0.0.1:18110->8000/tcp", "backend"),
+        ("c42faaf2e903", "myapp-control:latest", "python -m uvicorn m…", "32 hours ago", "Up 6 hours (healthy)", "127.0.0.1:8765->8765/tcp", "control-plane"),
+        ("649d9abe8e98", "myapp-frontend", "docker-entrypoint.s…", "35 hours ago", "Up 6 hours", "0.0.0.0:5173->5173/tcp, [::]:5173->5173/tcp, 127.0.0.1:13111->80/tcp", "frontend"),
+        ("28e74f069c87", "myapp-worker", "celery -A app.worke…", "35 hours ago", "Up 6 hours", "8000/tcp", "worker"),
+        ("7f1a2b3c4d5e", "postgres:16", "docker-entrypoint.s…", "3 days ago", "Up 6 hours", "5432/tcp", "db"),
+        ("a1b2c3d4e5f6", "redis:7-alpine", "docker-entrypoint.s…", "3 days ago", "Exited (0) 2 hours ago", "", "cache"),
+    ]
+
+def mock_docker_ps() -> str:
+    """Realistic wide `docker ps` table."""
+    lines = [
+        "CONTAINER ID   IMAGE                       COMMAND                  CREATED        STATUS                 PORTS                                                                 NAMES"
+    ]
+    for cid, img, cmd, created, status, ports, name in _docker_containers():
+        lines.append(
+            f"{cid}   {img:<25}   \"{cmd}\"   {created:<13}  {status:<21}  {ports:<69}  {name}"
+        )
+    return "\n".join(lines)
+
+def mock_docker_ps_filtered() -> str:
+    lines = ["NAMES  IMAGE  STATUS  PORTS"]
+    for _cid, img, _cmd, _created, status, ports, name in _docker_containers():
+        if ports:
+            lines.append(f"{name}  {img}  {status}  {ports}")
+        else:
+            lines.append(f"{name}  {img}  {status}")
+    return "\n".join(lines)
+
+def _gh_checks():
+    return [
+        ("Analyze (actions)", "pass", "42s", "actions/runs/28550649035/job/84646772981"),
+        ("Analyze (rust)", "pass", "1m41s", "actions/runs/28550649035/job/84646773007"),
+        ("Build and Test (macos-latest)", "pass", "1m11s", "actions/runs/28550649048/job/84646773030"),
+        ("Build and Test (ubuntu-latest)", "pass", "1m27s", "actions/runs/28550649048/job/84646772989"),
+        ("Build and Test (windows-latest)", "pass", "2m16s", "actions/runs/28550649048/job/84646773037"),
+        ("CodeQL", "pass", "1s", "runs/84646868539"),
+    ]
+
+def mock_gh_checks() -> str:
+    """Realistic `gh pr checks` tab-separated table with long URLs."""
+    lines = []
+    for name, status, elapsed, path in _gh_checks():
+        lines.append(f"{name}\t{status}\t{elapsed}\thttps://github.com/owner/repo/{path}\t")
+    return "\n".join(lines)
+
+def mock_gh_checks_filtered() -> str:
+    lines = []
+    for name, status, elapsed, _path in _gh_checks():
+        lines.append(f"{name}\t{status}\t{elapsed}")
+    return "\n".join(lines)
+
 def mock_docker_build() -> str:
     """Generate realistic docker build output."""
     layers = [
@@ -763,6 +935,10 @@ def mock_dlp_input() -> str:
         f"Stripe Key: sk_live_{'b' * 30}",
         f"AWS Access Key: AKIA{'C' * 16}",
         f"GitHub Token: ghp_{'d' * 36}",
+        f"GitHub PAT: github_pat_{'d' * 36}",
+        f"GitLab Token: glpat-{'g' * 20}",
+        f"npm Token: npm_{'n' * 36}",
+        f"HuggingFace: hf_{'h' * 34}",
         f"Anthropic Key: sk-ant-api03-{'e' * 40}",
         f"Auth JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.{'f' * 60}.signature",
         "-----BEGIN RSA PRIVATE KEY-----",
@@ -786,6 +962,10 @@ def mock_dlp_filtered() -> str:
         "Stripe Key: [REDACTED_API_KEY]",
         "AWS Access Key: [REDACTED_API_KEY]",
         "GitHub Token: [REDACTED_API_KEY]",
+        "GitHub PAT: [REDACTED_API_KEY]",
+        "GitLab Token: [REDACTED_API_KEY]",
+        "npm Token: [REDACTED_API_KEY]",
+        "HuggingFace: [REDACTED_API_KEY]",
         "Anthropic Key: [REDACTED_API_KEY]",
         "Auth JWT: [REDACTED_JWT]",
         "[REDACTED_PRIVATE_KEY]",
@@ -1036,6 +1216,41 @@ def run_all_benchmarks() -> list:
     print("  [13b] pip install (8 new, 15 satisfied, simulated)...")
     r = benchmark_simulated("pip install (8 new, 15 cached)", "Input", "Python",
                             mock_pip_install(8, 15), mock_pip_install_filtered(8, 15))
+    results.append(r)
+    print(f"         {r.std_tokens} → {r.rtk_tokens} tokens ({r.savings_pct:.1f}% saved)")
+
+    # 13c. eslint (stylish, 8 problems)
+    print("  [13c] eslint (8 problems, simulated)...")
+    r = benchmark_simulated("eslint (8 problems)", "Input", "Node.js",
+                            mock_eslint(), mock_eslint_filtered())
+    results.append(r)
+    print(f"         {r.std_tokens} → {r.rtk_tokens} tokens ({r.savings_pct:.1f}% saved)")
+
+    # 13d. tsc --pretty (5 errors, ANSI + frames)
+    print("  [13d] tsc --pretty (5 errors, simulated)...")
+    r = benchmark_simulated("tsc --pretty (5 errors)", "Input", "Node.js",
+                            mock_tsc(), mock_tsc_filtered())
+    results.append(r)
+    print(f"         {r.std_tokens} → {r.rtk_tokens} tokens ({r.savings_pct:.1f}% saved)")
+
+    # 13e. vitest run (2 failures)
+    print("  [13e] vitest run (2 failures, simulated)...")
+    r = benchmark_simulated("vitest run (2 failed)", "Input", "Node.js",
+                            mock_vitest(), mock_vitest_filtered())
+    results.append(r)
+    print(f"         {r.std_tokens} → {r.rtk_tokens} tokens ({r.savings_pct:.1f}% saved)")
+
+    # 13f. docker ps (6 containers, wide table)
+    print("  [13f] docker ps (6 containers, simulated)...")
+    r = benchmark_simulated("docker ps (6 containers)", "Input", "Docker",
+                            mock_docker_ps(), mock_docker_ps_filtered())
+    results.append(r)
+    print(f"         {r.std_tokens} → {r.rtk_tokens} tokens ({r.savings_pct:.1f}% saved)")
+
+    # 13g. gh pr checks (6 checks)
+    print("  [13g] gh pr checks (6 checks, simulated)...")
+    r = benchmark_simulated("gh pr checks (6 checks)", "Input", "Git",
+                            mock_gh_checks(), mock_gh_checks_filtered())
     results.append(r)
     print(f"         {r.std_tokens} → {r.rtk_tokens} tokens ({r.savings_pct:.1f}% saved)")
 
