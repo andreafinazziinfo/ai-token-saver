@@ -1,6 +1,11 @@
 /// Parse code content and generate a skeletal representation (exporting only signatures, structs, etc.).
 /// Falls back to brace/indentation heuristics if tree-sitter AST parsing fails.
 pub fn skeletonize(content: &str, extension: &str) -> String {
+    // Vue SFC: skeletonize the <script> block as TS/JS, omit template/style.
+    if extension.eq_ignore_ascii_case("vue") {
+        return skeletonize_vue(content);
+    }
+
     // Try AST-based skeletonization first
     if let Some(skel) = skeletonize_ast(content, extension) {
         return skel;
@@ -15,6 +20,31 @@ pub fn skeletonize(content: &str, extension: &str) -> String {
         "js" | "ts" | "jsx" | "tsx" => skeletonize_braces(content),
         _ => content.to_string(), // Fallback: don't skeletonize unsupported files
     }
+}
+
+/// Skeletonize a Vue single-file component: keep the first `<script>` block
+/// (skeletonized as TS or JS) and drop `<template>`/`<style>`, which carry no
+/// callable signatures.
+fn skeletonize_vue(content: &str) -> String {
+    let Some(start) = content.find("<script") else {
+        return content.to_string();
+    };
+    let Some(open_end) = content[start..].find('>') else {
+        return content.to_string();
+    };
+    let body_start = start + open_end + 1;
+    let Some(close_rel) = content[body_start..].find("</script>") else {
+        return content.to_string();
+    };
+    let open_tag = &content[start..body_start];
+    let script = content[body_start..body_start + close_rel].trim();
+    let lang = if open_tag.contains("lang=\"ts\"") || open_tag.contains("lang='ts'") {
+        "ts"
+    } else {
+        "js"
+    };
+    let skel = skeletonize(script, lang);
+    format!("<script>\n{skel}\n</script>\n<!-- template/style omitted -->")
 }
 
 fn skeletonize_ast(content: &str, extension: &str) -> Option<String> {
@@ -358,5 +388,32 @@ def other_func():
         assert!(skeleton.contains("@click.command()"));
         assert!(!skeleton.contains("print(f\"Running"));
         assert!(skeleton.contains("pass  # collapsed"));
+    }
+
+    #[test]
+    fn test_skeleton_vue() {
+        let raw = "\
+<template>
+  <div>{{ count }}</div>
+</template>
+
+<script setup lang=\"ts\">
+import { ref } from 'vue'
+function increment(step: number): void {
+  count.value += step
+  console.log('incremented')
+}
+const count = ref(0)
+</script>
+
+<style scoped>
+.big { font-size: 40px; color: red; }
+</style>
+";
+        let skeleton = skeletonize(raw, "vue");
+        assert!(skeleton.contains("function increment"), "signature missing");
+        assert!(!skeleton.contains("count.value += step"), "body leaked");
+        assert!(!skeleton.contains("font-size"), "style leaked");
+        assert!(!skeleton.contains("{{ count }}"), "template leaked");
     }
 }
