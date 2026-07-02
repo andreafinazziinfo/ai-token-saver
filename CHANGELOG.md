@@ -9,13 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-02
+
 ### Added
-*   `rtk ruff check` — collapses ruff's verbose "full"/pretty output (code-frames + `help:` hints) to one `file:line:col: CODE message` line per violation. ~53% token savings.
-*   `rtk mypy` — collapses `mypy --pretty` code-frames and re-joins wrapped messages into clean single-line diagnostics (notes preserved). ~39% token savings.
-*   `rtk pip install` — drops resolver noise (Collecting/Downloading/progress) and collapses `Requirement already satisfied` lines into one count, keeping only `Successfully installed` and errors. ~94% token savings.
+*   **6 new command filters**, extending the token-efficiency surface across Python, the Vue/TS frontend, and container/PR ops:
+    *   `rtk ruff check` — collapses ruff's "full"/pretty output (code-frames + `help:` hints) to one `file:line:col: CODE message` line per violation (~53%).
+    *   `rtk mypy` — collapses `mypy --pretty` code-frames and re-joins wrapped messages into clean single-line diagnostics, notes preserved (~39%).
+    *   `rtk pip install` — drops resolver noise and collapses `Requirement already satisfied` into one count, keeping only `Successfully installed` and errors (~94%).
+    *   `rtk eslint` — collapses the stylish formatter's column alignment / per-file headers / `--fix` notice to `line:col severity message (rule)` (~27%).
+    *   `rtk tsc` — strips ANSI colors and `--pretty` code-frames, keeping error headers, message continuations and related-information locations.
+    *   `rtk vitest` — drops decorative `⎯` rules, banners and code-frames, keeping failures, assertion diffs, locations and the summary tally.
+    *   `rtk docker ps` — compacts the wide table to `NAMES  IMAGE  STATUS  PORTS`.
+    *   `rtk gh pr checks` — strips the long per-job URL from each check row.
+*   DLP now redacts more token prefixes: GitHub fine-grained `github_pat_`, GitHub `gho_/ghs_/ghr_/ghu_`, GitLab `glpat-`, npm `npm_`, HuggingFace `hf_`, DigitalOcean `dop_v1_`.
+*   `rtk pack --skeleton` supports Vue single-file components (`.vue`): keeps the `<script>` block, drops `<template>`/`<style>`.
 
 ### Fixed
 *   Wrapped commands now forward leading flags: `rtk pytest --tb=short` (and every other wrapper) no longer errors on a leading `--flag`. Previously the rewrite hook could turn a valid command into a broken one.
+*   `docker` subcommands are now routed correctly: `docker ps` gets its own filter instead of being fed to the `docker build` filter; unrecognized subcommands pass through.
 *   `rtk dotnet` no longer panics when the `dotnet` binary is missing; it falls back gracefully.
 *   `rtk setup` no longer panics on a non-standard `settings.json` (JSON manipulation hardened against malformed input).
 *   Eliminated a Windows-only flaky test (`config`/`pricing` tests raced on process-global `HOME`/`USERPROFILE`; now serialized on a shared lock).
