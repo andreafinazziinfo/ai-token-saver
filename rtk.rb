@@ -2,19 +2,19 @@ class Rtk < Formula
   desc "Rust Context Engine (rtk) — token-saving context engine for AI agents"
   homepage "https://github.com/andreafinazziinfo/rust-context-engine"
   license "Apache-2.0"
-  version "2.3.2"
+  version "2.4.0"
 
   if OS.mac?
     if Hardware::CPU.arm?
-      url "https://github.com/andreafinazziinfo/rust-context-engine/releases/download/v2.3.2/rtk-macos-arm64.tar.gz"
-      sha256 "6c1f7359927e4444db83e98a11a29a5507b4ad84ede61ee6984c4b07aedcd08e"
+      url "https://github.com/andreafinazziinfo/rust-context-engine/releases/download/v2.4.0/rtk-macos-arm64.tar.gz"
+      sha256 "ee5522aae4d335eaedb477275ccadd344d8ddece7f043ba2f66ca8f276041e8c"
     else
-      url "https://github.com/andreafinazziinfo/rust-context-engine/releases/download/v2.3.2/rtk-macos-amd64.tar.gz"
-      sha256 "43a9a09f81f17be61c35d53ec88ba932873beadde5db1ea1e6c3b90209b955b3"
+      url "https://github.com/andreafinazziinfo/rust-context-engine/releases/download/v2.4.0/rtk-macos-amd64.tar.gz"
+      sha256 "fcf6bdf93e11a384ceac4308ccdff34299ceccbc1916ec81a028017850f3cb6b"
     end
   elsif OS.linux?
-    url "https://github.com/andreafinazziinfo/rust-context-engine/releases/download/v2.3.2/rtk-linux-amd64.tar.gz"
-    sha256 "c8b160b39c1f6e0a2ccd4c685674ee03a6d14d0f14ae83b1dbc8237dd88a0258"
+    url "https://github.com/andreafinazziinfo/rust-context-engine/releases/download/v2.4.0/rtk-linux-amd64.tar.gz"
+    sha256 "bb0ca03fc64b58c6e08e8c65ca433e0140eb5e961f9b7d7c9b6a36713568ef52"
   end
 
   def install
