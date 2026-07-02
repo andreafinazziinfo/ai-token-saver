@@ -64,15 +64,15 @@ pub fn redact_with_source(text: &str, source: &str) -> String {
     // Stripe: sk_live_... / sk_test_...
     // AWS client id/secret: AKIA...
     // Anthropic: sk-ant-...
-    // GitHub: ghp_...
-    // Google: AIza...
-    // Slack: xox...
+    // GitHub: ghp_/gho_/ghs_/ghr_/ghu_ and fine-grained github_pat_...
+    // GitLab: glpat-...  npm: npm_...  HuggingFace: hf_...  DigitalOcean: dop_v1_...
+    // Google: AIza...  Slack: xox...
     // Note: the generic `sk-[alnum]{20,}` alternative is placed after the
     // sk-proj/sk-ant forms; those carry a hyphen within 20 chars so they never
     // collide with the generic catch-all.
     static API_KEYS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
-            r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|sk-ant-api[0-9a-zA-Z\-_]{30,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xox[baprs]-[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{35}|AKIA[0-9A-Z]{16})\b"
+            r"(?i)\b(sk_(live|test)_[a-zA-Z0-9]{24}|sk-proj-[a-zA-Z0-9]{20,}|sk-ant-api[0-9a-zA-Z\-_]{30,}|sk-[a-zA-Z0-9]{20,}|github_pat_[a-zA-Z0-9_]{22,}|gh[oprsu]_[a-zA-Z0-9]{36}|glpat-[a-zA-Z0-9\-_]{20,}|npm_[a-zA-Z0-9]{36}|hf_[a-zA-Z0-9]{34,}|dop_v1_[a-f0-9]{64}|xox[baprs]-[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{35}|AKIA[0-9A-Z]{16})\b"
         ).unwrap()
     });
 
@@ -246,6 +246,28 @@ mod tests {
         let output = redact(input);
         assert!(output.contains("[REDACTED_API_KEY]"));
         assert!(!output.contains("sk-test123"));
+    }
+
+    #[test]
+    fn test_redact_more_token_prefixes() {
+        // Tokens are assembled from split parts so the literal never appears
+        // verbatim in source (avoids tripping GitHub push-protection scanning).
+        let cases = [
+            ("github_", "pat_11ABCDE0000aBcDeFgHiJkLmNoPqRsTuVwXyZ"),
+            ("gho", "_16C7e42F292c6912E7710c838347Ae178B4a"),
+            ("gl", "pat-ABCDEF1234567890abcd"),
+            ("npm", "_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"),
+            ("hf", "_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ab"),
+        ];
+        for (prefix, suffix) in cases {
+            let token = format!("{prefix}{suffix}");
+            let input = format!("token = {token}");
+            let output = redact(&input);
+            assert!(
+                output.contains("[REDACTED_API_KEY]") && !output.contains(&token),
+                "not redacted: {token} -> {output}"
+            );
+        }
     }
 
     #[test]
